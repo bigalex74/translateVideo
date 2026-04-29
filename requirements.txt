@@ -1,0 +1,5 @@
+moviepy==1.0.3
+faster-whisper
+deep-translator
+edge-tts
+pydub
