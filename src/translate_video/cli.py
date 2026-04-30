@@ -94,6 +94,22 @@ def build_parser() -> argparse.ArgumentParser:
     config_parser.add_argument("work_dir", type=Path, help="папка проекта")
     config_parser.set_defaults(handler=_handle_config)
 
+    export_srt_parser = subparsers.add_parser("export-srt", help="экспортировать субтитры в формате SRT")
+    export_srt_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    export_srt_parser.set_defaults(handler=_handle_export_srt)
+
+    export_vtt_parser = subparsers.add_parser("export-vtt", help="экспортировать субтитры в формате WebVTT")
+    export_vtt_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    export_vtt_parser.set_defaults(handler=_handle_export_vtt)
+
+    timing_parser = subparsers.add_parser("timing-report", help="отчёт по таймингам сегментов")
+    timing_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    timing_parser.set_defaults(handler=_handle_timing_report)
+
+    review_parser = subparsers.add_parser("review", help="отчёт ревью перевода")
+    review_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    review_parser.set_defaults(handler=_handle_review)
+
     return parser
 
 
@@ -193,6 +209,42 @@ def _handle_config(args: argparse.Namespace) -> dict:
 
     project = ProjectStore(args.work_dir.parent).load_project(args.work_dir)
     return project.config.to_dict()
+
+
+def _handle_export_srt(args: argparse.Namespace) -> dict:
+    """Экспортировать переведенные субтитры в формате SRT."""
+
+    store = ProjectStore(args.work_dir.parent)
+    project = store.load_project(args.work_dir)
+    output = store.export_subtitles(project, fmt="srt")
+    return {"format": "srt", "path": output.as_posix()}
+
+
+def _handle_export_vtt(args: argparse.Namespace) -> dict:
+    """Экспортировать переведенные субтитры в формате WebVTT."""
+
+    store = ProjectStore(args.work_dir.parent)
+    project = store.load_project(args.work_dir)
+    output = store.export_subtitles(project, fmt="vtt")
+    return {"format": "vtt", "path": output.as_posix()}
+
+
+def _handle_timing_report(args: argparse.Namespace) -> dict:
+    """Вернуть JSON-отчёт по таймингам сегментов проекта."""
+
+    from translate_video.export.timing_report import build_timing_report  # noqa: PLC0415
+
+    project = ProjectStore(args.work_dir.parent).load_project(args.work_dir)
+    return build_timing_report(project.segments)
+
+
+def _handle_review(args: argparse.Namespace) -> dict:
+    """Вернуть JSON-отчёт ревью перевода для ручной проверки."""
+
+    from translate_video.export.review import build_review_artifact  # noqa: PLC0415
+
+    project = ProjectStore(args.work_dir.parent).load_project(args.work_dir)
+    return build_review_artifact(project.segments, project.config.to_dict())
 
 
 def _config_from_args(args: argparse.Namespace) -> PipelineConfig:

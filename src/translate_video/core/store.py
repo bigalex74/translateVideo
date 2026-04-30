@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from uuid import uuid4
 
@@ -24,6 +25,8 @@ class ProjectStore:
     SETTINGS_FILE = "settings.json"
     SOURCE_TRANSCRIPT_FILE = "transcript.source.json"
     TRANSLATED_TRANSCRIPT_FILE = "transcript.translated.json"
+    SRT_FILE = "subtitles/translated.srt"
+    VTT_FILE = "subtitles/translated.vtt"
 
     def __init__(self, root: Path | str = "runs") -> None:
         self.root = Path(root)
@@ -141,6 +144,47 @@ class ProjectStore:
         project.stage_runs = [existing for existing in project.stage_runs if existing.id != run.id]
         project.stage_runs.append(run)
         self.save_project(project)
+
+    def export_subtitles(
+        self,
+        project: VideoProject,
+        fmt: str = "srt",
+    ) -> Path:
+        """
+        Сгенерировать и записать файл субтитров (SRT или VTT).
+
+        Регистрирует артефакт ``ArtifactKind.SUBTITLES`` в проекте.
+        Возвращает абсолютный путь к созданному файлу.
+        """
+
+        from translate_video.export.srt import segments_to_srt  # noqa: PLC0415
+        from translate_video.export.vtt import segments_to_vtt  # noqa: PLC0415
+
+        if fmt == "srt":
+            content = segments_to_srt(project.segments)
+            relative = self.SRT_FILE
+            content_type = "text/srt"
+        elif fmt == "vtt":
+            content = segments_to_vtt(project.segments)
+            relative = self.VTT_FILE
+            content_type = "text/vtt"
+        else:
+            raise ValueError(f"неподдерживаемый формат субтитров: {fmt}")
+
+        output = project.work_dir / relative
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(content, encoding="utf-8")
+        checksum = hashlib.sha256(content.encode()).hexdigest()[:16]
+
+        self.add_artifact(
+            project,
+            kind=ArtifactKind.SUBTITLES,
+            path=output,
+            stage=Stage.EXPORT,
+            content_type=content_type,
+            metadata={"format": fmt, "lines": content.count("\n"), "checksum": checksum},
+        )
+        return output
 
     def artifact_path(self, project: VideoProject, *parts: str) -> Path:
         """Вернуть путь внутри папки проекта без создания файла."""
