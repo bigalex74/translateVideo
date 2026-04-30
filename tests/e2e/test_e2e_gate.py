@@ -1,7 +1,8 @@
 """E2E-тест полного пайплайна с fake-провайдерами и реальным видеофайлом.
 
-Тест проверяет, что CLI-команды `preflight`, `init`, `run`, `status`, `artifacts`
-и `config` работают корректно от начала до конца с синтетическим видеофайлом.
+Тест проверяет, что CLI-команды `preflight`, `init`, `run`, `status`, `artifacts`,
+`config`, `export-srt`, `export-vtt`, `timing-report` и `review` работают корректно
+от начала до конца с синтетическим видеофайлом.
 
 Тестовое видео создаётся скриптом tests/e2e/fixtures/create_test_video.py.
 Запуск одного теста занимает <1 сек (fake-провайдеры, нет тяжёлых моделей).
@@ -213,6 +214,100 @@ class E2EFullPipelineTest(unittest.TestCase):
         self.assertFalse(report.ok)
         failed_checks = [c for c in report.checks if not c.ok]
         self.assertGreater(len(failed_checks), 0)
+
+
+
+class E2EExportCommandsTest(unittest.TestCase):
+    """Проверяет команды экспорта артефактов после полного run."""
+
+    def setUp(self):
+        if not SAMPLE_VIDEO.exists():
+            self.skipTest("Тестовое видео отсутствует")
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.work_root = Path(self._tmpdir.name) / "runs"
+        # Запускаем пайплайн один раз, переиспользуем work_dir во всех тестах
+        buf = StringIO()
+        cli_main(
+            [
+                "run", str(SAMPLE_VIDEO),
+                "--work-root", str(self.work_root),
+                "--project-id", "e2e-export",
+                "--provider", "fake",
+            ],
+            stdout=buf,
+        )
+        self.run_result = json.loads(buf.getvalue())
+        self.work_dir = self.run_result["work_dir"]
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_export_srt_returns_path(self):
+        """export-srt должен вернуть путь к SRT-файлу."""
+        result = _run_cli("export-srt", self.work_dir)
+        self.assertEqual(result["format"], "srt")
+        self.assertIn(".srt", result["path"])
+
+    def test_export_srt_creates_file(self):
+        """export-srt должен создать файл на диске."""
+        result = _run_cli("export-srt", self.work_dir)
+        srt_path = Path(result["path"])
+        self.assertTrue(srt_path.exists(), f"SRT-файл не найден: {srt_path}")
+
+    def test_export_srt_file_has_webvtt_check(self):
+        """SRT-файл не должен начинаться с WEBVTT (это формат VTT)."""
+        result = _run_cli("export-srt", self.work_dir)
+        content = Path(result["path"]).read_text(encoding="utf-8")
+        self.assertFalse(content.startswith("WEBVTT"))
+
+    def test_export_vtt_returns_path(self):
+        """export-vtt должен вернуть путь к VTT-файлу."""
+        result = _run_cli("export-vtt", self.work_dir)
+        self.assertEqual(result["format"], "vtt")
+        self.assertIn(".vtt", result["path"])
+
+    def test_export_vtt_creates_file(self):
+        """export-vtt должен создать файл на диске."""
+        result = _run_cli("export-vtt", self.work_dir)
+        vtt_path = Path(result["path"])
+        self.assertTrue(vtt_path.exists(), f"VTT-файл не найден: {vtt_path}")
+
+    def test_export_vtt_starts_with_webvtt(self):
+        """VTT-файл должен начинаться с заголовка WEBVTT."""
+        result = _run_cli("export-vtt", self.work_dir)
+        content = Path(result["path"]).read_text(encoding="utf-8")
+        self.assertTrue(content.startswith("WEBVTT"))
+
+    def test_timing_report_structure(self):
+        """timing-report должен вернуть JSON с полями счётчиков."""
+        result = _run_cli("timing-report", self.work_dir)
+        for field in ("total_segments", "translated_count", "empty_count",
+                      "total_duration", "segments"):
+            self.assertIn(field, result)
+
+    def test_timing_report_segment_count_matches(self):
+        """Число записей в segments должно совпадать с total_segments."""
+        result = _run_cli("timing-report", self.work_dir)
+        self.assertEqual(len(result["segments"]), result["total_segments"])
+
+    def test_review_structure(self):
+        """review должен вернуть JSON с полями ревью."""
+        result = _run_cli("review", self.work_dir)
+        for field in ("reviewed_at", "total_segments", "needs_review_count", "segments"):
+            self.assertIn(field, result)
+
+    def test_review_has_config(self):
+        """review должен содержать поле config с настройками пайплайна."""
+        result = _run_cli("review", self.work_dir)
+        self.assertIn("config", result)
+        self.assertIn("target_language", result["config"])
+
+    def test_subtitles_registered_as_artifact(self):
+        """После export-srt артефакт subtitles должен быть зарегистрирован."""
+        _run_cli("export-srt", self.work_dir)
+        art_result = _run_cli("artifacts", self.work_dir)
+        kinds = [a["kind"] for a in art_result["artifacts"]]
+        self.assertIn("subtitles", kinds)
 
 
 if __name__ == "__main__":
