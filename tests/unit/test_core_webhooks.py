@@ -19,6 +19,7 @@ class WebhookEventTest(unittest.TestCase):
 
         self.assertEqual(payload["schema_version"], "1.0")
         self.assertEqual(payload["event"], "job.stage.completed")
+        self.assertEqual(payload["stage"], "translate")
         self.assertEqual(payload["payload"]["segments"], 12)
         self.assertTrue(payload["id"].startswith("evt_"))
         self.assertIn("created_at", payload)

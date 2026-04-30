@@ -7,7 +7,14 @@ from pathlib import Path
 from uuid import uuid4
 
 from translate_video.core.config import PipelineConfig
-from translate_video.core.schemas import ArtifactKind, ArtifactRecord, Segment, Stage, VideoProject
+from translate_video.core.schemas import (
+    ArtifactKind,
+    ArtifactRecord,
+    Segment,
+    Stage,
+    StageRun,
+    VideoProject,
+)
 
 
 class ProjectStore:
@@ -84,6 +91,56 @@ class ProjectStore:
         )
         self.save_project(project)
         return output_path
+
+    def add_artifact(
+        self,
+        project: VideoProject,
+        kind: ArtifactKind,
+        path: Path | str,
+        stage: Stage,
+        content_type: str,
+        metadata: dict | None = None,
+    ) -> ArtifactRecord:
+        """Register an artifact path relative to the project directory."""
+
+        absolute_path = Path(path)
+        if absolute_path.is_absolute():
+            relative_path = absolute_path.relative_to(project.work_dir).as_posix()
+        else:
+            relative_path = absolute_path.as_posix()
+        record = ArtifactRecord(
+            kind=kind,
+            path=relative_path,
+            stage=stage,
+            content_type=content_type,
+            metadata=metadata or {},
+        )
+        project.artifacts[kind.value] = relative_path
+        project.artifact_records = [
+            existing for existing in project.artifact_records if existing.kind != kind
+        ]
+        project.artifact_records.append(record)
+        self.save_project(project)
+        return record
+
+    def get_artifact(
+        self,
+        project: VideoProject,
+        kind: ArtifactKind,
+    ) -> ArtifactRecord | None:
+        """Return the latest artifact record for a kind."""
+
+        for record in reversed(project.artifact_records):
+            if record.kind == kind:
+                return record
+        return None
+
+    def record_stage_run(self, project: VideoProject, run: StageRun) -> None:
+        """Insert or replace a stage run record by ID."""
+
+        project.stage_runs = [existing for existing in project.stage_runs if existing.id != run.id]
+        project.stage_runs.append(run)
+        self.save_project(project)
 
     def artifact_path(self, project: VideoProject, *parts: str) -> Path:
         """Return a path inside a project directory without creating a file."""

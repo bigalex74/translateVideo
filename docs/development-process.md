@@ -58,10 +58,11 @@ Every change merged into `master` must update `VERSION` and `change.log`:
 The first planned internal versions:
 
 - `0.1.0`: core project model and artifact store.
-- `0.2.0`: CLI around the existing translation pipeline.
-- `0.3.0`: editable artifacts, subtitles, and resume support.
-- `0.4.0`: local UI.
-- `0.5.0`: webhook/API layer for external orchestration.
+- `0.2.0`: core pipeline services.
+- `0.3.0`: CLI around the existing translation pipeline.
+- `0.4.0`: editable artifacts, subtitles, and resume support.
+- `0.5.0`: local UI.
+- `0.6.0`: webhook/API layer for external orchestration.
 
 ## Testing
 

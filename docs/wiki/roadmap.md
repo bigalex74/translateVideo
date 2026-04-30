@@ -8,21 +8,28 @@
 - Pipeline configuration.
 - Focused unit tests.
 
-## 0.2.0 CLI
+## 0.2.0 Core Pipeline Services
+
+- Provider interfaces for media, speech, translation, TTS, and render.
+- Sequential pipeline runner.
+- Fake-provider integration path.
+- Stage run and artifact recording.
+
+## 0.3.0 CLI
 
 - `translate-video` entrypoint.
 - Run current pipeline through the new core.
 - Per-video work directories.
 - Resume support.
 
-## 0.3.0 Editable Artifacts
+## 0.4.0 Editable Artifacts
 
 - Import/export JSON.
 - SRT/VTT export.
 - Translation review artifact.
 - Timing report.
 
-## 0.4.0 Local UI
+## 0.5.0 Local UI
 
 - Project list.
 - Upload/select input video.
@@ -30,7 +37,7 @@
 - Segment table.
 - Render and download artifacts.
 
-## 0.5.0 API and Webhooks
+## 0.6.0 API and Webhooks
 
 - Local REST API.
 - Job status.

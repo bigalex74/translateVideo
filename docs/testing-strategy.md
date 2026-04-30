@@ -111,9 +111,11 @@ git diff --check
 Before merging a task branch into `develop`:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests/unit
-PYTHONPATH=src python3 -m unittest discover -s tests/integration
+PYTHONPATH=src python3 -m unittest discover -s tests
 ```
+
+This full discovery command includes unit and integration tests. Separate level
+commands are still useful for diagnosis.
 
 Before merging `develop` into `master`:
 
@@ -124,5 +126,5 @@ PYTHONPATH=src python3 -m unittest discover -s tests/e2e
 PYTHONPATH=src python3 -m unittest discover -s tests/load
 ```
 
-Until all directories exist, use the current all-tests command as the active
-gate.
+Until E2E and load tests become meaningful, their directories remain runnable and
+may report zero tests. They still form part of the `develop -> master` gate.

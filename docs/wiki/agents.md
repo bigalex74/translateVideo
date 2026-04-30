@@ -96,3 +96,50 @@ Owns versioning, changelog readiness, and git-flow hygiene.
 - Python requirement is now consistently `3.11+`.
 - Before merging to `develop`, rerun tests, syntax compilation, and
   `git diff --check`.
+
+### Milestone: Core Pipeline Services
+
+#### Product Owner Agent
+
+- The milestone advances the requested order: core pipeline services are being
+  built before CLI and UI.
+- Mode, style, and voice strategy are still configuration-only. The next
+  milestones must prove behavior for `voiceover`, `subtitles`, and one of
+  `dub` or `dual_audio`.
+- The autonomous path is closer because fake-provider stages can run without
+  human review, but QA and retry policies are still future work.
+
+#### Analyst Agent
+
+- Provider contracts pass `PipelineConfig`, so any-language settings and style
+  settings can flow into real providers later.
+- Current stages cover extract, transcribe, translate, TTS, and render. Missing
+  planned stages remain probe, speaker analysis, voice casting, timing fit, mix,
+  QA, and export.
+- Webhook readiness is still contract-level; stage event emission is expected in
+  a later API/job milestone.
+
+#### Architect Agent
+
+- Pipeline services are provider-neutral and tested with fake providers.
+- `PipelineRunner` now updates `VideoProject.status` to `running`, `completed`,
+  or `failed`.
+- `StageRun` records now include timestamps, inputs, outputs, and errors.
+- Downstream stages enforce artifact preconditions before work.
+- TTS output is registered as a typed artifact for resume/export inspection.
+
+#### Test Engineer Agent
+
+- Core tests were moved under `tests/unit` so the unit gate covers schema,
+  store, webhook, runner, and version checks.
+- Integration tests cover the fake-provider happy path and failure preconditions.
+- E2E and load gates are runnable and currently contain gate-smoke tests.
+- Current full verification:
+  `PYTHONPATH=src python3 -m unittest discover -s tests`.
+
+#### Release Manager Agent
+
+- Version metadata is aligned at `0.2.0` in `VERSION`, `pyproject.toml`, and
+  package `__version__`.
+- `change.log` records `TVIDEO-002-core-pipeline-services`.
+- Branch name follows the agreed `TVIDEO-XXX-short-name` format.

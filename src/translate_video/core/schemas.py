@@ -40,7 +40,6 @@ class Stage(StrEnum):
     TRANSCRIBE = "transcribe"
     SPEAKER_ANALYSIS = "speaker_analysis"
     TRANSLATE = "translate"
-    TRANSLATION = "translation"
     VOICE_CAST = "voice_cast"
     TTS = "tts"
     TIMING_FIT = "timing_fit"

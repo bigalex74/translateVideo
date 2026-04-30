@@ -44,6 +44,8 @@ class WebhookEvent:
         self.event = WebhookEventType(self.event)
         self.status = JobStatus(self.status)
         if self.stage is not None:
+            if self.stage == "translation":
+                self.stage = Stage.TRANSLATE
             self.stage = Stage(self.stage)
         if self.idempotency_key is None:
             stage_part = self.stage.value if self.stage else "project"

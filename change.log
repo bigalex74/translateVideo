@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.2.0 - 2026-04-30 - MINOR - TVIDEO-002-core-pipeline-services
+
+- Added provider interfaces for media, speech, translation, TTS, and rendering.
+- Added provider-neutral pipeline stages and sequential runner.
+- Added typed artifact and stage-run persistence helpers.
+- Added unit and integration tests with fake providers.
+
 ## 0.1.0 - 2026-04-30 - MINOR - TVIDEO-001-core-architecture
 
 - Added architecture, development process, webhook plan, and project wiki.
