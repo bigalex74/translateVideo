@@ -13,7 +13,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = []
+dev = ["coverage[toml]"]
 
 [project.scripts]
 translate-video = "translate_video.cli:main"
+
+[tool.coverage.run]
+source = ["translate_video"]
+omit = ["*/legacy.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 80
+
