@@ -22,8 +22,24 @@ class WebhookEventTest(unittest.TestCase):
         self.assertEqual(payload["payload"]["segments"], 12)
         self.assertTrue(payload["id"].startswith("evt_"))
         self.assertIn("created_at", payload)
+        self.assertIsNotNone(payload["idempotency_key"])
+
+    def test_failure_event_carries_error_shape(self):
+        event = WebhookEvent(
+            event="job.stage.failed",
+            project_id="project_1",
+            stage="render",
+            status="failed",
+            error="ffmpeg failed",
+        )
+
+        payload = event.to_dict()
+
+        self.assertEqual(payload["event"], "job.stage.failed")
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["stage"], "render")
+        self.assertEqual(payload["error"], "ffmpeg failed")
 
 
 if __name__ == "__main__":
     unittest.main()
-

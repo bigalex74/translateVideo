@@ -103,4 +103,3 @@ class PipelineConfig:
                 "quality_gate": QualityGate(data.get("quality_gate", "balanced")),
             }
         )
-

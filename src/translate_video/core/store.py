@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from uuid import uuid4
 
 from translate_video.core.config import PipelineConfig
-from translate_video.core.schemas import Segment, VideoProject
+from translate_video.core.schemas import ArtifactKind, ArtifactRecord, Segment, Stage, VideoProject
 
 
 class ProjectStore:
@@ -30,10 +31,11 @@ class ProjectStore:
 
         input_path = Path(input_video)
         resolved_config = config or PipelineConfig()
+        resolved_id = project_id or f"{input_path.stem}-{uuid4().hex[:8]}"
         project = VideoProject(
-            id=project_id or VideoProject(input_path, self.root, resolved_config).id,
+            id=resolved_id,
             input_video=input_path,
-            work_dir=self.root / (project_id or input_path.stem),
+            work_dir=self.root / resolved_id,
             config=resolved_config,
         )
         self._ensure_layout(project)
@@ -65,7 +67,21 @@ class ProjectStore:
         filename = self.TRANSLATED_TRANSCRIPT_FILE if translated else self.SOURCE_TRANSCRIPT_FILE
         output_path = project.work_dir / filename
         self._write_json(output_path, [segment.to_dict() for segment in segments])
-        project.artifacts["translated_transcript" if translated else "source_transcript"] = str(output_path)
+        kind = ArtifactKind.TRANSLATED_TRANSCRIPT if translated else ArtifactKind.SOURCE_TRANSCRIPT
+        relative_path = output_path.relative_to(project.work_dir).as_posix()
+        project.artifacts[kind.value] = relative_path
+        project.artifact_records = [
+            record for record in project.artifact_records if record.kind != kind
+        ]
+        project.artifact_records.append(
+            ArtifactRecord(
+                kind=kind,
+                path=relative_path,
+                stage=Stage.TRANSLATE if translated else Stage.TRANSCRIBE,
+                content_type="application/json",
+                metadata={"segments": len(segments)},
+            )
+        )
         self.save_project(project)
         return output_path
 
@@ -86,4 +102,3 @@ class ProjectStore:
     @staticmethod
     def _read_json(path: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
-

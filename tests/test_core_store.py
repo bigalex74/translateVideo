@@ -26,7 +26,17 @@ class ProjectStoreTest(unittest.TestCase):
 
             restored = store.load_project(project.work_dir)
             self.assertEqual(restored.id, "lesson")
+            self.assertEqual(restored.work_dir.name, restored.id)
             self.assertEqual(restored.config.source_language, "en")
+
+    def test_generated_project_id_matches_work_dir_name(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+
+            project = store.create_project("lesson.mp4")
+
+            self.assertEqual(project.work_dir.name, project.id)
+            self.assertTrue(project.id.startswith("lesson-"))
 
     def test_save_segments_updates_project_artifacts(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -39,9 +49,11 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertTrue(output_path.exists())
             restored = store.load_project(project.work_dir)
             self.assertIn("translated_transcript", restored.artifacts)
+            self.assertEqual(restored.artifacts["translated_transcript"], "transcript.translated.json")
+            self.assertEqual(restored.artifact_records[0].kind, "translated_transcript")
+            self.assertEqual(restored.artifact_records[0].metadata["segments"], 1)
             self.assertEqual(restored.segments[0].source_text, "Hello")
 
 
 if __name__ == "__main__":
     unittest.main()
-
