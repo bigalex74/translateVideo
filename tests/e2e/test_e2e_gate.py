@@ -204,8 +204,8 @@ class E2EFullPipelineTest(unittest.TestCase):
     def test_run_without_video_raises_error(self):
         """run без input_video и без --work-dir должен завершиться с ошибкой."""
 
-        with self.assertRaises(SystemExit):
-            cli_main(["run", "--work-root", str(self.work_root)])
+        exit_code = cli_main(["run", "--work-root", str(self.work_root)])
+        self.assertEqual(exit_code, 1)
 
     def test_preflight_nonexistent_file_fails(self):
         """preflight на несуществующий файл должен вернуть ok=False."""

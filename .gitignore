@@ -5,3 +5,4 @@ __pycache__/
 *.mp3
 segments_cache.json
 temp_audio/
+.coverage

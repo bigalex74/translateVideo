@@ -35,11 +35,21 @@ def main(argv: list[str] | None = None, stdout: TextIO | None = None) -> int:
 
     output = stdout or sys.stdout
     parser = build_parser()
-    args = parser.parse_args(argv)
-    result = args.handler(args)
-    if result is not None:
-        print(json.dumps(result, ensure_ascii=False, indent=2), file=output)
-    return 0
+    
+    try:
+        args = parser.parse_args(argv)
+        result = args.handler(args)
+        if result is not None:
+            print(json.dumps(result, ensure_ascii=False, indent=2), file=output)
+        return 0
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as err:
+        print(f"Ошибка: {err}", file=sys.stderr)
+        return 1
+    except SystemExit as err:
+        if isinstance(err.code, str):
+            print(f"Ошибка: {err.code}", file=sys.stderr)
+            return 1
+        return err.code or 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser = subparsers.add_parser("run", help="создать или загрузить проект и выполнить пайплайн")
     run_parser.add_argument("input_video", nargs="?", help="путь к исходному видео")
     run_parser.add_argument("--work-dir", type=Path, help="папка ранее созданного проекта")
+    run_parser.add_argument("--force", action="store_true", help="принудительно перезапустить завершенные этапы")
     _add_config_arguments(run_parser)
     run_parser.add_argument("--work-root", type=Path, default=Path("runs"), help="корень рабочих папок")
     run_parser.add_argument("--project-id", help="явный идентификатор нового проекта")
@@ -170,7 +181,7 @@ def _handle_run(args: argparse.Namespace) -> dict:
     else:
         raise SystemExit("для run укажите input_video или --work-dir")
 
-    runner = PipelineRunner(_build_stages(args.provider))
+    runner = PipelineRunner(_build_stages(args.provider), force=args.force)
     runs = runner.run(StageContext(project=project, store=store))
     restored = store.load_project(project.work_dir)
     summary = _project_summary(restored)

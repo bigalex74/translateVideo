@@ -101,6 +101,56 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertEqual(len(restored.stage_runs), 1)
             self.assertEqual(restored.stage_runs[0].status, JobStatus.COMPLETED)
 
+    def test_repeated_save_segments_replaces_artifact(self):
+        """Повторное сохранение сегментов заменяет существующий артефакт того же типа."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+            project = store.create_project("clip.mp4", project_id="clip")
+            
+            segments1 = [Segment(id="seg_1", start=0.0, end=1.0, source_text="Первый")]
+            store.save_segments(project, segments1, translated=True)
+            
+            segments2 = [Segment(id="seg_2", start=0.0, end=1.0, source_text="Второй")]
+            store.save_segments(project, segments2, translated=True)
+
+            restored = store.load_project(project.work_dir)
+            
+            # Должен быть только один артефакт translated_transcript
+            translated_records = [r for r in restored.artifact_records if r.kind == ArtifactKind.TRANSLATED_TRANSCRIPT]
+            self.assertEqual(len(translated_records), 1)
+            self.assertEqual(restored.segments[0].source_text, "Второй")
+
+    def test_load_non_existent_project_raises(self):
+        """Загрузка несуществующего проекта должна вызывать FileNotFoundError."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+            with self.assertRaises(FileNotFoundError):
+                store.load_project(Path(temp_dir) / "runs" / "non_existent")
+
+    def test_export_subtitles_empty_segments(self):
+        """Экспорт пустых субтитров должен завершаться успешно, но создавать пустой файл."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+            project = store.create_project("clip.mp4", project_id="clip")
+            
+            # segments изначально пуст
+            output_path = store.export_subtitles(project, fmt="srt")
+            self.assertTrue(output_path.exists())
+            self.assertEqual(output_path.read_text(encoding="utf-8").strip(), "")
+
+    def test_export_subtitles_invalid_format_raises(self):
+        """Экспорт в неизвестный формат должен вызывать ValueError."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+            project = store.create_project("clip.mp4", project_id="clip")
+            
+            with self.assertRaises(ValueError):
+                store.export_subtitles(project, fmt="invalid_format")
+
 
 if __name__ == "__main__":
     unittest.main()

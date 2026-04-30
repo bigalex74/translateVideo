@@ -97,6 +97,18 @@ class SegmentsToSrtTest(unittest.TestCase):
         result = segments_to_srt(segs)
         self.assertIn("\n\n", result)
 
+    def test_multiline_text(self):
+        """Многострочный текст в сегменте сохраняется."""
+        seg = _seg(0.0, 1.0, translated="Первая строка\nВторая строка")
+        result = segments_to_srt([seg])
+        self.assertIn("Первая строка\nВторая строка", result)
+
+    def test_special_characters(self):
+        """Спецсимволы не ломают формат (хотя для SRT они могут оставаться как есть)."""
+        seg = _seg(0.0, 1.0, translated="Текст < > & спецсимволы")
+        result = segments_to_srt([seg])
+        self.assertIn("Текст < > & спецсимволы", result)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -110,6 +110,12 @@ class TimingReportDetailTest(unittest.TestCase):
         report = build_timing_report(segs)
         self.assertEqual(len(report["segments"]), report["total_segments"])
 
+    def test_zero_duration_chars_per_sec(self):
+        """Сегмент с нулевой длительностью не вызывает ошибку деления на ноль."""
+        seg = _seg("s1", 1.0, 1.0, source="Hi", translated="Привет")
+        report = build_timing_report([seg])
+        self.assertEqual(report["segments"][0]["chars_per_sec"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

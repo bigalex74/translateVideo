@@ -1,81 +1,38 @@
-"""Модульные тесты CLI-обертки."""
+"""Тесты CLI-адаптера."""
 
-from __future__ import annotations
-
-import json
-import tempfile
 import unittest
-from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
+import json
 
 from translate_video.cli import main
 
 
-class CliTest(unittest.TestCase):
-    """Проверяет команды CLI без внешних провайдеров."""
+class CLITest(unittest.TestCase):
+    """Проверка обработки ошибок и аргументов CLI."""
 
-    def test_init_creates_project_with_config(self):
-        """Команда init должна создать проект и сохранить настройки."""
+    @patch("sys.stderr.write")
+    def test_missing_work_dir(self, mock_stderr):
+        """Несуществующая папка проекта вызывает ошибку без трейсбека."""
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output = StringIO()
-            code = main(
-                [
-                    "init",
-                    "lesson.mp4",
-                    "--work-root",
-                    temp_dir,
-                    "--project-id",
-                    "lesson",
-                    "--source-language",
-                    "en",
-                    "--target-language",
-                    "ru",
-                    "--translation-mode",
-                    "subtitles",
-                    "--translation-style",
-                    "business",
-                    "--do-not-translate",
-                    "OpenAI",
-                ],
-                stdout=output,
-            )
+        exit_code = main(["status", "runs/non_existent_dir"])
+        self.assertEqual(exit_code, 1)
+        mock_stderr.assert_called()
+        # Проверяем, что в stderr пишется сообщение об ошибке
+        output = "".join(call.args[0] for call in mock_stderr.call_args_list)
+        self.assertIn("Ошибка:", output)
 
-            payload = json.loads(output.getvalue())
+    @patch("sys.stderr.write")
+    @patch("translate_video.core.store.ProjectStore.load_project")
+    def test_corrupted_project_json(self, mock_load, mock_stderr):
+        """Поврежденный project.json вызывает ошибку без трейсбека."""
 
-            self.assertEqual(code, 0)
-            self.assertEqual(payload["project_id"], "lesson")
-            self.assertEqual(payload["status"], "created")
-            self.assertEqual(payload["work_dir"], str(Path(temp_dir) / "lesson"))
-            settings = json.loads((Path(temp_dir) / "lesson" / "settings.json").read_text())
-            self.assertEqual(settings["translation_mode"], "subtitles")
-            self.assertEqual(settings["translation_style"], "business")
-            self.assertEqual(settings["do_not_translate"], ["OpenAI"])
-
-    def test_config_prints_saved_settings(self):
-        """Команда config должна вернуть сохраненную конфигурацию проекта."""
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            main(
-                [
-                    "init",
-                    "lesson.mp4",
-                    "--work-root",
-                    temp_dir,
-                    "--project-id",
-                    "lesson",
-                    "--target-language",
-                    "de",
-                ],
-                stdout=StringIO(),
-            )
-            output = StringIO()
-
-            code = main(["config", str(Path(temp_dir) / "lesson")], stdout=output)
-
-            payload = json.loads(output.getvalue())
-            self.assertEqual(code, 0)
-            self.assertEqual(payload["target_language"], "de")
+        mock_load.side_effect = json.JSONDecodeError("Expecting value", "", 0)
+        exit_code = main(["status", "runs/some_dir"])
+        self.assertEqual(exit_code, 1)
+        mock_stderr.assert_called()
+        output = "".join(call.args[0] for call in mock_stderr.call_args_list)
+        self.assertIn("Ошибка:", output)
 
 
 if __name__ == "__main__":

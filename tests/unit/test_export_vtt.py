@@ -87,6 +87,18 @@ class SegmentsToVttTest(unittest.TestCase):
         # Числовые значения одинаковы
         self.assertEqual(srt_time.replace(",", "."), vtt_time)
 
+    def test_multiline_text(self):
+        """Многострочный текст в сегменте сохраняется."""
+        seg = _seg(0.0, 1.0, translated="Первая строка\nВторая строка")
+        result = segments_to_vtt([seg])
+        self.assertIn("Первая строка\nВторая строка", result)
+
+    def test_special_characters(self):
+        """Спецсимволы экранируются или сохраняются в VTT."""
+        seg = _seg(0.0, 1.0, translated="Текст < > & спецсимволы")
+        result = segments_to_vtt([seg])
+        self.assertIn("Текст < > & спецсимволы", result)
+
 
 if __name__ == "__main__":
     unittest.main()
