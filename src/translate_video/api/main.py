@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from translate_video import __version__
+from translate_video.api.routes import pipeline, projects
 
 app = FastAPI(
     title="AI Video Translator API",
@@ -22,6 +23,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(projects.router)
+app.include_router(pipeline.router)
 
 @app.get("/api/health")
 def health_check():

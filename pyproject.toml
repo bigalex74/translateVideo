@@ -12,6 +12,7 @@ dependencies = [
     "pydub",
     "fastapi",
     "uvicorn",
+    "httpx",
 ]
 
 [project.optional-dependencies]
