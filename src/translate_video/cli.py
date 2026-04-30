@@ -62,9 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--project-id", help="явный идентификатор нового проекта")
     run_parser.add_argument(
         "--provider",
-        choices=["fake"],
+        choices=["fake", "legacy"],
         default="fake",
-        help="набор провайдеров для запуска; реальные адаптеры появятся отдельной веткой",
+        help="набор провайдеров для запуска",
     )
     run_parser.set_defaults(handler=_handle_run)
 
@@ -196,15 +196,29 @@ def _config_from_args(args: argparse.Namespace) -> PipelineConfig:
 def _build_stages(provider: str):
     """Создать этапы пайплайна для выбранного набора провайдеров."""
 
-    if provider != "fake":
-        raise ValueError(f"неподдерживаемый провайдер CLI: {provider}")
-    return [
-        ExtractAudioStage(FakeMediaProvider()),
-        TranscribeStage(FakeTranscriber()),
-        TranslateStage(FakeTranslator()),
-        TTSStage(FakeTTSProvider()),
-        RenderStage(FakeRenderer()),
-    ]
+    if provider == "fake":
+        return [
+            ExtractAudioStage(FakeMediaProvider()),
+            TranscribeStage(FakeTranscriber()),
+            TranslateStage(FakeTranslator()),
+            TTSStage(FakeTTSProvider()),
+            RenderStage(FakeRenderer()),
+        ]
+    if provider == "legacy":
+        from translate_video.media import LegacyMoviePyMediaProvider
+        from translate_video.render import MoviePyVoiceoverRenderer
+        from translate_video.speech import FasterWhisperTranscriber
+        from translate_video.translation import GoogleSegmentTranslator
+        from translate_video.tts import EdgeTTSProvider
+
+        return [
+            ExtractAudioStage(LegacyMoviePyMediaProvider()),
+            TranscribeStage(FasterWhisperTranscriber()),
+            TranslateStage(GoogleSegmentTranslator()),
+            TTSStage(EdgeTTSProvider()),
+            RenderStage(MoviePyVoiceoverRenderer()),
+        ]
+    raise ValueError(f"неподдерживаемый провайдер CLI: {provider}")
 
 
 def _project_summary(project) -> dict:
@@ -238,7 +252,7 @@ class FakeMediaProvider:
 
 
 class FakeTranscriber:
-    """Имитационный распознаватель для CLI smoke-сценариев."""
+    """Имитационный распознаватель для дымовых CLI-сценариев."""
 
     def transcribe(self, audio_path, config):
         """Вернуть один сегмент без обращения к внешним моделям."""

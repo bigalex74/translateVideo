@@ -65,8 +65,9 @@ python3 main.py "path/to/video.mp4"
 
 ## Использование CLI
 
-Пока CLI использует имитационные провайдеры, чтобы проверять ядро без внешних
-моделей и тяжелой обработки медиа. Реальные адаптеры добавляются отдельно.
+По умолчанию CLI использует имитационные провайдеры, чтобы проверять ядро без
+внешних моделей и тяжелой обработки медиа. Для запуска через адаптеры
+устаревшего скрипта используйте `--provider legacy`.
 
 ```bash
 PYTHONPATH=src python3 -m translate_video.cli init "path/to/video.mp4" \
@@ -75,6 +76,7 @@ PYTHONPATH=src python3 -m translate_video.cli init "path/to/video.mp4" \
   --target-language ru
 
 PYTHONPATH=src python3 -m translate_video.cli run --work-dir runs/demo
+PYTHONPATH=src python3 -m translate_video.cli run --work-dir runs/demo --provider legacy
 PYTHONPATH=src python3 -m translate_video.cli status runs/demo
 PYTHONPATH=src python3 -m translate_video.cli artifacts runs/demo
 PYTHONPATH=src python3 -m translate_video.cli config runs/demo

@@ -1,0 +1,236 @@
+"""Модульные тесты адаптеров устаревшего пайплайна."""
+
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+
+from translate_video.cli import _build_stages
+from translate_video.core.config import PipelineConfig
+from translate_video.core.schemas import Segment, VideoProject
+from translate_video.media.legacy import LegacyMoviePyMediaProvider
+from translate_video.render.legacy import MoviePyVoiceoverRenderer
+from translate_video.speech.legacy import FasterWhisperTranscriber
+from translate_video.translation.legacy import GoogleSegmentTranslator
+from translate_video.tts.legacy import EdgeTTSProvider
+
+
+class LegacyAdaptersTest(unittest.TestCase):
+    """Проверяет адаптеры без запуска тяжелых внешних зависимостей."""
+
+    def test_media_provider_extracts_audio_and_closes_video(self):
+        """MoviePy-медиа адаптер должен записать аудио и закрыть видео."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = _project(temp_dir)
+            audio = _FakeAudio()
+            video = _FakeVideo(audio=audio)
+            provider = LegacyMoviePyMediaProvider(video_clip_factory=lambda _path: video)
+
+            output = provider.extract_audio(project)
+
+            self.assertEqual(output, project.work_dir / "source_audio.wav")
+            self.assertEqual(audio.written_to, str(output))
+            self.assertTrue(video.closed)
+
+    def test_whisper_transcriber_converts_segments(self):
+        """Whisper-адаптер должен преобразовать сегменты в схему ядра."""
+
+        model = _FakeWhisperModel([
+            SimpleNamespace(start=0.0, end=1.5, text=" Привет ", avg_logprob=-0.1),
+            SimpleNamespace(start=1.5, end=2.0, text="  ", avg_logprob=-0.2),
+        ])
+        transcriber = FasterWhisperTranscriber(model_factory=lambda *args, **kwargs: model)
+
+        segments = transcriber.transcribe(Path("audio.wav"), PipelineConfig())
+
+        self.assertEqual(len(segments), 1)
+        self.assertEqual(segments[0].source_text, "Привет")
+        self.assertEqual(segments[0].start, 0.0)
+        self.assertEqual(segments[0].end, 1.5)
+
+    def test_google_translator_preserves_segment_metadata(self):
+        """Переводчик должен сохранить ID, тайминги и исходный текст."""
+
+        translator = _FakeTranslator()
+        adapter = GoogleSegmentTranslator(translator_factory=lambda **_kwargs: translator)
+        source = [Segment(id="seg_1", start=0.0, end=1.0, source_text="Hello")]
+
+        translated = adapter.translate(source, PipelineConfig(source_language="en", target_language="ru"))
+
+        self.assertEqual(translator.calls, ["Hello"])
+        self.assertEqual(translated[0].id, "seg_1")
+        self.assertEqual(translated[0].translated_text, "ru: Hello")
+
+    def test_edge_tts_provider_writes_paths_and_voice(self):
+        """TTS-адаптер должен заполнить путь и выбранный голос."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = _project(temp_dir, PipelineConfig(target_language="ru"))
+            segment = Segment(
+                id="seg_1",
+                start=0.0,
+                end=1.0,
+                source_text="Hello",
+                translated_text="Привет",
+            )
+            provider = EdgeTTSProvider(
+                communicate_factory=lambda text, voice, rate: _FakeCommunicate(text, voice, rate),
+                async_runner=_run_coroutine,
+            )
+
+            result = provider.synthesize(project, [segment])
+
+            self.assertEqual(result[0].tts_path, "tts/seg_1.mp3")
+            self.assertEqual(result[0].voice, "ru-RU-SvetlanaNeural")
+            self.assertTrue((project.work_dir / "tts" / "seg_1.mp3").exists())
+
+    def test_renderer_combines_tts_and_writes_video(self):
+        """Рендерер должен собрать аудиоклипы и записать итоговый файл."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = _project(temp_dir)
+            tts_path = project.work_dir / "tts" / "seg_1.mp3"
+            tts_path.write_bytes(b"speech")
+            segment = Segment(
+                id="seg_1",
+                start=2.0,
+                end=3.0,
+                source_text="Hello",
+                translated_text="Привет",
+                tts_path="tts/seg_1.mp3",
+            )
+            video = _FakeVideo(audio=_FakeAudio())
+            renderer = MoviePyVoiceoverRenderer(
+                video_clip_factory=lambda _path: video,
+                audio_clip_factory=lambda path: _FakeAudio(path=path),
+                composite_audio_factory=lambda clips: _FakeCompositeAudio(clips),
+                volume_filter=lambda clip, volume: _FakeAudio(path=f"ducked:{volume}"),
+            )
+
+            output = renderer.render(project, [segment])
+
+            self.assertEqual(output, project.work_dir / "output" / "translated.mp4")
+            self.assertEqual(video.written_to, str(output))
+            self.assertTrue(video.closed)
+
+    def test_cli_builds_legacy_stage_chain(self):
+        """CLI должен уметь собрать цепочку провайдеров устаревшего скрипта."""
+
+        stages = _build_stages("legacy")
+
+        self.assertEqual(len(stages), 5)
+
+
+def _project(temp_dir: str, config: PipelineConfig | None = None) -> VideoProject:
+    """Создать минимальный проект для тестов адаптеров."""
+
+    work_dir = Path(temp_dir) / "lesson"
+    (work_dir / "tts").mkdir(parents=True)
+    (work_dir / "output").mkdir()
+    return VideoProject(
+        id="lesson",
+        input_video=Path("lesson.mp4"),
+        work_dir=work_dir,
+        config=config or PipelineConfig(),
+    )
+
+
+def _run_coroutine(coroutine):
+    """Выполнить корутину без привязки теста к asyncio.run."""
+
+    try:
+        coroutine.send(None)
+    except StopIteration:
+        return None
+    raise AssertionError("тестовая coroutine должна завершиться сразу")
+
+
+class _FakeAudio:
+    """Минимальный аудио-клип для тестов MoviePy-адаптеров."""
+
+    def __init__(self, path: str | None = None) -> None:
+        self.path = path
+        self.written_to: str | None = None
+        self.started_at: float | None = None
+        self.closed = False
+
+    def write_audiofile(self, path: str, logger=None) -> None:
+        self.written_to = path
+        Path(path).write_bytes(b"audio")
+
+    def set_start(self, start: float):
+        self.started_at = start
+        return self
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeVideo:
+    """Минимальный видео-клип для тестов MoviePy-адаптеров."""
+
+    def __init__(self, audio: _FakeAudio | None = None) -> None:
+        self.audio = audio
+        self.closed = False
+        self.written_to: str | None = None
+
+    def set_audio(self, audio):
+        self.audio = audio
+        return self
+
+    def write_videofile(self, path: str, codec: str, audio_codec: str, logger=None) -> None:
+        self.written_to = path
+        Path(path).write_bytes(f"{codec}:{audio_codec}".encode())
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeWhisperModel:
+    """Минимальная модель распознавания для проверки адаптера."""
+
+    def __init__(self, segments) -> None:
+        self.segments = segments
+
+    def transcribe(self, audio_path: str, beam_size: int):
+        return self.segments, SimpleNamespace(language="en")
+
+
+class _FakeTranslator:
+    """Минимальный переводчик для проверки адаптера."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def translate(self, text: str) -> str:
+        self.calls.append(text)
+        return f"ru: {text}"
+
+
+class _FakeCommunicate:
+    """Минимальный объект edge-tts для проверки записи файла."""
+
+    def __init__(self, text: str, voice: str, rate: str) -> None:
+        self.text = text
+        self.voice = voice
+        self.rate = rate
+
+    async def save(self, path: str) -> None:
+        Path(path).write_text(f"{self.voice}:{self.rate}:{self.text}", encoding="utf-8")
+
+
+class _FakeCompositeAudio:
+    """Минимальный CompositeAudioClip для проверки состава клипов."""
+
+    def __init__(self, clips) -> None:
+        self.clips = clips
+
+    def close(self) -> None:
+        pass
+
+
+if __name__ == "__main__":
+    unittest.main()
