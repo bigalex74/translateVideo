@@ -1,10 +1,12 @@
 """Маршруты для работы с проектами."""
 
 import os
+import shutil
+import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from pydantic import BaseModel
 
 from translate_video.cli import _project_summary
@@ -29,13 +31,45 @@ class CreateProjectRequest(BaseModel):
 
 @router.post("")
 def create_project(req: CreateProjectRequest, store: ProjectStore = Depends(get_store)):
-    """Создать новый проект перевода."""
+    """Создать новый проект перевода по локальному пути или URL."""
     config = PipelineConfig.from_dict(req.config) if req.config else PipelineConfig()
     try:
         project = store.create_project(
             input_video=req.input_video,
             config=config,
             project_id=req.project_id,
+        )
+        return _project_summary(project)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/upload")
+def create_project_from_file(
+    file: UploadFile = File(...),
+    project_id: str | None = Form(None),
+    config: str = Form("{}"),
+    store: ProjectStore = Depends(get_store)
+):
+    """Создать новый проект загрузив файл видео."""
+    try:
+        conf_dict = json.loads(config)
+        pipeline_config = PipelineConfig.from_dict(conf_dict) if conf_dict else PipelineConfig()
+        
+        base_name = os.path.splitext(file.filename or "video.mp4")[0]
+        final_project_id = project_id if project_id and project_id.strip() else base_name
+        
+        temp_dir = store.work_root / "_uploads"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = temp_dir / (file.filename or "video.mp4")
+        
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        project = store.create_project(
+            input_video=str(temp_path),
+            config=pipeline_config,
+            project_id=final_project_id,
         )
         return _project_summary(project)
     except Exception as e:

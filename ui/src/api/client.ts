@@ -15,6 +15,20 @@ export async function createProject(input_video: string, project_id?: string, co
     return res.json();
 }
 
+export async function uploadProject(file: File, project_id?: string, config?: any): Promise<VideoProject> {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (project_id) formData.append("project_id", project_id);
+    if (config) formData.append("config", JSON.stringify(config));
+
+    const res = await fetch(`${API_BASE}/projects/upload`, {
+        method: "POST",
+        body: formData
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
 export async function getProjectStatus(project_id: string): Promise<VideoProject> {
     const res = await fetch(`${API_BASE}/projects/${project_id}`);
     if (!res.ok) throw new Error(await res.text());
