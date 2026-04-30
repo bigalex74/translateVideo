@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  video-translator:
+    build: .
+    container_name: video-translator
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./runs:/app/runs
+    environment:
+      - WORK_ROOT=/app/runs

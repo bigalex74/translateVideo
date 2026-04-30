@@ -10,6 +10,8 @@ dependencies = [
     "deep-translator",
     "edge-tts",
     "pydub",
+    "fastapi",
+    "uvicorn",
 ]
 
 [project.optional-dependencies]

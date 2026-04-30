@@ -121,6 +121,12 @@ def build_parser() -> argparse.ArgumentParser:
     review_parser.add_argument("work_dir", type=Path, help="папка проекта")
     review_parser.set_defaults(handler=_handle_review)
 
+    server_parser = subparsers.add_parser("server", help="запустить локальный API сервер")
+    server_parser.add_argument("--host", default="127.0.0.1", help="хост для сервера")
+    server_parser.add_argument("--port", type=int, default=8000, help="порт для сервера")
+    server_parser.add_argument("--work-root", type=Path, default=Path("runs"), help="корень рабочих папок")
+    server_parser.set_defaults(handler=_handle_server)
+
     return parser
 
 
@@ -256,6 +262,17 @@ def _handle_review(args: argparse.Namespace) -> dict:
 
     project = ProjectStore(args.work_dir.parent).load_project(args.work_dir)
     return build_review_artifact(project.segments, project.config.to_dict())
+
+
+def _handle_server(args: argparse.Namespace) -> dict | None:
+    """Запустить FastAPI сервер."""
+
+    import uvicorn
+    import os
+
+    os.environ["WORK_ROOT"] = str(args.work_root)
+    uvicorn.run("translate_video.api.main:app", host=args.host, port=args.port, reload=True)
+    return None
 
 
 def _config_from_args(args: argparse.Namespace) -> PipelineConfig:
