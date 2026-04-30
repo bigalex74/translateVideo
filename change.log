@@ -1,0 +1,9 @@
+# Change Log
+
+## 0.1.0 - 2026-04-30 - MINOR - TVIDEO-001-core-architecture
+
+- Added architecture, development process, webhook plan, and project wiki.
+- Added core package with typed config, project, segment, artifact, stage, and
+  webhook contracts.
+- Added focused unit tests for core contracts.
+- Updated README to describe the multilingual core-first direction.

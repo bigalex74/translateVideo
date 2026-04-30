@@ -1,64 +1,86 @@
-# AI Video Translator 🎬🇷🇺
+# AI Video Translator
 
-Этот проект представляет собой автоматизированный пайплайн на Python для переозвучки видеороликов с английского на русский язык с использованием технологий искусственного интеллекта. Проект работает полностью на центральном процессоре (CPU), не требует мощной видеокарты и использует бесплатные API.
+AI Video Translator is evolving from a single Python script into a reusable video
+translation engine. The target product translates videos from any supported
+source language into any supported target language, then exports voiceover,
+dubbed audio, subtitles, or dual-audio media.
 
-## 🚀 Особенности
+The project is being developed in this order:
 
-- **Интеллектуальное извлечение аудио**: Автоматически отделяет звуковую дорожку от видео.
-- **Точное распознавание речи (STT)**: Использует легковесную модель `faster-whisper` (base) для транскрибации речи с получением точных временных меток для каждой фразы. Поддерживает многопоточность для ускорения работы на CPU.
-- **Машинный перевод**: Переводит распознанные фрагменты текста на русский язык с помощью `deep-translator` (Google Translate).
-- **Синтез естественной речи (TTS)**: Генерирует качественный русский голос с помощью встроенного бесплатного API `edge-tts`.
-- **Динамическое сведение звука (Dynamic Audio Stretching)**:
-  - Автоматически приглушает оригинальную звуковую дорожку (эффект Ducking) до 15% громкости, сохраняя фоновую музыку и эффекты.
-  - Измеряет длину сгенерированной русской фразы. Если она превышает выделенное время оригинальной фразы, скрипт **математически высчитывает нужный процент ускорения** и динамически генерирует ускоренную (до +80%) фразу без искажения тональности. Это полностью предотвращает наложение фраз друг на друга.
-- **Умное кэширование**: Результаты долгого этапа распознавания кэшируются в `segments_cache.json`. Если вам потребуется изменить скорость голоса, пайплайн выполнится за пару минут вместо пятнадцати.
+1. Core engine.
+2. CLI.
+3. Local UI.
+4. API/webhooks for external orchestrators such as n8n.
 
-## 🛠 Технологии
+## Current State
 
-- [MoviePy](https://zulko.github.io/moviepy/) — обработка видео и сведение аудио.
-- [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) — распознавание речи.
-- [Edge-TTS](https://github.com/rany2/edge-tts) — генерация реалистичного голоса.
-- [Deep-Translator](https://github.com/nidhaloff/deep-translator) — API переводчика.
+The repository still includes the original `main.py` proof of concept. It can
+extract audio, transcribe speech with `faster-whisper`, translate text with
+`deep-translator`, generate Russian speech with `edge-tts`, and render a
+voiceover video.
 
-## 💻 Установка и запуск
+The new work starts under `src/translate_video/`:
 
-### Требования
-- Python 3.9+
-- Установленный в системе **FFmpeg** (должен быть добавлен в PATH).
+- language-agnostic pipeline configuration;
+- typed project, segment, artifact, stage, and webhook schemas;
+- per-project artifact store;
+- tests for the core contracts.
 
-### Установка
+## Planned Capabilities
 
-1. Склонируйте репозиторий:
-   ```bash
-   git clone https://github.com/bigalex74/translateVideo.git
-   cd translateVideo
-   ```
+- Source language: `auto` or explicit language code.
+- Target language: any provider-supported language code.
+- Translation modes: `voiceover`, `dub`, `subtitles`, `dual_audio`, `learning`.
+- Translation styles: `neutral`, `business`, `casual`, `humorous`,
+  `educational`, `cinematic`, `child_friendly`.
+- Voice strategies: single voice, two voices, by gender, or per speaker.
+- Autonomous QA: timing, glossary, semantic, audio, render, and language checks.
+- Future n8n integration through a webhook/API boundary.
 
-2. Создайте и активируйте виртуальное окружение:
-   ```bash
-   python -m venv venv
-   # Для Windows:
-   .\venv\Scripts\activate
-   # Для Linux/Mac:
-   source venv/bin/activate
-   ```
+## Requirements
 
-3. Установите зависимости:
-   ```bash
-   pip install -r requirements.txt
-   ```
+- Python 3.11+
+- FFmpeg available in `PATH`
 
-### Использование
-
-Запустите скрипт, передав путь к видеофайлу в качестве аргумента:
+## Install
 
 ```bash
-python main.py "путь/к/вашему/видео.mp4"
+git clone https://github.com/bigalex74/translateVideo.git
+cd translateVideo
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Скрипт создаст новое видео в той же папке с префиксом `translated_`.
+## Legacy Script Usage
 
-## 📂 Структура проекта
-- `main.py` — основной скрипт пайплайна.
-- `requirements.txt` — зависимости проекта.
-- `.gitignore` — исключения (venv, огромные медиафайлы, кэши).
+```bash
+python3 main.py "path/to/video.mp4"
+```
+
+The legacy script writes `translated_<input-name>` next to the input video. This
+entrypoint will later become a thin CLI adapter over the new core package.
+
+## Tests
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests
+```
+
+## Repository Structure
+
+- `main.py`: legacy proof-of-concept pipeline.
+- `src/translate_video/`: reusable package under active development.
+- `tests/`: focused unit tests for changed behavior.
+- `docs/`: architecture, development process, webhook plan, and wiki notes.
+- `requirements.txt`: runtime dependencies for the legacy script.
+- `pyproject.toml`: package metadata and version.
+
+## Documentation
+
+Start with:
+
+- `docs/architecture.md`
+- `docs/development-process.md`
+- `docs/webhooks.md`
+- `docs/wiki/roadmap.md`
