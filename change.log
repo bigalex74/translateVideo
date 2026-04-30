@@ -1,5 +1,15 @@
 # Журнал Изменений
 
+## 0.6.0 - 2026-04-30 - MINOR - TVIDEO-006-e2e-video-fixture
+
+- Добавлен скрипт создания синтетического тестового видео для e2e-тестов
+  (tests/e2e/fixtures/create_test_video.py) через imageio-ffmpeg без
+  системного ffmpeg.
+- Видео содержит тональный WAV-трек, имитирующий 3 сегмента английской речи.
+- Добавлены 12 e2e-тестов (E2EVideoFixtureTest, E2EPreflightTest,
+  E2EFullPipelineTest) — полный CLI-цикл с fake-провайдерами.
+- Итого 43 теста, все проходят.
+
 ## 0.5.0 - 2026-04-30 - MINOR - TVIDEO-005-real-video-preflight
 
 - Добавлена команда CLI `preflight` для проверки входного видео и окружения без
