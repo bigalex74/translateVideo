@@ -1,3 +1,5 @@
+"""Модульные тесты последовательного раннера пайплайна."""
+
 import unittest
 import tempfile
 from pathlib import Path
@@ -9,17 +11,27 @@ from translate_video.pipeline.runner import PipelineRunner
 
 
 class StaticStage:
+    """Тестовый этап, который возвращает заранее заданный результат."""
+
     def __init__(self, run: StageRun):
+        """Сохранить результат, который этап вернет при запуске."""
+
         self.run_result = run
         self.called = False
 
     def run(self, context):
+        """Отметить вызов и вернуть заранее заданную запись запуска этапа."""
+
         self.called = True
         return self.run_result
 
 
 class PipelineRunnerTest(unittest.TestCase):
+    """Проверяет управление последовательностью этапов."""
+
     def test_runner_stops_on_failed_stage(self):
+        """Раннер должен остановиться после первого упавшего этапа."""
+
         failed = StaticStage(StageRun(stage=Stage.TRANSCRIBE, status=JobStatus.FAILED))
         skipped = StaticStage(StageRun(stage=Stage.TRANSLATE, status=JobStatus.COMPLETED))
         runner = PipelineRunner([failed, skipped])

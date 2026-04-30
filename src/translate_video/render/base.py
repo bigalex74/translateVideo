@@ -1,4 +1,4 @@
-"""Final rendering provider contracts."""
+"""Контракты провайдеров финального рендера."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from translate_video.core.schemas import Segment, VideoProject
 
 
 class Renderer(Protocol):
-    """Creates final video/audio outputs for a project."""
+    """Создает итоговые видео/аудио выходы проекта."""
 
     def render(self, project: VideoProject, segments: list[Segment]) -> Path:
-        """Create a final output artifact and return its path."""
+        """Создать итоговый артефакт и вернуть путь к нему."""

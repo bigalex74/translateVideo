@@ -1,4 +1,4 @@
-"""Provider-backed pipeline stages."""
+"""Этапы пайплайна, использующие провайдеры через контракты."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from translate_video.tts.base import TTSProvider
 
 
 class BaseStage:
-    """Base implementation for recording success/failure consistently."""
+    """Базовая реализация единообразной записи успеха и ошибки этапа."""
 
     stage: Stage
 
@@ -36,7 +36,7 @@ class BaseStage:
         context.store.record_stage_run(context.project, run)
         try:
             inputs, outputs = action()
-        except Exception as exc:  # noqa: BLE001 - stage errors must be persisted.
+        except Exception as exc:  # noqa: BLE001 - ошибки этапа нужно сохранить.
             failed = StageRun(
                 id=run.id,
                 stage=self.stage,
@@ -66,7 +66,7 @@ class BaseStage:
 
 
 class ExtractAudioStage(BaseStage):
-    """Extract source audio from the input video."""
+    """Извлекает исходное аудио из входного видео."""
 
     stage = Stage.EXTRACT_AUDIO
 
@@ -89,7 +89,7 @@ class ExtractAudioStage(BaseStage):
 
 
 class TranscribeStage(BaseStage):
-    """Create source transcript segments from extracted audio."""
+    """Создает исходные сегменты расшифровки из извлеченного аудио."""
 
     stage = Stage.TRANSCRIBE
 
@@ -111,7 +111,7 @@ class TranscribeStage(BaseStage):
 
 
 class TranslateStage(BaseStage):
-    """Translate source segments into the configured target language."""
+    """Переводит исходные сегменты на настроенный целевой язык."""
 
     stage = Stage.TRANSLATE
 
@@ -122,7 +122,7 @@ class TranslateStage(BaseStage):
         def action() -> tuple[list[str], list[str]]:
             source_transcript = _required_artifact(context, ArtifactKind.SOURCE_TRANSCRIPT)
             if not context.project.segments:
-                raise ValueError("source transcript has no segments")
+                raise ValueError("исходный transcript не содержит сегментов")
             translated_segments = self.translator.translate(
                 context.project.segments,
                 context.project.config,
@@ -141,7 +141,7 @@ class TranslateStage(BaseStage):
 
 
 class TTSStage(BaseStage):
-    """Synthesize translated speech for translated segments."""
+    """Синтезирует переведенную речь для переведенных сегментов."""
 
     stage = Stage.TTS
 
@@ -155,14 +155,14 @@ class TTSStage(BaseStage):
                 ArtifactKind.TRANSLATED_TRANSCRIPT,
             )
             if not context.project.segments:
-                raise ValueError("translated transcript has no segments")
+                raise ValueError("переведенный transcript не содержит сегментов")
             segments = self.tts_provider.synthesize(context.project, context.project.segments)
             for segment in segments:
                 segment.status = SegmentStatus.TTS_READY
             context.project.segments = segments
             tts_outputs = [segment.tts_path for segment in segments if segment.tts_path]
             if not tts_outputs:
-                raise ValueError("tts provider did not create any segment audio")
+                raise ValueError("tts-провайдер не создал аудио сегментов")
             context.store.add_artifact(
                 context.project,
                 kind=ArtifactKind.TTS_AUDIO,
@@ -178,7 +178,7 @@ class TTSStage(BaseStage):
 
 
 class RenderStage(BaseStage):
-    """Render the final output media artifact."""
+    """Рендерит итоговый медиа-артефакт."""
 
     stage = Stage.RENDER
 
@@ -208,5 +208,5 @@ class RenderStage(BaseStage):
 def _required_artifact(context: StageContext, kind: ArtifactKind):
     record = context.store.get_artifact(context.project, kind)
     if record is None:
-        raise ValueError(f"required artifact is missing: {kind.value}")
+        raise ValueError(f"обязательный артефакт отсутствует: {kind.value}")
     return record

@@ -1,7 +1,7 @@
-# E2E Tests
+# E2E-Тесты
 
-E2E tests will cover full user-facing flows through CLI, API, and UI. They are
-required before `develop` merges into `master`.
+E2E-тесты будут покрывать полные пользовательские сценарии через CLI, API и UI.
+Они обязательны перед слиянием `develop` в `master`.
 
-The directory exists now so the release gate is runnable before full E2E tests
-are implemented.
+Папка существует уже сейчас, чтобы релизная проверка была исполняемой до появления
+полноценных E2E-сценариев.

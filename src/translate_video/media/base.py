@@ -1,4 +1,4 @@
-"""Media provider contracts used by pipeline stages."""
+"""Контракты медиа-провайдеров, используемые этапами пайплайна."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from translate_video.core.schemas import VideoProject
 
 
 class MediaProvider(Protocol):
-    """Extracts source audio from video inputs."""
+    """Извлекает исходное аудио из входного видео."""
 
     def extract_audio(self, project: VideoProject) -> Path:
-        """Create a source audio artifact and return its path."""
+        """Создать артефакт исходного аудио и вернуть путь к нему."""

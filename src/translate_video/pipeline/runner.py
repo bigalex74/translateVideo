@@ -1,4 +1,4 @@
-"""Simple sequential pipeline runner."""
+"""Простой последовательный раннер пайплайна."""
 
 from __future__ import annotations
 
@@ -9,20 +9,20 @@ from translate_video.pipeline.context import StageContext
 
 
 class PipelineStage(Protocol):
-    """A rerunnable unit of pipeline work."""
+    """Перезапускаемая единица работы пайплайна."""
 
     def run(self, context: StageContext) -> StageRun:
-        """Execute a stage and return its recorded run."""
+        """Выполнить этап и вернуть запись запуска."""
 
 
 class PipelineRunner:
-    """Runs stages sequentially and stops on the first failure."""
+    """Запускает этапы последовательно и останавливается на первой ошибке."""
 
     def __init__(self, stages: list[PipelineStage]) -> None:
         self.stages = stages
 
     def run(self, context: StageContext) -> list[StageRun]:
-        """Execute configured stages in order."""
+        """Выполнить настроенные этапы по порядку."""
 
         context.project.status = ProjectStatus.RUNNING
         context.store.save_project(context.project)

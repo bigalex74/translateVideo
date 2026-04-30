@@ -1,10 +1,16 @@
+"""Модульные тесты webhook-событий."""
+
 import unittest
 
 from translate_video.core.webhooks import WebhookEvent
 
 
 class WebhookEventTest(unittest.TestCase):
+    """Проверяет JSON-контракт webhook-событий."""
+
     def test_event_is_json_ready_and_schema_versioned(self):
+        """Событие должно быть JSON-совместимым и версионированным."""
+
         event = WebhookEvent(
             event="job.stage.completed",
             project_id="project_1",
@@ -26,12 +32,14 @@ class WebhookEventTest(unittest.TestCase):
         self.assertIsNotNone(payload["idempotency_key"])
 
     def test_failure_event_carries_error_shape(self):
+        """Событие ошибки должно нести статус и текст ошибки."""
+
         event = WebhookEvent(
             event="job.stage.failed",
             project_id="project_1",
             stage="render",
             status="failed",
-            error="ffmpeg failed",
+            error="ошибка ffmpeg",
         )
 
         payload = event.to_dict()
@@ -39,7 +47,7 @@ class WebhookEventTest(unittest.TestCase):
         self.assertEqual(payload["event"], "job.stage.failed")
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["stage"], "render")
-        self.assertEqual(payload["error"], "ffmpeg failed")
+        self.assertEqual(payload["error"], "ошибка ffmpeg")
 
 
 if __name__ == "__main__":

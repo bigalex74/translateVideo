@@ -1,106 +1,103 @@
-# Testing Strategy
+# Стратегия Тестирования
 
-## Goals
+## Цели
 
-The test system must protect the translation engine while development moves from
-core to CLI and UI. Every functional change gets tests at the lowest level that
-can prove it, then broader tests when modules start working together.
+Тестовая система должна защищать движок перевода видео во время перехода от
+ядра к CLI и UI. Каждое функциональное изменение получает тесты на самом низком
+уровне, который способен доказать корректность, а затем более широкие тесты,
+когда несколько модулей начинают работать вместе.
 
-## Test Levels
+## Уровни Тестов
 
-### Unit Tests
+### Модульные Тесты
 
-Scope:
+Область:
 
-- config parsing and validation;
-- schemas and serialization;
-- artifact path generation;
-- provider-independent text/timing utilities;
-- webhook event payloads.
+- разбор и валидация конфигурации;
+- схемы и сериализация;
+- генерация путей артефактов;
+- провайдер-независимые утилиты текста и таймингов;
+- данные webhook-событий.
 
-Rules:
+Правила:
 
-- Run before every commit.
-- Keep tests deterministic and fast.
-- Use small fixtures and no network calls.
+- Запускаются перед каждым коммитом.
+- Должны быть детерминированными и быстрыми.
+- Используют маленькие фикстуры и не делают сетевых вызовов.
 
-Command:
+Команда:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests/unit
 ```
 
-Temporary command until the tree is split:
+### Интеграционные Тесты
 
-```bash
-PYTHONPATH=src python3 -m unittest discover -s tests
-```
+Область:
 
-### Integration Tests
+- хранилище проекта вместе с артефактами;
+- раннер этапов пайплайна с имитационными провайдерами;
+- CLI-команда, вызывающая сервисы ядра;
+- создание данных webhook-события во время выполнения этапов.
 
-Scope:
+Правила:
 
-- project store plus artifacts;
-- pipeline stage runner with fake providers;
-- CLI command invoking core services;
-- webhook payload creation during stage execution.
+- Запускаются перед каждым коммитом вместе с модульными тестами.
+- По умолчанию используют имитационные провайдеры.
+- Медиа-фикстуры должны быть маленькими и добавляться в репозиторий только при
+  реальной необходимости.
 
-Rules:
-
-- Run before every commit together with unit tests.
-- Use fake providers by default.
-- Media fixtures must be tiny and committed only when necessary.
-
-Planned command:
+Команда:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests/integration
 ```
 
-### E2E Tests
+### E2E-Тесты
 
-Scope:
+Область:
 
-- full CLI job on tiny media fixture;
-- future UI smoke flow;
-- future API job lifecycle flow.
+- полная CLI-задача на маленькой медиа-фикстуре;
+- будущий дымовой поток UI;
+- будущий поток жизненного цикла API-задачи.
 
-Rules:
+Правила:
 
-- Required before `develop -> master`.
-- May be slower than integration tests, but must remain practical locally.
-- External provider E2E tests must be opt-in.
+- Обязательны перед слиянием `develop -> master`.
+- Могут быть медленнее интеграционных тестов, но должны оставаться практичными
+  для локального запуска.
+- E2E-тесты с внешними провайдерами должны запускаться только явно.
 
-Planned command:
+Команда:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests/e2e
 ```
 
-### Load Tests
+### Нагрузочные Тесты
 
-Scope:
+Область:
 
-- concurrent project creation;
-- artifact writes under parallel jobs;
-- batch translation scheduling;
-- future queue and API pressure.
+- параллельное создание проектов;
+- запись артефактов при параллельных задачах;
+- планирование пакетного перевода;
+- будущая нагрузка на очередь и API.
 
-Rules:
+Правила:
 
-- Required before `develop -> master`.
-- Use generated local fixtures.
-- Capture runtime and resource notes in the test output or report.
+- Обязательны перед слиянием `develop -> master`.
+- Используют сгенерированные локальные фикстуры.
+- Время выполнения и ресурсные заметки фиксируются в выводе тестов или отчете.
 
-Planned command:
+Команда:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests/load
 ```
 
-## Merge Gates
+## Проверки Перед Слиянием
 
-Before every commit:
+Перед каждым коммитом:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
@@ -108,16 +105,16 @@ python3 -m compileall -q src tests
 git diff --check
 ```
 
-Before merging a task branch into `develop`:
+Перед слиянием ветки задачи в `develop`:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-This full discovery command includes unit and integration tests. Separate level
-commands are still useful for diagnosis.
+Эта команда полного обнаружения тестов включает модульные и интеграционные тесты.
+Отдельные команды уровней полезны для диагностики.
 
-Before merging `develop` into `master`:
+Перед слиянием `develop` в `master`:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests/unit
@@ -126,5 +123,6 @@ PYTHONPATH=src python3 -m unittest discover -s tests/e2e
 PYTHONPATH=src python3 -m unittest discover -s tests/load
 ```
 
-Until E2E and load tests become meaningful, their directories remain runnable and
-may report zero tests. They still form part of the `develop -> master` gate.
+Пока E2E и нагрузочные тесты не содержат полноценные сценарии, их директории
+остаются исполняемыми и содержат дымовые тесты проверок. Они все равно являются
+частью проверки перед слиянием `develop -> master`.

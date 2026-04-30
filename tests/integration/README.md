@@ -1,5 +1,5 @@
-# Integration Tests
+# Интеграционные Тесты
 
-Integration tests combine multiple internal modules with fake providers and
-local temporary files. They should not call external AI/media services by
-default.
+Интеграционные тесты объединяют несколько внутренних модулей с имитационными
+провайдерами и локальными временными файлами. По умолчанию они не вызывают
+внешние AI- или медиа-сервисы.

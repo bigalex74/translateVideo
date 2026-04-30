@@ -1,11 +1,13 @@
-# Documentation
+# Документация
 
-This folder contains project-level design notes, development rules, and the
-lightweight project wiki. Keep decisions here before they turn into code.
+В этой папке хранится проектная документация: архитектурные решения, правила
+разработки, стратегия тестирования и wiki проекта. Сначала фиксируем решения
+здесь, затем переносим их в код.
 
-Start with:
+Основные документы:
 
-- `architecture.md` for the target system shape.
-- `development-process.md` for git-flow, versioning, testing, and review rules.
-- `webhooks.md` for the future n8n/API integration contract.
-- `wiki/` for product and development-agent notes.
+- `architecture.md`: целевая архитектура системы.
+- `development-process.md`: git-flow, версионирование, тесты и правила ревью.
+- `testing-strategy.md`: уровни тестирования и обязательные проверки.
+- `webhooks.md`: будущий контракт интеграции с n8n/API.
+- `wiki/`: заметки продуктовых и инженерных агентов.

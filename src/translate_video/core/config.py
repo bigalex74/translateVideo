@@ -1,4 +1,4 @@
-"""Pipeline configuration shared by CLI, UI, and future API calls."""
+"""Конфигурация пайплайна, общая для CLI, UI и будущего API."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 
 
 class TranslationMode(StrEnum):
-    """How translated content should be delivered in the final export."""
+    """Способ доставки переведенного контента в итоговом экспорте."""
 
     VOICEOVER = "voiceover"
     DUB = "dub"
@@ -19,7 +19,7 @@ class TranslationMode(StrEnum):
 
 
 class TranslationStyle(StrEnum):
-    """Human-facing tone used by translation and adaptation providers."""
+    """Тон перевода, который видит пользователь."""
 
     NEUTRAL = "neutral"
     BUSINESS = "business"
@@ -31,7 +31,7 @@ class TranslationStyle(StrEnum):
 
 
 class AdaptationLevel(StrEnum):
-    """How aggressively translation may move away from literal wording."""
+    """Степень допустимого отхода перевода от буквального текста."""
 
     LITERAL = "literal"
     NATURAL = "natural"
@@ -40,7 +40,7 @@ class AdaptationLevel(StrEnum):
 
 
 class VoiceStrategy(StrEnum):
-    """How many voices the engine should assign to detected speakers."""
+    """Стратегия назначения голосов найденным спикерам."""
 
     SINGLE = "single"
     BY_GENDER = "by_gender"
@@ -49,7 +49,7 @@ class VoiceStrategy(StrEnum):
 
 
 class QualityGate(StrEnum):
-    """Automation strictness for final QA."""
+    """Строгость автоматической финальной QA-проверки."""
 
     FAST = "fast"
     BALANCED = "balanced"
@@ -58,7 +58,7 @@ class QualityGate(StrEnum):
 
 @dataclass(slots=True)
 class PipelineConfig:
-    """Language-agnostic settings for one video translation project."""
+    """Языконезависимые настройки одного проекта перевода видео."""
 
     source_language: str = "auto"
     target_language: str = "ru"
@@ -80,7 +80,7 @@ class PipelineConfig:
     do_not_translate: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-ready representation of the config."""
+        """Вернуть JSON-совместимое представление конфигурации."""
 
         payload = asdict(self)
         payload["glossary_path"] = str(self.glossary_path) if self.glossary_path else None
@@ -88,7 +88,7 @@ class PipelineConfig:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "PipelineConfig":
-        """Build a config from JSON data while restoring enum values."""
+        """Создать конфигурацию из JSON-данных и восстановить enum-значения."""
 
         data = dict(payload)
         if data.get("glossary_path"):

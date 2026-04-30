@@ -1,7 +1,7 @@
 [project]
 name = "translate-video"
 version = "0.2.0"
-description = "AI video translation engine with CLI and UI surfaces."
+description = "Движок ИИ-перевода видео с CLI и UI-интерфейсами."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

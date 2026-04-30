@@ -1,59 +1,60 @@
-# Architecture
+# Архитектура
 
-## Direction
+## Направление
 
-The project is becoming a reusable AI video translation engine with three public
-surfaces built in this order:
+Проект становится переиспользуемым движком ИИ-перевода видео с тремя публичными
+интерфейсами, которые разрабатываются в строгом порядке:
 
-1. Core Python package.
-2. CLI on top of the core.
-3. UI on top of the same core and job API.
+1. Python-пакет ядра.
+2. CLI поверх ядра.
+3. UI поверх того же ядра и будущего API задач.
 
-The first version keeps n8n outside the runtime, but the system must expose a
-stable webhook/API boundary so n8n can orchestrate jobs later.
+Первая версия не включает n8n в процесс исполнения, но система должна иметь стабильную
+API/webhook-границу, чтобы n8n мог оркестрировать задачи позже.
 
-## Core Principles
+## Базовые Принципы
 
-- The core owns all business logic. CLI and UI only call core services.
-- Every long-running step writes artifacts to a project directory.
-- Translation is language-agnostic: any source language can target any supported
-  destination language.
-- Each stage is independently rerunnable.
-- Tests cover the code that changes in the same milestone.
-- Human review is optional, not required by the default flow.
+- Вся бизнес-логика живет в ядре. CLI и UI только вызывают сервисы ядра.
+- Каждый долгий этап пишет артефакты в папку проекта.
+- Перевод языконезависим: любой исходный язык может переводиться в любой
+  поддерживаемый целевой язык.
+- Каждый этап можно перезапустить независимо.
+- Тесты покрывают код, который меняется в том же этапе.
+- Ручная проверка опциональна и не требуется в стандартном потоке.
+- Документация, комментарии и докстринги ведутся на русском языке.
 
-## Pipeline
+## Пайплайн
 
 ```text
-Input video
-  -> project initialization
-  -> media probe
-  -> audio extraction
-  -> transcription
-  -> speaker analysis
-  -> translation planning
-  -> translation and adaptation
-  -> voice casting
-  -> TTS generation
-  -> timing fit
-  -> audio mix
-  -> render
-  -> automated QA
-  -> export
+Входное видео
+  -> инициализация проекта
+  -> анализ медиа
+  -> извлечение аудио
+  -> распознавание речи
+  -> анализ спикеров
+  -> планирование перевода
+  -> перевод и адаптация
+  -> назначение голосов
+  -> генерация TTS
+  -> подгонка таймингов
+  -> сведение аудио
+  -> рендер
+  -> автоматическая QA-проверка
+  -> экспорт
 ```
 
-## Translation Modes
+## Режимы Перевода
 
-- `voiceover`: translated speech over a lowered original track.
-- `dub`: translated speech replaces the original speech track.
-- `subtitles`: translated subtitles only.
-- `dual_audio`: final media keeps both original and translated audio tracks.
-- `learning`: keeps original audio and adds translated subtitles plus learning
-  metadata where available.
+- `voiceover`: переведенная речь поверх приглушенной оригинальной дорожки.
+- `dub`: переведенная речь заменяет оригинальную речь.
+- `subtitles`: только переведенные субтитры.
+- `dual_audio`: итоговое медиа хранит оригинальную и переведенную аудиодорожки.
+- `learning`: оригинальное аудио плюс переведенные субтитры и учебные метаданные,
+  если они доступны.
 
-## Translation Style
+## Стиль Перевода
 
-Style is a first-class configuration option, not a prompt afterthought:
+Стиль перевода является настройкой первого класса, а не случайной частью prompt:
 
 - `neutral`
 - `business`
@@ -63,10 +64,11 @@ Style is a first-class configuration option, not a prompt afterthought:
 - `cinematic`
 - `child_friendly`
 
-The engine also tracks adaptation level, terminology domain, glossary, audience,
-profanity policy, unit conversion policy, and do-not-translate terms.
+Движок также хранит уровень адаптации, предметную область терминов, глоссарий,
+целевую аудиторию, правила работы с обсценной лексикой, правила конвертации
+единиц измерения и список терминов, которые нельзя переводить.
 
-## Artifact Layout
+## Артефакты
 
 ```text
 runs/
@@ -83,7 +85,7 @@ runs/
     qa_report.json
 ```
 
-## Package Layout
+## Структура Пакета
 
 ```text
 src/translate_video/
@@ -99,33 +101,36 @@ src/translate_video/
   cli.py
 ```
 
-## Agent Model
+## Модель Агентов
 
-Agents are typed services with strict inputs and outputs. They do not replace
-deterministic pipeline code. The manager can ask agents to retry or improve a
-stage, but artifacts remain the source of truth.
+Агенты являются типизированными сервисами со строгими входами и выходами. Они не
+заменяют детерминированный код пайплайна. Менеджер может попросить агента
+повторить или улучшить этап, но артефакты остаются источником истины.
 
-Initial roles:
+Начальные роли:
 
-- Product Owner Agent
-- Analyst Agent
-- Architect Agent
-- Translation Agent
-- Timing Agent
-- Audio QA Agent
-- Linguistic QA Agent
-- Test Engineer Agent
-- Release Manager Agent
+- Владелец продукта (`Product Owner Agent`)
+- Аналитик (`Analyst Agent`)
+- Архитектор (`Architect Agent`)
+- Агент перевода (`Translation Agent`)
+- Агент таймингов (`Timing Agent`)
+- Агент проверки аудио (`Audio QA Agent`)
+- Агент лингвистической проверки (`Linguistic QA Agent`)
+- Инженер по тестированию (`Test Engineer Agent`)
+- Менеджер релизов (`Release Manager Agent`)
 
-## Quality Gates
+Названия ролей оставлены на английском как стабильные идентификаторы будущих
+агентских сервисов.
 
-The QA system combines deterministic checks and AI-based review:
+## Проверки Качества
 
-- media file opens and has expected duration;
-- audio exists and is not silent;
-- translated language matches the target;
-- required glossary terms are present;
-- named entities, numbers, and dates survive translation;
-- generated speech fits segment timing;
-- final render includes expected tracks and subtitles;
-- QA score meets the selected quality gate.
+QA-система совмещает детерминированные проверки и ИИ-ревью:
+
+- медиафайл открывается и имеет ожидаемую длительность;
+- аудио существует и не состоит из тишины;
+- переведенная речь соответствует целевому языку;
+- обязательные термины из глоссария присутствуют;
+- имена, числа и даты не искажены;
+- сгенерированная речь укладывается в тайминги сегментов;
+- итоговый рендер содержит ожидаемые дорожки и субтитры;
+- QA-оценка соответствует выбранному порогу качества.

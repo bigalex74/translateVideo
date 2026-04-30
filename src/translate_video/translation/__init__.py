@@ -1,4 +1,4 @@
-"""Translation service interfaces."""
+"""Интерфейсы сервисов перевода."""
 
 from translate_video.translation.base import Translator
 

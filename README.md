@@ -1,48 +1,49 @@
 # AI Video Translator
 
-AI Video Translator is evolving from a single Python script into a reusable video
-translation engine. The target product translates videos from any supported
-source language into any supported target language, then exports voiceover,
-dubbed audio, subtitles, or dual-audio media.
+AI Video Translator развивается из одного Python-скрипта в переиспользуемый
+движок перевода видео. Целевой продукт переводит видео с любого поддерживаемого
+исходного языка на любой поддерживаемый целевой язык, а затем экспортирует
+закадровую озвучку, дубляж, субтитры или видео с несколькими аудиодорожками.
 
-The project is being developed in this order:
+Порядок разработки:
 
-1. Core engine.
+1. Ядро.
 2. CLI.
-3. Local UI.
-4. API/webhooks for external orchestrators such as n8n.
+3. Локальный UI.
+4. API/webhook-слой для внешних оркестраторов, например n8n.
 
-## Current State
+## Текущее Состояние
 
-The repository still includes the original `main.py` proof of concept. It can
-extract audio, transcribe speech with `faster-whisper`, translate text with
-`deep-translator`, generate Russian speech with `edge-tts`, and render a
-voiceover video.
+В репозитории пока остается исходный прототип `main.py`. Он умеет
+извлекать аудио, распознавать речь через `faster-whisper`, переводить текст
+через `deep-translator`, генерировать русскую речь через `edge-tts` и собирать
+видео с закадровой озвучкой.
 
-The new work starts under `src/translate_video/`:
+Новая разработка ведется в `src/translate_video/`:
 
-- language-agnostic pipeline configuration;
-- typed project, segment, artifact, stage, and webhook schemas;
-- per-project artifact store;
-- tests for the core contracts.
+- языконезависимая конфигурация пайплайна;
+- типизированные схемы проекта, сегментов, артефактов, этапов и webhook;
+- хранилище артефактов для каждого проекта;
+- тесты контрактов ядра и сервисов пайплайна.
 
-## Planned Capabilities
+## Планируемые Возможности
 
-- Source language: `auto` or explicit language code.
-- Target language: any provider-supported language code.
-- Translation modes: `voiceover`, `dub`, `subtitles`, `dual_audio`, `learning`.
-- Translation styles: `neutral`, `business`, `casual`, `humorous`,
+- Исходный язык: `auto` или явный код языка.
+- Целевой язык: любой код языка, поддерживаемый выбранным провайдером.
+- Режимы перевода: `voiceover`, `dub`, `subtitles`, `dual_audio`, `learning`.
+- Стили перевода: `neutral`, `business`, `casual`, `humorous`,
   `educational`, `cinematic`, `child_friendly`.
-- Voice strategies: single voice, two voices, by gender, or per speaker.
-- Autonomous QA: timing, glossary, semantic, audio, render, and language checks.
-- Future n8n integration through a webhook/API boundary.
+- Стратегии голосов: один голос, два голоса, по полу или отдельный голос для
+  каждого спикера.
+- Автоматическая QA-проверка: тайминги, глоссарий, смысл, аудио, рендер и язык.
+- Будущая интеграция с n8n через API/webhook-границу.
 
-## Requirements
+## Требования
 
 - Python 3.11+
-- FFmpeg available in `PATH`
+- FFmpeg доступен в `PATH`
 
-## Install
+## Установка
 
 ```bash
 git clone https://github.com/bigalex74/translateVideo.git
@@ -52,35 +53,36 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Legacy Script Usage
+## Использование Устаревшего Скрипта
 
 ```bash
 python3 main.py "path/to/video.mp4"
 ```
 
-The legacy script writes `translated_<input-name>` next to the input video. This
-entrypoint will later become a thin CLI adapter over the new core package.
+Устаревший скрипт записывает `translated_<input-name>` рядом с исходным видео.
+Позже эта точка входа станет тонким CLI-адаптером поверх нового ядра.
 
-## Tests
+## Тесты
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-## Repository Structure
+## Структура Репозитория
 
-- `main.py`: legacy proof-of-concept pipeline.
-- `src/translate_video/`: reusable package under active development.
-- `tests/`: focused unit tests for changed behavior.
-- `docs/`: architecture, development process, webhook plan, and wiki notes.
-- `requirements.txt`: runtime dependencies for the legacy script.
-- `pyproject.toml`: package metadata and version.
+- `main.py`: устаревший прототип пайплайна.
+- `src/translate_video/`: переиспользуемый пакет в активной разработке.
+- `tests/`: сфокусированные тесты изменяемого поведения.
+- `docs/`: архитектура, процесс разработки, webhook-план и wiki.
+- `requirements.txt`: зависимости устаревшего скрипта.
+- `pyproject.toml`: метаданные пакета и версия.
 
-## Documentation
+## Документация
 
-Start with:
+Начинать лучше отсюда:
 
 - `docs/architecture.md`
 - `docs/development-process.md`
+- `docs/testing-strategy.md`
 - `docs/webhooks.md`
 - `docs/wiki/roadmap.md`

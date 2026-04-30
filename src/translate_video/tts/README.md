@@ -1,4 +1,5 @@
 # TTS
 
-TTS services synthesize translated segments into audio files. Voice strategy and
-speaker mapping are core concerns; provider adapters only generate audio.
+TTS-сервисы синтезируют аудиофайлы для переведенных сегментов. Стратегия
+голосов и сопоставление спикеров относятся к ядру; адаптер провайдера только
+генерирует аудио.

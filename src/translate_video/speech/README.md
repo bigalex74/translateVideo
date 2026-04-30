@@ -1,4 +1,5 @@
-# Speech
+# Речь
 
-Speech services convert source audio into timed text segments. The first real
-adapter will wrap `faster-whisper`; tests should use fake transcribers.
+Сервисы речи превращают исходное аудио в текстовые сегменты с таймкодами.
+Первый реальный адаптер будет оборачивать `faster-whisper`; тесты должны
+использовать имитационные распознаватели.

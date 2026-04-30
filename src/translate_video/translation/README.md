@@ -1,4 +1,5 @@
-# Translation
+# Перевод
 
-Translation services adapt source segments into target-language segments. The
-core must support any source and target language that a provider can handle.
+Сервисы перевода адаптируют исходные сегменты в сегменты на целевом языке. Ядро
+должно поддерживать любую пару языков, которую способен обработать выбранный
+провайдер.

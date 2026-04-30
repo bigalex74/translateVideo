@@ -1,4 +1,4 @@
-"""Speech service interfaces."""
+"""Интерфейсы сервисов распознавания речи."""
 
 from translate_video.speech.base import Transcriber
 

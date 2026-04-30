@@ -1,5 +1,6 @@
-# Render
+# Рендер
 
-Render services combine video, source audio, translated audio, and subtitles into
-final output artifacts. The first real implementation can wrap the legacy
-MoviePy/ffmpeg behavior while the pipeline stays provider-neutral.
+Сервисы рендера объединяют видео, исходное аудио, переведенную озвучку и
+субтитры в итоговые артефакты. Первая реальная реализация может обернуть
+устаревшее поведение MoviePy/ffmpeg, но пайплайн должен оставаться независимым
+от провайдера.

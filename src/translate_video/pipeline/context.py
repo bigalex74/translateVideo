@@ -1,4 +1,4 @@
-"""Shared context passed to every pipeline stage."""
+"""Общий контекст, который передается каждому этапу пайплайна."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from translate_video.core.store import ProjectStore
 
 @dataclass(slots=True)
 class StageContext:
-    """Mutable project context shared by pipeline stages."""
+    """Изменяемый контекст проекта, общий для этапов пайплайна."""
 
     project: VideoProject
     store: ProjectStore

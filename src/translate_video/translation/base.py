@@ -1,4 +1,4 @@
-"""Translation provider contracts."""
+"""Контракты провайдеров перевода."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from translate_video.core.schemas import Segment
 
 
 class Translator(Protocol):
-    """Translates source segments according to project configuration."""
+    """Переводит исходные сегменты согласно конфигурации проекта."""
 
     def translate(self, segments: list[Segment], config: PipelineConfig) -> list[Segment]:
-        """Return translated segments while preserving timing and IDs."""
+        """Вернуть переведенные сегменты, сохранив тайминги и ID."""

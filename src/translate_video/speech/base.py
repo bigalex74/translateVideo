@@ -1,4 +1,4 @@
-"""Speech recognition provider contracts."""
+"""Контракты провайдеров распознавания речи."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from translate_video.core.schemas import Segment
 
 
 class Transcriber(Protocol):
-    """Turns an audio file into timestamped source-language segments."""
+    """Преобразует аудиофайл в сегменты исходного языка с таймкодами."""
 
     def transcribe(self, audio_path: Path, config: PipelineConfig) -> list[Segment]:
-        """Return source segments for an audio artifact."""
+        """Вернуть исходные сегменты для аудио-артефакта."""

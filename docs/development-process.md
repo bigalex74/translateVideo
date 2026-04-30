@@ -1,27 +1,27 @@
-# Development Process
+# Процесс Разработки
 
-## Branching
+## Ветки
 
-Use the project git-flow adapted from the LightRAG knowledge base:
+Используется git-flow проекта, адаптированный из LightRAG-базы знаний:
 
-- `master`: stable baseline.
-- `develop`: integration branch for active development.
-- `TVIDEO-XXX-short-name`: feature and task branches.
-- `release/<version>`: stabilization before a tagged release.
-- `hotfix/<name>`: urgent fixes from stable.
+- `master`: стабильная базовая ветка.
+- `develop`: интеграционная ветка активной разработки.
+- `TVIDEO-XXX-short-name`: ветки задач и фич.
+- `release/<version>`: стабилизация перед тегированным релизом.
+- `hotfix/<name>`: срочные исправления стабильной ветки.
 
-Branch names use an incrementing project task number:
+Имена веток используют возрастающий номер задачи:
 
 ```text
 TVIDEO-001-core-architecture
-TVIDEO-002-cli-foundation
-TVIDEO-003-editable-artifacts
+TVIDEO-002-core-pipeline-services
+TVIDEO-003-cli-foundation
 ```
 
-All development branches merge into `develop`. After all release gates pass,
-`develop` merges into `master`.
+Все рабочие ветки вливаются в `develop`. После прохождения релизных проверок
+ветка `develop` вливается в `master`.
 
-Before starting a task:
+Перед началом задачи:
 
 ```bash
 git checkout develop
@@ -29,85 +29,92 @@ git pull --ff-only origin develop
 git checkout -b TVIDEO-XXX-short-name
 ```
 
-## Commit Rules
+## Коммиты
 
-- Commit each meaningful milestone.
-- Keep commits scoped: docs, core model, CLI, UI, tests, or refactor.
-- Do not mix formatting churn with behavior changes.
-- Do not rewrite shared history unless explicitly requested.
-- Preferred commit format:
+- Коммитить каждый значимый этап.
+- Держать коммиты в узкой области: документация, модель ядра, CLI, UI, тесты
+  или рефакторинг.
+- Не смешивать форматирование с изменением поведения.
+- Не переписывать общую историю без явного запроса.
+- Предпочтительный формат сообщения:
   `TVIDEO-XXX - краткое описание до 8 слов`.
 
-## Versioning
+## Версионирование
 
-Use semantic versioning:
+Используется SemVer:
 
-- `0.x`: active design and API evolution.
-- `MAJOR`: incompatible public API or artifact format change.
-- `MINOR`: new capabilities.
-- `PATCH`: fixes with compatible behavior.
+- `0.x`: активное проектирование и развитие API.
+- `MAJOR`: несовместимое изменение публичного API или формата артефактов.
+- `MINOR`: новая совместимая возможность.
+- `PATCH`: совместимое исправление.
 
-The current version is stored in `VERSION`.
+Текущая версия хранится в `VERSION`.
 
-Every change merged into `master` must update `VERSION` and `change.log`:
+Каждое изменение, вливаемое в `master`, должно обновлять `VERSION` и
+`change.log`:
 
-- `PATCH`: small fix or bug fix.
-- `MINOR`: compatible behavior, process, or feature change.
-- `MAJOR`: incompatible behavior or manual migration.
+- `PATCH`: небольшое исправление или исправление дефекта.
+- `MINOR`: совместимое изменение поведения, процесса или новая возможность.
+- `MAJOR`: несовместимое поведение или ручная миграция.
 
-The first planned internal versions:
+План внутренних версий:
 
-- `0.1.0`: core project model and artifact store.
-- `0.2.0`: core pipeline services.
-- `0.3.0`: CLI around the existing translation pipeline.
-- `0.4.0`: editable artifacts, subtitles, and resume support.
-- `0.5.0`: local UI.
-- `0.6.0`: webhook/API layer for external orchestration.
+- `0.1.0`: модель проекта и хранилище артефактов.
+- `0.2.0`: сервисы ядра пайплайна.
+- `0.3.0`: CLI вокруг существующего пайплайна.
+- `0.4.0`: редактируемые артефакты, субтитры и возобновление задач.
+- `0.5.0`: локальный UI.
+- `0.6.0`: webhook/API-слой для внешней оркестрации.
 
-## Testing
+## Тестирование
 
-- Every code change must include focused tests for the changed behavior.
-- Do not modify unrelated tests to force a new implementation through.
-- Fixtures must stay small and deterministic.
-- Before every commit: run the full unit and integration suites.
-- Before every branch merge into `develop`: run full unit and integration suites.
-- Before every `develop` merge into `master`: run unit, integration, E2E, and load
-  test suites.
+- Каждое изменение кода должно добавлять сфокусированные тесты измененного
+  поведения.
+- Нельзя менять несвязанные тесты, чтобы подогнать их под новую реализацию.
+- Фикстуры должны быть маленькими и детерминированными.
+- Перед каждым коммитом запускаются полные модульные и интеграционные проверки.
+- Перед каждым слиянием рабочей ветки в `develop` запускаются полные модульные
+  и интеграционные проверки.
+- Перед каждым слиянием `develop` в `master` запускаются модульные,
+  интеграционные, E2E и нагрузочные тесты.
 
-Test levels:
+Уровни тестов:
 
-- Unit tests: deterministic tests for pure functions, schemas, adapters, and
-  validation.
-- Integration tests: multiple internal modules together, real artifact layout,
-  small local files, no heavy external services by default.
-- E2E tests: user-facing flows through CLI/API/UI using tiny media fixtures.
-- Load tests: throughput, concurrency, large-job behavior, queue pressure, and
-  resource usage.
+- Модульные тесты: детерминированные тесты чистых функций, схем, адаптеров и
+  валидации.
+- Интеграционные тесты: несколько внутренних модулей вместе, реальная структура
+  артефактов, маленькие локальные файлы, без тяжелых внешних сервисов по
+  умолчанию.
+- E2E-тесты: пользовательские сценарии через CLI/API/UI на маленьких
+  медиа-фикстурах.
+- Нагрузочные тесты: пропускная способность, параллельность, большие задачи, давление
+  на очереди и потребление ресурсов.
 
-Current command while only unit tests exist:
+Текущая команда полного прогона:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-Current syntax check:
+Проверка синтаксиса:
 
 ```bash
 python3 -m compileall -q src tests
 ```
 
-## Documentation
+## Документация
 
-- Every project folder has a README that explains ownership and intent.
-- Public modules should have concise docstrings.
-- Comments should explain decisions or non-obvious code paths.
-- Architecture changes must update `docs/architecture.md`.
+- Каждая проектная папка имеет README с назначением и зоной ответственности.
+- Публичные модули должны иметь короткие докстринги.
+- Комментарии объясняют решения или неочевидные участки кода.
+- Архитектурные изменения обновляют `docs/architecture.md`.
+- Вся документация, комментарии и докстринги ведутся на русском языке.
 
-## Definition of Done
+## Критерии Готовности
 
-- Code is implemented.
-- Tests for changed behavior exist.
-- Full test suite is green.
-- Documentation is updated.
-- Agent wiki notes record review comments for the milestone.
-- Changes are committed and pushed to the feature branch.
+- Код реализован.
+- Есть тесты измененного поведения.
+- Полный набор тестов зеленый.
+- Документация обновлена.
+- Wiki агентов содержит ревью-комментарии этапа.
+- Изменения закоммичены и запушены в ветку задачи.

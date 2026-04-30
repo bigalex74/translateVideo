@@ -1,3 +1,5 @@
+"""Модульные тесты конфигурации пайплайна."""
+
 import unittest
 from pathlib import Path
 
@@ -12,7 +14,11 @@ from translate_video.core.config import (
 
 
 class PipelineConfigTest(unittest.TestCase):
+    """Проверяет сериализацию и восстановление настроек пайплайна."""
+
     def test_round_trip_restores_enums_and_paths(self):
+        """Конфигурация должна восстанавливать enum-значения и пути."""
+
         config = PipelineConfig(
             source_language="en",
             target_language="ru",

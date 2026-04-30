@@ -1,4 +1,4 @@
-"""Render service interfaces."""
+"""Интерфейсы сервисов рендера."""
 
 from translate_video.render.base import Renderer
 

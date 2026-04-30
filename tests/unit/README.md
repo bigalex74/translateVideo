@@ -1,4 +1,5 @@
-# Unit Tests
+# Модульные Тесты
 
-Unit tests cover small deterministic behavior such as schemas, stores, provider
-contracts, and pipeline runner behavior. They must run before every commit.
+Модульные тесты покрывают небольшое детерминированное поведение: схемы,
+хранилища, контракты провайдеров и поведение раннера пайплайна. Они запускаются
+перед каждым коммитом.

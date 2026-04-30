@@ -1,4 +1,4 @@
-"""Artifact persistence for translation projects."""
+"""Сохранение артефактов и метаданных проектов перевода."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from translate_video.core.schemas import (
 
 
 class ProjectStore:
-    """Create and persist project folders with stable artifact names."""
+    """Создает и сохраняет папки проектов со стабильными именами артефактов."""
 
     PROJECT_FILE = "project.json"
     SETTINGS_FILE = "settings.json"
@@ -34,7 +34,7 @@ class ProjectStore:
         config: PipelineConfig | None = None,
         project_id: str | None = None,
     ) -> VideoProject:
-        """Create a project directory and write initial metadata."""
+        """Создать папку проекта и записать начальные метаданные."""
 
         input_path = Path(input_video)
         resolved_config = config or PipelineConfig()
@@ -50,14 +50,14 @@ class ProjectStore:
         return project
 
     def save_project(self, project: VideoProject) -> None:
-        """Persist project metadata and settings as JSON."""
+        """Сохранить метаданные проекта и настройки в JSON."""
 
         self._ensure_layout(project)
         self._write_json(project.work_dir / self.PROJECT_FILE, project.to_dict())
         self._write_json(project.work_dir / self.SETTINGS_FILE, project.config.to_dict())
 
     def load_project(self, work_dir: Path | str) -> VideoProject:
-        """Load a project from its working directory."""
+        """Загрузить проект из его рабочей папки."""
 
         payload = self._read_json(Path(work_dir) / self.PROJECT_FILE)
         return VideoProject.from_dict(payload)
@@ -68,7 +68,7 @@ class ProjectStore:
         segments: list[Segment],
         translated: bool = False,
     ) -> Path:
-        """Persist source or translated transcript segments."""
+        """Сохранить исходные или переведенные сегменты расшифровки."""
 
         project.segments = segments
         filename = self.TRANSLATED_TRANSCRIPT_FILE if translated else self.SOURCE_TRANSCRIPT_FILE
@@ -101,7 +101,7 @@ class ProjectStore:
         content_type: str,
         metadata: dict | None = None,
     ) -> ArtifactRecord:
-        """Register an artifact path relative to the project directory."""
+        """Зарегистрировать путь артефакта относительно папки проекта."""
 
         absolute_path = Path(path)
         if absolute_path.is_absolute():
@@ -128,7 +128,7 @@ class ProjectStore:
         project: VideoProject,
         kind: ArtifactKind,
     ) -> ArtifactRecord | None:
-        """Return the latest artifact record for a kind."""
+        """Вернуть последнюю запись артефакта указанного типа."""
 
         for record in reversed(project.artifact_records):
             if record.kind == kind:
@@ -136,14 +136,14 @@ class ProjectStore:
         return None
 
     def record_stage_run(self, project: VideoProject, run: StageRun) -> None:
-        """Insert or replace a stage run record by ID."""
+        """Вставить или заменить запись запуска этапа по ID."""
 
         project.stage_runs = [existing for existing in project.stage_runs if existing.id != run.id]
         project.stage_runs.append(run)
         self.save_project(project)
 
     def artifact_path(self, project: VideoProject, *parts: str) -> Path:
-        """Return a path inside a project directory without creating a file."""
+        """Вернуть путь внутри папки проекта без создания файла."""
 
         return project.work_dir.joinpath(*parts)
 

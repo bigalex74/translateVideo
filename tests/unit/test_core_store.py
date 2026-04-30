@@ -1,3 +1,5 @@
+"""Модульные тесты хранилища проектов и артефактов."""
+
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,7 +10,11 @@ from translate_video.core.store import ProjectStore
 
 
 class ProjectStoreTest(unittest.TestCase):
+    """Проверяет сохранение проектов, артефактов и запусков этапов."""
+
     def test_create_project_writes_layout_and_metadata(self):
+        """Создание проекта должно записывать базовую структуру и метаданные."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ProjectStore(Path(temp_dir) / "runs")
 
@@ -30,6 +36,8 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertEqual(restored.config.source_language, "en")
 
     def test_generated_project_id_matches_work_dir_name(self):
+        """Автоматический ID проекта должен совпадать с именем рабочей папки."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ProjectStore(Path(temp_dir) / "runs")
 
@@ -39,10 +47,12 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertTrue(project.id.startswith("lesson-"))
 
     def test_save_segments_updates_project_artifacts(self):
+        """Сохранение сегментов должно обновлять артефакты проекта."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ProjectStore(Path(temp_dir) / "runs")
             project = store.create_project("clip.mp4", project_id="clip")
-            segments = [Segment(id="seg_1", start=0.0, end=1.0, source_text="Hello")]
+            segments = [Segment(id="seg_1", start=0.0, end=1.0, source_text="Привет")]
 
             output_path = store.save_segments(project, segments, translated=True)
 
@@ -52,9 +62,11 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertEqual(restored.artifacts["translated_transcript"], "transcript.translated.json")
             self.assertEqual(restored.artifact_records[0].kind, "translated_transcript")
             self.assertEqual(restored.artifact_records[0].metadata["segments"], 1)
-            self.assertEqual(restored.segments[0].source_text, "Hello")
+            self.assertEqual(restored.segments[0].source_text, "Привет")
 
     def test_add_artifact_stores_relative_typed_record(self):
+        """Новый артефакт должен сохраняться как относительная типизированная запись."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ProjectStore(Path(temp_dir) / "runs")
             project = store.create_project("clip.mp4", project_id="clip")
@@ -74,6 +86,8 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertEqual(restored.artifact_records[0].stage, Stage.EXTRACT_AUDIO)
 
     def test_record_stage_run_replaces_same_run_id(self):
+        """Повторная запись запуска этапа с тем же ID должна заменять старую."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ProjectStore(Path(temp_dir) / "runs")
             project = store.create_project("clip.mp4", project_id="clip")

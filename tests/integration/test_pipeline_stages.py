@@ -1,3 +1,5 @@
+"""Интеграционные тесты этапов пайплайна с имитационными провайдерами."""
+
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,19 +19,31 @@ from translate_video.pipeline import (
 
 
 class FakeMediaProvider:
+    """Имитационный медиа-провайдер, создающий локальный аудио-артефакт."""
+
     def extract_audio(self, project):
+        """Создать минимальный файл исходного аудио."""
+
         path = project.work_dir / "source_audio.wav"
-        path.write_bytes(b"fake audio")
+        path.write_bytes(b"test audio")
         return path
 
 
 class FakeTranscriber:
+    """Имитационный распознаватель, возвращающий один сегмент."""
+
     def transcribe(self, audio_path, config):
-        return [Segment(id="seg_1", start=0.0, end=1.0, source_text="Hello")]
+        """Вернуть заранее известный исходный сегмент."""
+
+        return [Segment(id="seg_1", start=0.0, end=1.0, source_text="Привет")]
 
 
 class FakeTranslator:
+    """Имитационный переводчик, добавляющий код целевого языка к переводу."""
+
     def translate(self, segments, config):
+        """Вернуть переведенные сегменты с сохраненными ID и таймингами."""
+
         return [
             Segment(
                 id=segment.id,
@@ -43,23 +57,35 @@ class FakeTranslator:
 
 
 class FakeTTSProvider:
+    """Имитационный TTS-провайдер, создающий файлы озвучки сегментов."""
+
     def synthesize(self, project, segments):
+        """Заполнить `tts_path` и записать минимальные аудиофайлы."""
+
         for segment in segments:
             tts_path = project.work_dir / "tts" / f"{segment.id}.wav"
-            tts_path.write_bytes(b"fake speech")
+            tts_path.write_bytes(b"test speech")
             segment.tts_path = tts_path.relative_to(project.work_dir).as_posix()
         return segments
 
 
 class FakeRenderer:
+    """Имитационный рендерер, создающий минимальный итоговый видеофайл."""
+
     def render(self, project, segments):
+        """Создать итоговый видео-артефакт."""
+
         path = project.work_dir / "output" / "translated.mp4"
-        path.write_bytes(b"fake video")
+        path.write_bytes(b"test video")
         return path
 
 
 class PipelineStagesIntegrationTest(unittest.TestCase):
+    """Проверяет совместную работу хранилища, раннера, этапов и имитаций."""
+
     def test_pipeline_records_artifacts_and_stage_runs(self):
+        """Успешный сценарий должен записать артефакты и запуски этапов."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ProjectStore(Path(temp_dir) / "runs")
             project = store.create_project(
@@ -102,6 +128,8 @@ class PipelineStagesIntegrationTest(unittest.TestCase):
             self.assertEqual(restored.stage_runs[-1].inputs, ["transcript.translated.json", "tts"])
 
     def test_missing_required_artifact_fails_stage_and_stops_runner(self):
+        """Отсутствующий обязательный артефакт должен валить этап и раннер."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ProjectStore(Path(temp_dir) / "runs")
             project = store.create_project("lesson.mp4", project_id="lesson")
@@ -119,13 +147,15 @@ class PipelineStagesIntegrationTest(unittest.TestCase):
             self.assertEqual(restored.status, ProjectStatus.FAILED)
 
     def test_render_requires_tts_audio_artifact(self):
+        """Этап рендера должен требовать TTS-артефакт."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ProjectStore(Path(temp_dir) / "runs")
             project = store.create_project("lesson.mp4", project_id="lesson")
             context = StageContext(project=project, store=store)
             store.save_segments(
                 project,
-                [Segment(id="seg_1", start=0.0, end=1.0, source_text="Hello", translated_text="Привет")],
+                [Segment(id="seg_1", start=0.0, end=1.0, source_text="Привет", translated_text="Привет")],
                 translated=True,
             )
 

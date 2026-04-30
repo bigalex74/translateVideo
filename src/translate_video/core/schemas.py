@@ -1,4 +1,4 @@
-"""Serializable project schemas used across the engine."""
+"""Сериализуемые схемы проекта, используемые во всем движке."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from translate_video.core.config import PipelineConfig
 
 
 class SegmentStatus(StrEnum):
-    """Lifecycle states for one text/audio segment."""
+    """Состояния жизненного цикла одного текстового/аудио сегмента."""
 
     DRAFT = "draft"
     TRANSCRIBED = "transcribed"
@@ -23,7 +23,7 @@ class SegmentStatus(StrEnum):
 
 
 class ProjectStatus(StrEnum):
-    """Lifecycle states for one translation project."""
+    """Состояния жизненного цикла одного проекта перевода."""
 
     CREATED = "created"
     RUNNING = "running"
@@ -32,7 +32,7 @@ class ProjectStatus(StrEnum):
 
 
 class Stage(StrEnum):
-    """Pipeline stages used by jobs, artifacts, and webhook events."""
+    """Этапы пайплайна для задач, артефактов и webhook-событий."""
 
     INIT = "init"
     PROBE = "probe"
@@ -50,7 +50,7 @@ class Stage(StrEnum):
 
 
 class ArtifactKind(StrEnum):
-    """Stable artifact categories persisted inside project directories."""
+    """Стабильные категории артефактов внутри папки проекта."""
 
     SETTINGS = "settings"
     SOURCE_AUDIO = "source_audio"
@@ -65,7 +65,7 @@ class ArtifactKind(StrEnum):
 
 
 class JobStatus(StrEnum):
-    """Status for one rerunnable stage execution."""
+    """Статус одного перезапускаемого выполнения этапа."""
 
     PENDING = "pending"
     RUNNING = "running"
@@ -76,7 +76,7 @@ class JobStatus(StrEnum):
 
 @dataclass(slots=True)
 class ArtifactRecord:
-    """Typed artifact metadata stored relative to the project directory."""
+    """Типизированные метаданные артефакта с путем относительно проекта."""
 
     kind: ArtifactKind
     path: str
@@ -87,13 +87,13 @@ class ArtifactRecord:
     checksum: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-ready artifact record."""
+        """Вернуть JSON-совместимую запись артефакта."""
 
         return asdict(self)
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ArtifactRecord":
-        """Build an artifact record while restoring enum values."""
+        """Создать запись артефакта и восстановить enum-значения."""
 
         return cls(
             kind=ArtifactKind(payload["kind"]),
@@ -108,7 +108,7 @@ class ArtifactRecord:
 
 @dataclass(slots=True)
 class StageRun:
-    """One attempt to execute a pipeline stage."""
+    """Одна попытка выполнения этапа пайплайна."""
 
     stage: Stage
     status: JobStatus = JobStatus.PENDING
@@ -121,13 +121,13 @@ class StageRun:
     attempt: int = 1
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-ready stage run."""
+        """Вернуть JSON-совместимую запись запуска этапа."""
 
         return asdict(self)
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "StageRun":
-        """Build a stage run while restoring enum values."""
+        """Создать запись запуска этапа и восстановить enum-значения."""
 
         return cls(
             id=payload.get("id", f"stage_{uuid4().hex[:12]}"),
@@ -144,7 +144,7 @@ class StageRun:
 
 @dataclass(slots=True)
 class Segment:
-    """One speech segment and its translation state."""
+    """Один речевой сегмент и состояние его перевода."""
 
     start: float
     end: float
@@ -159,23 +159,23 @@ class Segment:
 
     def __post_init__(self) -> None:
         if self.end < self.start:
-            raise ValueError("segment end must be greater than or equal to start")
+            raise ValueError("конец сегмента должен быть больше или равен началу")
         self.status = SegmentStatus(self.status)
 
     @property
     def duration(self) -> float:
-        """Duration in seconds."""
+        """Длительность сегмента в секундах."""
 
         return self.end - self.start
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-ready representation of the segment."""
+        """Вернуть JSON-совместимое представление сегмента."""
 
         return asdict(self)
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Segment":
-        """Build a segment from JSON data."""
+        """Создать сегмент из JSON-данных."""
 
         data = dict(payload)
         data["status"] = SegmentStatus(data.get("status", "draft"))
@@ -184,7 +184,7 @@ class Segment:
 
 @dataclass(slots=True)
 class VideoProject:
-    """Persistent metadata for one translation run."""
+    """Сохраняемые метаданные одного запуска перевода."""
 
     input_video: Path
     work_dir: Path
@@ -200,7 +200,7 @@ class VideoProject:
         self.status = ProjectStatus(self.status)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-ready representation of the project."""
+        """Вернуть JSON-совместимое представление проекта."""
 
         return {
             "id": self.id,
@@ -216,7 +216,7 @@ class VideoProject:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "VideoProject":
-        """Build a project from JSON data."""
+        """Создать проект из JSON-данных."""
 
         return cls(
             id=payload["id"],

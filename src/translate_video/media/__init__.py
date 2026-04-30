@@ -1,4 +1,4 @@
-"""Media service interfaces."""
+"""Интерфейсы медиа-сервисов."""
 
 from translate_video.media.base import MediaProvider
 

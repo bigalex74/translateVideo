@@ -1,4 +1,4 @@
-"""Provider-neutral pipeline runner and stages."""
+"""Провайдер-независимые раннер и этапы пайплайна."""
 
 from translate_video.pipeline.context import StageContext
 from translate_video.pipeline.runner import PipelineRunner

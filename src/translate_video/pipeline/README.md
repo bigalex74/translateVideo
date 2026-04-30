@@ -1,5 +1,5 @@
-# Pipeline
+# Пайплайн
 
-The pipeline package coordinates provider-neutral stages. It records stage runs
-and artifacts through `ProjectStore`, which allows CLI, UI, and future webhooks
-to resume or inspect jobs consistently.
+Пакет пайплайна координирует провайдер-независимые этапы. Он записывает
+запуски этапов и артефакты через `ProjectStore`, чтобы CLI, UI и будущие
+webhook-интеграции могли единообразно продолжать и проверять задачи.

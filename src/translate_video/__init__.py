@@ -1,3 +1,3 @@
-"""Reusable AI video translation engine."""
+"""Переиспользуемый движок ИИ-перевода видео."""
 
 __version__ = "0.2.0"

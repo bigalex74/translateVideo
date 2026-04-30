@@ -1,11 +1,11 @@
-# Webhook and n8n Integration Plan
+# План Webhook-И API-Интеграции
 
-## Scope
+## Область
 
-n8n is not part of the first runtime. The first version keeps orchestration in
-Python, while reserving an API/webhook boundary for future automation.
+n8n не входит в процесс исполнения первой версии. Первая версия держит оркестрацию в
+Python, но заранее резервирует API/webhook-границу для будущей автоматизации.
 
-## Future Integration Shape
+## Будущая Схема Интеграции
 
 ```text
 n8n
@@ -13,23 +13,23 @@ n8n
   -> POST /api/projects/{id}/jobs
   -> GET /api/jobs/{id}
   -> GET /api/projects/{id}/artifacts
-  -> receive webhook events
+  -> получает webhook-события
 ```
 
-## Planned Events
+## Планируемые События
 
 ```json
 {
   "event": "job.stage.completed",
   "project_id": "example",
   "job_id": "job_123",
-  "stage": "translation",
+  "stage": "translate",
   "status": "completed",
   "artifact_path": "transcript.translated.json"
 }
 ```
 
-Events to support later:
+События для будущей поддержки:
 
 - `project.created`
 - `job.started`
@@ -39,10 +39,10 @@ Events to support later:
 - `qa.completed`
 - `render.completed`
 
-## Design Constraints
+## Ограничения Дизайна
 
-- Webhook payloads must be JSON-serializable and schema-versioned.
-- Payloads must contain IDs, status, stage, and artifact references.
-- External orchestrators should never need direct access to internal Python
-  objects.
-- API callers should be able to resume or rerun a failed stage.
+- Данные webhook должны быть JSON-сериализуемыми и иметь версию схемы.
+- Данные webhook должны содержать идентификаторы, статус, этап и ссылки на
+  артефакты.
+- Внешние оркестраторы не должны иметь доступ к внутренним Python-объектам.
+- API-клиент должен иметь возможность продолжить или перезапустить упавший этап.

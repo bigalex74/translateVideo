@@ -1,5 +1,6 @@
-# Media
+# Медиа
 
-Media services own file-level video and audio operations such as probing,
-extracting audio, and final mux/render operations. Provider implementations must
-stay behind interfaces so the pipeline can be tested with fakes.
+Медиа-сервисы отвечают за файловые операции с видео и аудио: анализ медиа,
+извлечение аудио и финальный mux/render. Реализации провайдеров должны быть
+спрятаны за интерфейсами, чтобы пайплайн можно было тестировать имитационными
+объектами.
