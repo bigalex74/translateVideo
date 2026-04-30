@@ -26,6 +26,16 @@ def bump_version(new_version):
     init_file.write_text(content, encoding="utf-8")
     print(f"Updated __init__.py to {new_version}")
 
+    # 4. change.log (add placeholder)
+    changelog_file = root / "change.log"
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    changelog_content = changelog_file.read_text(encoding="utf-8")
+    new_entry = f"## {new_version} - {today} - TYPE - TVIDEO-XXX-name\n\n- Описание изменений...\n\n"
+    changelog_content = changelog_content.replace("# Журнал Изменений\n", f"# Журнал Изменений\n\n{new_entry}")
+    changelog_file.write_text(changelog_content, encoding="utf-8")
+    print(f"Added placeholder to change.log for {new_version}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
