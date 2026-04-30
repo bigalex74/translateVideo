@@ -1,0 +1,73 @@
+.dashboard {
+    padding: 20px;
+    color: #e0e0e0;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+}
+
+input, button {
+    padding: 8px 12px;
+    background: #222;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+button.primary {
+    background: #0066cc;
+    border-color: #0055aa;
+}
+
+.project-card {
+    background: #1e1e1e;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.badge.completed { background: #2e7d32; }
+.badge.running { background: #f57f17; }
+.badge.failed { background: #c62828; }
+.badge.created { background: #455a64; }
+
+.stages ul {
+    list-style: none;
+    padding: 0;
+}
+
+.stages li {
+    padding: 10px;
+    background: #2a2a2a;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    border-left: 4px solid #555;
+}
+
+.stages li.completed { border-left-color: #4caf50; }
+.stages li.failed { border-left-color: #f44336; }
+.stages li.running { border-left-color: #ff9800; }
