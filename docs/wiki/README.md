@@ -1,9 +1,9 @@
 # Wiki
 
-This folder is the project wiki. It tracks product decisions, engineering
-notes, and development-agent review comments.
+В этой папке хранится wiki проекта: продуктовые решения, инженерные заметки и
+ревью-комментарии агентов разработки.
 
-Files:
+Файлы:
 
-- `agents.md`: standing responsibilities and milestone comments.
-- `roadmap.md`: planned delivery sequence.
+- `agents.md`: роли агентов и комментарии по этапам.
+- `roadmap.md`: план поставки версий.

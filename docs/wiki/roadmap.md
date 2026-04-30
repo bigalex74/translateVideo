@@ -1,38 +1,45 @@
-# Roadmap
+# Дорожная Карта
 
-## 0.1.0 Core Model
+## 0.1.0 Модель Ядра
 
-- Package structure.
-- Project and segment schemas.
-- Artifact store.
-- Pipeline configuration.
-- Focused unit tests.
+- Структура пакета.
+- Схемы проекта и сегментов.
+- Хранилище артефактов.
+- Конфигурация пайплайна.
+- Сфокусированные модульные тесты.
 
-## 0.2.0 CLI
+## 0.2.0 Сервисы Пайплайна Ядра
 
-- `translate-video` entrypoint.
-- Run current pipeline through the new core.
-- Per-video work directories.
-- Resume support.
+- Интерфейсы провайдеров для медиа, речи, перевода, TTS и рендера.
+- Последовательный раннер пайплайна.
+- Интеграционный путь с имитационными провайдерами.
+- Запись запусков этапов и артефактов.
 
-## 0.3.0 Editable Artifacts
+## 0.3.0 CLI
 
-- Import/export JSON.
-- SRT/VTT export.
-- Translation review artifact.
-- Timing report.
+- Точка входа `translate-video`.
+- Запуск текущего пайплайна через новое ядро.
+- Рабочие папки для каждого видео.
+- Поддержка возобновления задач.
 
-## 0.4.0 Local UI
+## 0.4.0 Редактируемые Артефакты
 
-- Project list.
-- Upload/select input video.
-- Settings form.
-- Segment table.
-- Render and download artifacts.
+- Импорт и экспорт JSON.
+- Экспорт SRT/VTT.
+- Артефакт проверки перевода.
+- Отчет по таймингам.
 
-## 0.5.0 API and Webhooks
+## 0.5.0 Локальный UI
 
-- Local REST API.
-- Job status.
-- Webhook event schemas.
-- n8n integration examples.
+- Список проектов.
+- Загрузка или выбор входного видео.
+- Форма настроек.
+- Таблица сегментов.
+- Рендер и скачивание артефактов.
+
+## 0.6.0 API И Webhooks
+
+- Локальный REST API.
+- Статус задачи.
+- Схемы webhook-событий.
+- Примеры интеграции с n8n.

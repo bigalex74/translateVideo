@@ -1,4 +1,4 @@
-"""Schema-versioned webhook events for future API and n8n integration."""
+"""Версионированные webhook-события для будущих API и n8n-интеграций."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from translate_video.core.schemas import JobStatus, Stage
 
 
 class WebhookEventType(StrEnum):
-    """Public event names consumed by API clients and future n8n workflows."""
+    """Публичные имена событий для API-клиентов и будущих n8n-сценариев."""
 
     PROJECT_CREATED = "project.created"
     JOB_STARTED = "job.started"
@@ -25,7 +25,7 @@ class WebhookEventType(StrEnum):
 
 @dataclass(slots=True)
 class WebhookEvent:
-    """A JSON-ready event emitted by the future job runner."""
+    """JSON-совместимое событие будущего раннера задач."""
 
     event: WebhookEventType
     project_id: str
@@ -44,12 +44,14 @@ class WebhookEvent:
         self.event = WebhookEventType(self.event)
         self.status = JobStatus(self.status)
         if self.stage is not None:
+            if self.stage == "translation":
+                self.stage = Stage.TRANSLATE
             self.stage = Stage(self.stage)
         if self.idempotency_key is None:
             stage_part = self.stage.value if self.stage else "project"
             self.idempotency_key = f"{self.project_id}:{self.event.value}:{stage_part}:{self.id}"
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-ready event payload for external orchestrators."""
+        """Вернуть JSON-совместимые данные события для внешних оркестраторов."""
 
         return asdict(self)

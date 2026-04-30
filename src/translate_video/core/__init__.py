@@ -1,4 +1,4 @@
-"""Core schemas and persistence helpers."""
+"""Схемы ядра и вспомогательные средства сохранения состояния."""
 
 from translate_video.core.config import PipelineConfig
 from translate_video.core.schemas import (

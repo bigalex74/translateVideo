@@ -1,98 +1,156 @@
-# Development Agents
+# Агенты Разработки
 
-The project uses lightweight review agents as written roles. They leave comments
-after meaningful milestones. Later these roles can map to real automated agents.
+В проекте используются легковесные роли ревью. Сейчас они ведутся как
+письменные роли в wiki, позже их можно сопоставить с реальными автоматическими
+агентами.
 
-## Roles
+Английские названия в скобках являются стабильными идентификаторами будущих
+агентских сервисов, а вся рабочая документация ведется на русском языке.
 
-### Product Owner Agent
+## Роли
 
-Owns user value, workflow clarity, and scope control.
+### Владелец Продукта (`Product Owner Agent`)
 
-### Analyst Agent
+Отвечает за пользовательскую ценность, понятность рабочего процесса и контроль
+объема работ.
 
-Owns requirements, edge cases, and acceptance criteria.
+### Аналитик (`Analyst Agent`)
 
-### Architect Agent
+Отвечает за требования, пограничные случаи и критерии приемки.
 
-Owns boundaries, artifact contracts, and long-term maintainability.
+### Архитектор (`Architect Agent`)
 
-### Translation Agent
+Отвечает за границы модулей, контракты артефактов и долгосрочную
+поддерживаемость.
 
-Owns translation quality, style, language handling, and glossary behavior.
+### Агент Перевода (`Translation Agent`)
 
-### Timing Agent
+Отвечает за качество перевода, стиль, языковую обработку и поведение глоссария.
 
-Owns segment duration, speech density, timing fit, and overlap prevention.
+### Агент Таймингов (`Timing Agent`)
 
-### Audio QA Agent
+Отвечает за длительность сегментов, плотность речи, подгонку таймингов и
+предотвращение наложений.
 
-Owns loudness, silence, clipping, track mix, and final media sanity.
+### Агент Проверки Аудио (`Audio QA Agent`)
 
-### Linguistic QA Agent
+Отвечает за громкость, тишину, клиппинг, сведение дорожек и базовую проверку
+итогового медиа.
 
-Owns semantic faithfulness, named entities, numbers, and target-language quality.
+### Агент Лингвистической Проверки (`Linguistic QA Agent`)
 
-### Test Engineer Agent
+Отвечает за смысловую точность, имена, числа и качество целевого языка.
 
-Owns focused test coverage and repeatable verification.
+### Инженер По Тестированию (`Test Engineer Agent`)
 
-### Release Manager Agent
+Отвечает за сфокусированное покрытие тестами и повторяемую верификацию.
 
-Owns versioning, changelog readiness, and git-flow hygiene.
+### Менеджер Релизов (`Release Manager Agent`)
 
-## Milestone Comments
+Отвечает за версионирование, готовность журнала изменений и чистоту git-flow.
 
-### Milestone: Core Architecture Scaffold
+## Комментарии По Этапам
 
-#### Product Owner Agent
+### Этап: Архитектурный Каркас Ядра
 
-- The scaffold follows the requested sequence: core first, CLI second, UI later.
-- Root README had to be updated because the old copy described the product as an
-  English-to-Russian script only.
-- Next CLI milestone must expose source language, target language, translation
-  mode, style, voice strategy, quality gate, and work directory.
-- Acceptance for the next milestone should include a concrete `qa_report.json`
-  contract, even if the first checks are minimal.
+#### Владелец Продукта
 
-#### Analyst Agent
+- Архитектурный каркас соблюдает запрошенный порядок: сначала ядро, затем CLI,
+  затем UI.
+- Корневой README пришлось обновить, потому что старая версия описывала продукт
+  только как скрипт перевода с английского на русский.
+- Следующий этап CLI должен вывести исходный язык, целевой язык, режим перевода,
+  стиль, стратегию голосов, проверку качества и рабочую директорию.
+- Для следующего этапа нужен конкретный контракт `qa_report.json`, даже если
+  первые проверки будут минимальными.
 
-- Any-language translation is represented in config, but provider capabilities
-  and fallback rules are not implemented yet.
-- Modes, styles, and voice strategies are present as configuration values. The
-  next milestones must map them to real rendering and voice-casting behavior.
-- n8n is excluded from v1 runtime, but webhook preparation exists through docs
-  and schema-versioned events.
+#### Аналитик
 
-#### Architect Agent
+- Перевод между любыми языками представлен в конфигурации, но возможности
+  провайдеров и правила резервного поведения пока не реализованы.
+- Режимы, стили и стратегии голосов присутствуют как значения конфигурации.
+  Следующие этапы должны привязать их к реальному рендеру и подбору голосов.
+- n8n исключен из первой версии исполнения, но подготовка webhook есть в
+  документации и версионированных событиях.
 
-- The core package boundary is clean and independent from CLI/UI/media
-  providers.
-- The legacy `main.py` still owns the executable runtime and must be decomposed
-  before the CLI becomes the main entrypoint.
-- Project identity now uses one canonical value for `project.id` and
+#### Архитектор
+
+- Граница пакета ядра чистая и не зависит от CLI, UI и медиа-провайдеров.
+- Устаревший `main.py` все еще владеет исполняемым процессом и должен быть
+  разобран до того, как CLI станет основной точкой входа.
+- Идентификатор проекта использует единое значение для `project.id` и
   `work_dir.name`.
-- Artifact metadata now has typed records while keeping the simple artifact
-  lookup map for compatibility.
-- Stage/job foundation exists, but a real stage runner is still required before
-  API/UI work.
+- Метаданные артефактов теперь имеют типизированные записи, сохраняя простую
+  карту поиска для совместимости.
+- База этапов и задач есть, но перед API/UI нужен настоящий раннер этапов.
 
-#### Test Engineer Agent
+#### Инженер По Тестированию
 
-- Focused tests cover config round trips, segment timing, project persistence,
-  artifact records, and webhook events.
-- Current verification command:
+- Сфокусированные тесты покрывают цикл сохранения и восстановления
+  конфигурации, тайминги сегментов, сохранение проекта, записи артефактов и
+  webhook-события.
+- Текущая команда проверки:
   `PYTHONPATH=src python3 -m unittest discover -s tests`.
-- Syntax verification command:
+- Команда проверки синтаксиса:
   `python3 -m compileall -q src tests`.
-- Keep using the standard-library test runner until the project intentionally
-  adds a dev dependency manager.
+- Используем стандартный тестовый раннер до осознанного добавления менеджера
+  dev-зависимостей.
 
-#### Release Manager Agent
+#### Менеджер Релизов
 
-- Version remains `0.1.0` while the core model is being established.
-- Branch follows the documented flow: `feature/core-architecture-scaffold` from
-  `develop`.
-- Python requirement is now consistently `3.11+`.
-- Before merging to `develop`, rerun tests, syntax compilation, and
+- Версия остается `0.1.0`, пока устанавливается модель ядра.
+- Ветка следовала документированному процессу от `develop`.
+- Требование Python согласовано как `3.11+`.
+- Перед слиянием в `develop` нужно повторить тесты, проверку синтаксиса и
   `git diff --check`.
+
+### Этап: Сервисы Пайплайна Ядра
+
+#### Владелец Продукта
+
+- Этап развивает запрошенный порядок: сервисы пайплайна ядра создаются до
+  CLI и UI.
+- Режим, стиль и стратегия голосов пока остаются в основном конфигурацией.
+  Следующие этапы должны доказать поведение для `voiceover`, `subtitles` и одного из
+  `dub` или `dual_audio`.
+- Автономный путь стал ближе: этапы с имитационными провайдерами могут
+  выполняться без ручной проверки. Проверка качества и политики повторов
+  остаются будущей работой.
+
+#### Аналитик
+
+- Контракты провайдеров получают `PipelineConfig`, поэтому настройки языков и
+  стиля смогут дойти до реальных провайдеров.
+- Текущие этапы покрывают извлечение, распознавание, перевод, TTS и рендер. В
+  плане остаются анализ медиа, анализ спикеров, подбор голосов, подгонка
+  таймингов, сведение, QA и экспорт.
+- Готовность webhook пока на уровне контрактов; генерация событий в раннере и
+  этапах ожидается в будущем этапе API задач.
+
+#### Архитектор
+
+- Сервисы пайплайна провайдер-независимы и тестируются имитационными
+  провайдерами.
+- `PipelineRunner` обновляет `VideoProject.status` в `running`, `completed` или
+  `failed`.
+- `StageRun` содержит отметки времени, входы, выходы и ошибки.
+- Последующие этапы проверяют обязательные артефакты до выполнения.
+- Результат TTS регистрируется как типизированный артефакт для проверки
+  возобновления и экспорта.
+
+#### Инженер По Тестированию
+
+- Тесты ядра перенесены в `tests/unit`, поэтому модульная проверка покрывает
+  схемы, хранилище, webhook, раннер и проверки версии.
+- Интеграционные тесты покрывают успешный путь имитационных провайдеров и
+  предварительные условия отказов.
+- E2E и нагрузочные проверки исполняемы и содержат дымовые тесты проверок.
+- Текущая полная проверка:
+  `PYTHONPATH=src python3 -m unittest discover -s tests`.
+
+#### Менеджер Релизов
+
+- Метаданные версии согласованы на `0.2.0` в `VERSION`, `pyproject.toml` и
+  `__version__` пакета.
+- `change.log` содержит запись `TVIDEO-002-core-pipeline-services`.
+- Имя ветки соответствует согласованному формату `TVIDEO-XXX-short-name`.

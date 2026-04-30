@@ -1,11 +1,13 @@
-# Core
+# Ядро
 
-The core package contains interface-neutral project models and persistence
-helpers. It must not import CLI, UI, MoviePy, Whisper, or TTS providers.
+Пакет ядра содержит модели проекта и вспомогательные средства сохранения,
+независимые от
+интерфейсов. Он не должен импортировать CLI, UI, MoviePy, Whisper или
+TTS-провайдеры.
 
-Core responsibilities:
+Зоны ответственности ядра:
 
-- language-agnostic translation configuration;
-- segment and project schemas;
-- deterministic artifact paths;
-- future webhook event contracts for n8n/API orchestration.
+- языконезависимая конфигурация перевода;
+- схемы сегментов, проектов, артефактов и запусков этапов;
+- детерминированные пути артефактов;
+- контракты webhook-событий для будущей API/n8n-оркестрации.

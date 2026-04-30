@@ -1,11 +1,20 @@
-# Tests
+# Тесты
 
-Tests are focused on behavior added in the same milestone. Run the current suite
-with:
+Тесты покрывают поведение, добавленное или измененное в том же этапе.
+Текущая команда полного прогона:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-Keep fixtures small and avoid media files unless a test specifically requires
-them.
+Фикстуры должны быть маленькими. Медиафайлы добавляются только если конкретный
+тест не может быть написан без них.
+
+Текущие уровни:
+
+- `unit/`: чистые и детерминированные тесты, включая схемы ядра и логику
+  хранилища.
+- `integration/`: тесты нескольких внутренних модулей вместе с имитационными
+  провайдерами.
+- `e2e/`: будущие пользовательские дымовые потоки через CLI/API/UI.
+- `load/`: будущие тесты параллельности и нагрузки.

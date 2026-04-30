@@ -1,10 +1,13 @@
-# translate_video Package
+# Пакет translate_video
 
-This package contains the reusable video translation engine. The package should
-stay independent from any single interface: CLI, UI, and future webhooks all
-call into this code.
+Пакет содержит переиспользуемый движок перевода видео. Он не должен зависеть от
+конкретного интерфейса: CLI, UI и будущие webhook-интеграции вызывают этот код, а не
+дублируют бизнес-логику.
 
-Current scope:
+Текущая область:
 
-- `core/`: project schemas, configuration, artifact storage, and webhook event
-  contracts.
+- `core/`: схемы проекта, конфигурация, хранилище артефактов и контракты
+  webhook-событий.
+- `media/`, `speech/`, `translation/`, `tts/`, `render/`: контракты
+  провайдеров.
+- `pipeline/`: провайдер-независимые этапы и раннер.

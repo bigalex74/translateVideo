@@ -1,5 +1,4 @@
-# Source
+# Исходный Код
 
-Production Python packages live here. The current package is
-`translate_video`, which owns the reusable core before CLI and UI layers are
-added.
+Здесь находятся рабочие Python-пакеты. Текущий пакет `translate_video`
+содержит переиспользуемое ядро, на котором позже будут построены CLI и UI.

@@ -1,9 +1,19 @@
-# Change Log
+# Журнал Изменений
+
+## 0.2.0 - 2026-04-30 - MINOR - TVIDEO-002-core-pipeline-services
+
+- Добавлены интерфейсы провайдеров для медиа, распознавания речи, перевода,
+  TTS и рендера.
+- Добавлены провайдер-независимые этапы пайплайна и последовательный раннер.
+- Добавлены вспомогательные функции для сохранения типизированных артефактов и
+  запусков этапов.
+- Добавлены модульные и интеграционные тесты с имитационными провайдерами.
 
 ## 0.1.0 - 2026-04-30 - MINOR - TVIDEO-001-core-architecture
 
-- Added architecture, development process, webhook plan, and project wiki.
-- Added core package with typed config, project, segment, artifact, stage, and
-  webhook contracts.
-- Added focused unit tests for core contracts.
-- Updated README to describe the multilingual core-first direction.
+- Добавлены архитектура, процесс разработки, webhook-план и wiki проекта.
+- Добавлен пакет ядра с типизированными контрактами конфигурации, проекта,
+  сегментов, артефактов, этапов и webhook.
+- Добавлены сфокусированные модульные тесты контрактов ядра.
+- README обновлен под мультиязычное направление проекта, где ядро строится
+  первым.
