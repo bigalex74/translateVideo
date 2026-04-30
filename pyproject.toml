@@ -1,0 +1,21 @@
+[project]
+name = "translate-video"
+version = "0.1.0"
+description = "AI video translation engine with CLI and UI surfaces."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "moviepy==1.0.3",
+    "faster-whisper",
+    "deep-translator",
+    "edge-tts",
+    "pydub",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
