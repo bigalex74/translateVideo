@@ -13,6 +13,7 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "httpx",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
