@@ -24,7 +24,8 @@ AI Video Translator развивается из одного Python-скрипт
 - языконезависимая конфигурация пайплайна;
 - типизированные схемы проекта, сегментов, артефактов, этапов и webhook;
 - хранилище артефактов для каждого проекта;
-- тесты контрактов ядра и сервисов пайплайна.
+- провайдер-независимый раннер пайплайна;
+- CLI-команды для создания, запуска и просмотра проектов.
 
 ## Планируемые Возможности
 
@@ -62,6 +63,23 @@ python3 main.py "path/to/video.mp4"
 Устаревший скрипт записывает `translated_<input-name>` рядом с исходным видео.
 Позже эта точка входа станет тонким CLI-адаптером поверх нового ядра.
 
+## Использование CLI
+
+Пока CLI использует имитационные провайдеры, чтобы проверять ядро без внешних
+моделей и тяжелой обработки медиа. Реальные адаптеры добавляются отдельно.
+
+```bash
+PYTHONPATH=src python3 -m translate_video.cli init "path/to/video.mp4" \
+  --project-id demo \
+  --source-language en \
+  --target-language ru
+
+PYTHONPATH=src python3 -m translate_video.cli run --work-dir runs/demo
+PYTHONPATH=src python3 -m translate_video.cli status runs/demo
+PYTHONPATH=src python3 -m translate_video.cli artifacts runs/demo
+PYTHONPATH=src python3 -m translate_video.cli config runs/demo
+```
+
 ## Тесты
 
 ```bash
@@ -72,6 +90,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 
 - `main.py`: устаревший прототип пайплайна.
 - `src/translate_video/`: переиспользуемый пакет в активной разработке.
+- `src/translate_video/cli.py`: CLI-адаптер поверх ядра.
 - `tests/`: сфокусированные тесты изменяемого поведения.
 - `docs/`: архитектура, процесс разработки, webhook-план и wiki.
 - `requirements.txt`: зависимости устаревшего скрипта.
