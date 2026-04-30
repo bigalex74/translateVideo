@@ -1,0 +1,19 @@
+[project]
+name = "translate-video"
+version = "0.4.0"
+description = "Движок ИИ-перевода видео с CLI и UI-интерфейсами."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "moviepy==1.0.3",
+    "faster-whisper",
+    "deep-translator",
+    "edge-tts",
+    "pydub",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+translate-video = "translate_video.cli:main"
