@@ -6,7 +6,7 @@ services:
     container_name: video-translator
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8002:8002"
     volumes:
       - ./runs:/app/runs
     environment:

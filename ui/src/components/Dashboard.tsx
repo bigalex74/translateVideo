@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { getProjectStatus, runPipeline } from '../api/client';
 import type { VideoProject } from '../types/schemas';
-import { Play, Clock } from 'lucide-react';
+import { Play, Clock, FolderOpen } from 'lucide-react';
 import './Dashboard.css';
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+    onOpenProject: (id: string) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
     const [project, setProject] = useState<VideoProject | null>(null);
     const [projectId, setProjectId] = useState('demo');
 
@@ -50,7 +54,12 @@ export const Dashboard: React.FC = () => {
             <main>
                 {project ? (
                     <div className="project-card">
-                        <h3>{project.project_id}</h3>
+                        <div className="card-header">
+                            <h3>{project.project_id}</h3>
+                            <button onClick={() => onOpenProject(project.project_id)} className="open-btn">
+                                <FolderOpen size={16}/> Open Workspace
+                            </button>
+                        </div>
                         <span className={`status badge ${project.status}`}>{project.status}</span>
                         <p>Work Dir: {project.work_dir}</p>
                         

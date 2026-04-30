@@ -123,7 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     server_parser = subparsers.add_parser("server", help="запустить локальный API сервер")
     server_parser.add_argument("--host", default="127.0.0.1", help="хост для сервера")
-    server_parser.add_argument("--port", type=int, default=8000, help="порт для сервера")
+    server_parser.add_argument("--port", type=int, default=8002, help="порт для сервера")
     server_parser.add_argument("--work-root", type=Path, default=Path("runs"), help="корень рабочих папок")
     server_parser.set_defaults(handler=_handle_server)
 

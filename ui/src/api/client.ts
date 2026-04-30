@@ -1,6 +1,9 @@
 import type { VideoProject } from "../types/schemas";
 
-const API_BASE = "http://localhost:8000/api/v1";
+// Если приложение запущено на домене, используем относительный путь, 
+// иначе fallback на localhost (для локальной разработки)
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE = isLocalhost ? "http://localhost:8002/api/v1" : "/api/v1";
 
 export async function createProject(input_video: string, project_id?: string, config?: any): Promise<VideoProject> {
     const res = await fetch(`${API_BASE}/projects`, {

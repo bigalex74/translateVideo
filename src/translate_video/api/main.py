@@ -32,6 +32,11 @@ def health_check():
     """Проверка доступности сервиса."""
     return {"status": "ok", "version": __version__}
 
+# Подключаем папку с артефактами (видео, аудио) для доступа из браузера
+work_root = Path(os.getenv("WORK_ROOT", "runs"))
+work_root.mkdir(parents=True, exist_ok=True)
+app.mount("/runs", StaticFiles(directory=str(work_root)), name="runs")
+
 # Задел для будущей интеграции фронтенда (Статика из React Vite)
 ui_dist = Path(__file__).parent.parent.parent.parent / "ui" / "dist"
 if ui_dist.exists():

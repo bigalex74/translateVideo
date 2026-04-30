@@ -1,0 +1,63 @@
+.new-project {
+    padding: 20px;
+    max-width: 600px;
+}
+
+.wizard-form {
+    background: #1e1e1e;
+    padding: 30px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-row {
+    display: flex;
+    gap: 20px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+label {
+    font-size: 0.9rem;
+    color: #bbb;
+}
+
+input, select {
+    padding: 10px;
+    background: #252525;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+input:focus, select:focus {
+    border-color: #0066cc;
+    outline: none;
+}
+
+.submit-btn {
+    margin-top: 10px;
+    padding: 12px;
+    font-size: 1rem;
+    justify-content: center;
+}
+
+.error-message {
+    padding: 10px;
+    background: rgba(244, 67, 54, 0.1);
+    border-left: 4px solid #f44336;
+    color: #ff8a80;
+    border-radius: 4px;
+}
