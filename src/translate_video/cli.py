@@ -16,6 +16,7 @@ from translate_video.core.config import (
     TranslationStyle,
     VoiceStrategy,
 )
+from translate_video.core.preflight import run_preflight
 from translate_video.core.schemas import Segment
 from translate_video.core.store import ProjectStore
 from translate_video.pipeline import (
@@ -67,6 +68,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="набор провайдеров для запуска",
     )
     run_parser.set_defaults(handler=_handle_run)
+
+    preflight_parser = subparsers.add_parser(
+        "preflight",
+        help="проверить файл и окружение без запуска перевода",
+    )
+    preflight_parser.add_argument("input_video", type=Path, help="путь к исходному видео")
+    preflight_parser.add_argument(
+        "--provider",
+        choices=["fake", "legacy"],
+        default="legacy",
+        help="набор провайдеров, готовность которого нужно проверить",
+    )
+    preflight_parser.set_defaults(handler=_handle_preflight)
 
     status_parser = subparsers.add_parser("status", help="показать статус проекта")
     status_parser.add_argument("work_dir", type=Path, help="папка проекта")
@@ -146,6 +160,12 @@ def _handle_run(args: argparse.Namespace) -> dict:
     summary = _project_summary(restored)
     summary["runs"] = [run.to_dict() for run in runs]
     return summary
+
+
+def _handle_preflight(args: argparse.Namespace) -> dict:
+    """Проверить входной файл и окружение без запуска пайплайна."""
+
+    return run_preflight(args.input_video, args.provider).to_dict()
 
 
 def _handle_status(args: argparse.Namespace) -> dict:

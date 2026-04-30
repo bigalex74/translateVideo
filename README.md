@@ -25,7 +25,8 @@ AI Video Translator развивается из одного Python-скрипт
 - типизированные схемы проекта, сегментов, артефактов, этапов и webhook;
 - хранилище артефактов для каждого проекта;
 - провайдер-независимый раннер пайплайна;
-- CLI-команды для создания, запуска и просмотра проектов.
+- CLI-команды для предварительной проверки, создания, запуска и просмотра
+  проектов.
 
 ## Планируемые Возможности
 
@@ -70,6 +71,9 @@ python3 main.py "path/to/video.mp4"
 устаревшего скрипта используйте `--provider legacy`.
 
 ```bash
+PYTHONPATH=src python3 -m translate_video.cli preflight "path/to/video.mp4" \
+  --provider legacy
+
 PYTHONPATH=src python3 -m translate_video.cli init "path/to/video.mp4" \
   --project-id demo \
   --source-language en \
@@ -105,5 +109,6 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 - `docs/architecture.md`
 - `docs/development-process.md`
 - `docs/testing-strategy.md`
+- `docs/manual-testing.md`
 - `docs/webhooks.md`
 - `docs/wiki/roadmap.md`
