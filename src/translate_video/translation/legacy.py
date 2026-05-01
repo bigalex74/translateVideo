@@ -1,36 +1,47 @@
-"""deep-translator адаптер перевода сегментов.
+"""deep-translator адаптер перевода сегментов (TVIDEO-038).
 
-Стратегия "Единый текст":
-1. Объединить source_text всех сегментов в один связный параграф.
-2. Перевести одним запросом — переводчик видит полный контекст.
-3. Выровнять переведённый текст обратно по сегментам через
-   жадный алгоритм по предложениям.
-4. Fallback на поштучный перевод при любой ошибке выравнивания.
+Стратегия «Маркер-разделитель»:
+1. Объединить source_text сегментов через разделитель |||.
+2. Перевести одним запросом — переводчик видит весь контекст.
+3. Разбить результат обратно по ||| → ровно 1 перевод на 1 сегмент.
+4. Проверить количество частей: len(parts) == len(segments).
+5. Fallback на поштучный перевод при любом несоответствии.
+
+Преимущество перед старым «единым текстом»:
+Маркер сохраняется при переводе, поэтому результат всегда
+точно соответствует количеству сегментов — нет рассинхрона.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 
 from translate_video.core.schemas import Segment
 
+logger = logging.getLogger(__name__)
+
 # Максимальная длина одного запроса (Google Translate ~5000 символов).
 _MAX_CHARS = 4500
 
-# Знаки конца предложения для разбивки переведённого текста.
-_SENTENCE_END = re.compile(r'(?<=[.!?…])\s+')
+# Разделитель между сегментами. Google Translate сохраняет |||.
+# Пробелы вокруг важны — без них переводчик может слить слова.
+_SEP = " ||| "
+
+# Паттерн для нормализации разделителя после перевода:
+# Переводчик может вернуть | || |, |||, || |, |  |  | и т.п.
+_SEP_RE = re.compile(r"\s*\|{2,3}\s*")
 
 
 class GoogleSegmentTranslator:
     """Переводит сегменты через `deep-translator` GoogleTranslator.
 
-    Алгоритм единого контекстного перевода:
-    1. Объединяем все source_text через пробел в единый текст.
-    2. Переводим одним запросом — контекст сохраняется.
-    3. Разбиваем результат на предложения.
-    4. Жадно распределяем предложения по сегментам пропорционально
-       длине исходного текста.
-    5. Fallback на поштучный перевод при несовпадении.
+    Алгоритм маркера-разделителя:
+    1. Группируем сегменты в батчи по _MAX_CHARS.
+    2. Внутри батча объединяем через |||.
+    3. Переводим одним запросом.
+    4. Разбиваем по ||| обратно — гарантируем 1:1.
+    5. При несоответствии — fallback поштучно для этого батча.
     """
 
     def __init__(self, translator_factory=None) -> None:
@@ -47,7 +58,6 @@ class GoogleSegmentTranslator:
             target=config.target_language,
         )
 
-        # Разделяем на батчи по длине символов
         batches = _make_batches(segments)
         translated_texts: list[str] = []
 
@@ -61,13 +71,17 @@ class GoogleSegmentTranslator:
 # ─── Батчинг ────────────────────────────────────────────────────────────────
 
 def _make_batches(segments: list[Segment]) -> list[list[Segment]]:
-    """Разбить сегменты на батчи ≤ MAX_CHARS символов."""
+    """Разбить сегменты на батчи ≤ MAX_CHARS символов.
+
+    Учитывает длину разделителя при подсчёте.
+    """
     batches: list[list[Segment]] = []
     current: list[Segment] = []
     current_len = 0
 
     for seg in segments:
-        text_len = len(seg.source_text) + 1  # +1 на пробел-разделитель
+        # +len(_SEP) на разделитель между сегментами
+        text_len = len(seg.source_text) + len(_SEP)
         if current and current_len + text_len > _MAX_CHARS:
             batches.append(current)
             current = []
@@ -84,9 +98,9 @@ def _make_batches(segments: list[Segment]) -> list[list[Segment]]:
 # ─── Перевод батча ───────────────────────────────────────────────────────────
 
 def _translate_batch(segments: list[Segment], translator) -> list[str]:
-    """Перевести батч единым текстом с выравниванием по сегментам.
+    """Перевести батч через маркер ||| с fallback на поштучный.
 
-    При любой ошибке — fallback поштучно.
+    Гарантирует len(result) == len(segments).
     """
     if len(segments) == 1:
         text = segments[0].source_text.strip()
@@ -96,90 +110,66 @@ def _translate_batch(segments: list[Segment], translator) -> list[str]:
             result = text
         return [result or ""]
 
-    # Объединяем в единый текст
-    combined = " ".join(seg.source_text.strip() for seg in segments)
+    combined = _SEP.join(seg.source_text.strip() for seg in segments)
 
     try:
         translated = translator.translate(combined) or ""
     except Exception:  # noqa: BLE001
+        logger.warning("Google Translate упал → поштучный fallback (%d сегм.)", len(segments))
         return _translate_one_by_one(segments, translator)
 
     if not translated.strip():
         return _translate_one_by_one(segments, translator)
 
-    # Выравниваем переведённый текст по сегментам
-    result = _align_translation(translated, segments)
-    if result is not None:
-        return result
+    parts = _split_by_separator(translated, expected=len(segments))
+    if parts is not None:
+        return parts
 
+    # Маркер потерян или количество не совпало → fallback
+    logger.warning(
+        "Маркер ||| не сохранился после перевода → поштучный fallback (%d сегм.)",
+        len(segments),
+    )
     return _translate_one_by_one(segments, translator)
 
 
-# ─── Выравнивание ────────────────────────────────────────────────────────────
+def _split_by_separator(translated: str, expected: int) -> list[str] | None:
+    """Разбить переведённый текст по маркеру ||| и проверить количество.
 
-def _align_translation(translated: str, segments: list[Segment]) -> list[str] | None:
-    """Распределить переведённый текст по сегментам жадным алгоритмом.
-
-    Алгоритм:
-    1. Разбить переведённый текст на предложения.
-    2. Вычислить целевую длину текста для каждого сегмента пропорционально
-       длине исходника.
-    3. Жадно добавлять предложения в сегмент пока не достигнем целевой длины.
+    Возвращает список из `expected` строк или None если не получилось.
+    Пустые части сохраняются — они могут быть законными пустыми переводами.
     """
-    sentences = _split_sentences(translated)
-    if not sentences:
-        return None
+    parts = [p.strip() for p in _SEP_RE.split(translated)]
+    # Убираем пустые артефакты только в начале и конце
+    while parts and not parts[0]:
+        parts.pop(0)
+    while parts and not parts[-1]:
+        parts.pop()
 
-    n = len(segments)
-    total_source_len = sum(len(s.source_text) for s in segments)
-    if total_source_len == 0:
-        return None
+    if len(parts) == expected:
+        return parts
 
-    total_translated_len = len(translated)
+    # Иногда переводчик добавляет/убирает один разделитель
+    alt = [p.strip() for p in translated.split("|||")]
+    while alt and not alt[0]:
+        alt.pop(0)
+    while alt and not alt[-1]:
+        alt.pop()
 
-    result = []
-    sent_idx = 0
+    if len(alt) == expected:
+        return alt
 
-    for seg_idx, seg in enumerate(segments):
-        # Последний сегмент берёт все оставшиеся предложения
-        if seg_idx == n - 1:
-            result.append(" ".join(sentences[sent_idx:]).strip())
-            break
-
-        # Целевая длина текста для этого сегмента (пропорционально)
-        target_len = (len(seg.source_text) / total_source_len) * total_translated_len
-
-        seg_text_parts = []
-        accumulated = 0
-
-        while sent_idx < len(sentences):
-            s = sentences[sent_idx]
-            seg_text_parts.append(s)
-            accumulated += len(s) + 1
-            sent_idx += 1
-            # Берём хотя бы одно предложение и останавливаемся когда достигли цели
-            if accumulated >= target_len * 0.7:
-                break
-
-        result.append(" ".join(seg_text_parts).strip())
-
-    # Если что-то пошло не так
-    if len(result) != n:
-        return None
-
-    return result
-
-
-def _split_sentences(text: str) -> list[str]:
-    """Разбить текст на предложения по знакам препинания."""
-    parts = _SENTENCE_END.split(text.strip())
-    return [p.strip() for p in parts if p.strip()]
+    logger.debug(
+        "Разделитель: ожидали %d частей, получили %d (alt: %d). Текст: %r…",
+        expected, len(parts), len(alt), translated[:80],
+    )
+    return None
 
 
 # ─── Поштучный fallback ──────────────────────────────────────────────────────
 
 def _translate_one_by_one(segments: list[Segment], translator) -> list[str]:
-    """Поштучный перевод (fallback)."""
+    """Поштучный перевод (fallback при потере маркера)."""
     results = []
     for seg in segments:
         text = seg.source_text.strip()
