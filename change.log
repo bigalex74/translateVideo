@@ -1,5 +1,29 @@
 # Журнал Изменений
 
+## 1.4.0 - 2026-05-01 - MINOR - TVIDEO-029
+
+### 029a: Поллинг статуса (критический баг)
+- Выделен отдельный useEffect поллинга (срабатывает только при status=running).
+- Поллинг вызывает getProjectStatus напрямую, игнорирует dirty-флаг.
+- handleRunConfirmed: убран ложный await loadProject после POST /run.
+- 7 vitest-тестов логики поллинга (polling.test.ts).
+
+### 029b: Pitch-safe ускорение TTS (ffmpeg atempo)
+- fl_time заменён на ffmpeg atempo — pitch-neutral ускорение.
+- Цепочка фильтров для factor>2.0 (каждый atempo ограничен [0.5, 2.0]).
+- Fallback на исходный клип при ошибке ffmpeg.
+- 9 unit-тестов (test_pitch_safe_speed.py).
+
+### 029c: Связный перевод (единый текст без маркеров)
+- Убраны маркеры [N] — они разрушали контекст внутри Google Translate.
+- Все сегменты объединяются в один текст → 1 API-запрос.
+- Жадное выравнивание предложений по сегментам пропорционально длине.
+- Fallback поштучно при любой ошибке выравнивания.
+- 15 unit-тестов (test_bulk_translate.py обновлён).
+- 210 Python + 23 vitest, все зелёные.
+
+
+
 ## 1.3.1 - 2026-05-01 - PATCH - TVIDEO-028-fix-speedx-moviepy
 
 - Исправлена ошибка `cannot import name audio_speedx from moviepy.audio.fx.all`:
