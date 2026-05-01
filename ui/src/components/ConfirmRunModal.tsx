@@ -30,7 +30,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
         <div className="modal-header">
           <AlertTriangle size={22} className="text-warning" />
           <h3 id="confirm-run-title">
-            {isForce ? 'Запустить заново?' : 'Запустить перевод?'}
+            {isForce ? 'Запустить заново?' : 'Продолжить перевод?'}
           </h3>
           <button className="btn-icon" onClick={onCancel} aria-label="Закрыть">
             <X size={18} />
@@ -47,6 +47,17 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
             <div className="modal-warning modal-warning--info">
               <Info size={14} />
               <span>{providerNote}</span>
+            </div>
+          )}
+
+          {/* Пояснение для resume */}
+          {!isForce && (
+            <div className="modal-warning modal-warning--info">
+              <Info size={14} />
+              <span>
+                Уже завершённые этапы будут пропущены. Выполнение продолжится
+                с первого незавершённого или упавшего этапа.
+              </span>
             </div>
           )}
 
@@ -80,7 +91,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
           <button className="btn-primary" onClick={onConfirm} autoFocus>
             {isForce
               ? <><RefreshCw size={16} /> Запустить заново</>
-              : <><Play size={16} /> Запустить</>
+              : <><Play size={16} /> Продолжить</>
             }
           </button>
         </div>

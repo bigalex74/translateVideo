@@ -10,7 +10,7 @@ import { getPersistedProvider } from './Settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings, X,
-  Film, AlignLeft, Activity,
+  Film, AlignLeft, Activity, Play,
 } from 'lucide-react';
 import './Workspace.css';
 
@@ -260,14 +260,27 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
               <Redo2 size={15} />
             </button>
           </div>
-          {!isRunning && (
-            <button className="btn-secondary btn-sm" onClick={() => setConfirm({ force: false })}>
-              <RefreshCw size={14} /> Запустить
+          {/* Кнопки зависят от статуса проекта:
+               created/completed → [▶ Запустить]
+               failed             → [▶ Продолжить] [🔄 Перезапустить]
+               completed          → [🔄 Перезапустить]
+               running            → (ничего) */}
+          {!isRunning && project.status === 'failed' && (
+            <button
+              className="btn-success btn-sm"
+              onClick={() => setConfirm({ force: false })}
+              title="Возобновить с проваленного этапа"
+            >
+              <Play size={14} /> Продолжить
             </button>
           )}
-          {!isRunning && (
-            <button className="btn-secondary btn-sm" onClick={() => setConfirm({ force: true })}>
-              <RefreshCw size={14} /> Перезапустить
+          {!isRunning && (project.status === 'created' || project.status === 'failed' || project.status === 'completed') && (
+            <button
+              className="btn-secondary btn-sm"
+              onClick={() => setConfirm({ force: true })}
+              title={project.status === 'completed' ? 'Запустить все этапы заново' : 'Перезапустить всё с начала'}
+            >
+              <RefreshCw size={14} /> {project.status === 'completed' ? 'Запустить' : 'Перезапустить'}
             </button>
           )}
           <button
