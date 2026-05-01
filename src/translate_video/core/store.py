@@ -56,6 +56,27 @@ class ProjectStore:
         self.save_project(project)
         return project
 
+    def list_projects(self) -> list[VideoProject]:
+        """Вернуть проекты из корня хранения, отсортированные по обновлению."""
+
+        if not self.root.exists():
+            return []
+
+        projects: list[VideoProject] = []
+        for candidate in self.root.iterdir():
+            if not candidate.is_dir() or candidate.name.startswith("_"):
+                continue
+            project_file = candidate / self.PROJECT_FILE
+            if not project_file.is_file():
+                continue
+            projects.append(self.load_project(candidate))
+
+        return sorted(
+            projects,
+            key=lambda project: ((project.work_dir / self.PROJECT_FILE).stat().st_mtime, project.id),
+            reverse=True,
+        )
+
     def attach_input_video(
         self,
         project: VideoProject,
@@ -213,6 +234,15 @@ class ProjectStore:
         """Вернуть путь внутри папки проекта без создания файла."""
 
         return project.work_dir.joinpath(*parts)
+
+    def resolve_project_file(self, project: VideoProject, relative_path: str) -> Path:
+        """Вернуть безопасный абсолютный путь к файлу внутри папки проекта."""
+
+        candidate = (project.work_dir / relative_path).resolve()
+        root = project.work_dir.resolve()
+        if candidate != root and root not in candidate.parents:
+            raise ValueError("путь артефакта выходит за пределы проекта")
+        return candidate
 
     def _ensure_layout(self, project: VideoProject) -> None:
         project.work_dir.mkdir(parents=True, exist_ok=True)

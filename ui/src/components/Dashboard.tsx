@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getProjectStatus, runPipeline } from '../api/client';
+import { getProjectStatus, listProjects, runPipeline } from '../api/client';
 import type { VideoProject } from '../types/schemas';
-import { Play, Clock, FolderOpen, AlertCircle, CheckCircle2, Loader2, ArrowRight } from 'lucide-react';
+import { Play, Clock, FolderOpen, AlertCircle, CheckCircle2, Loader2, ArrowRight, RefreshCw } from 'lucide-react';
 import './Dashboard.css';
 
 interface DashboardProps {
@@ -10,31 +10,41 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
     const [project, setProject] = useState<VideoProject | null>(null);
+    const [projects, setProjects] = useState<VideoProject[]>([]);
     const [projectId, setProjectId] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const loadStatus = async (id: string) => {
         if (!id) return;
         setLoading(true);
+        setError('');
         try {
             const data = await getProjectStatus(id);
             setProject(data);
+            await refreshProjects();
         } catch (e) {
             console.error(e);
             setProject(null);
+            setError(e instanceof Error ? e.message : 'Не удалось загрузить проект');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleRun = async () => {
-        if (!project) return;
+    const refreshProjects = async () => {
+        const data = await listProjects();
+        setProjects(data);
+    };
+
+    const handleRun = async (id: string, force = false) => {
         try {
-            await runPipeline(project.project_id, false, 'fake');
-            loadStatus(project.project_id);
+            await runPipeline(id, force, 'fake');
+            await loadStatus(id);
         } catch (e) {
             console.error(e);
+            setError(e instanceof Error ? e.message : 'Не удалось запустить пайплайн');
         }
     };
 
@@ -45,8 +55,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
     };
 
     useEffect(() => {
+        refreshProjects().catch(e => {
+            console.error(e);
+            setError(e instanceof Error ? e.message : 'Не удалось загрузить список проектов');
+        });
+    }, []);
+
+    useEffect(() => {
         if (!projectId) return;
-        const interval = setInterval(() => loadStatus(projectId), 3000);
+        const refreshOpenProject = async () => {
+            try {
+                const data = await getProjectStatus(projectId);
+                setProject(data);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        const interval = setInterval(refreshOpenProject, 3000);
         return () => clearInterval(interval);
     }, [projectId]);
 
@@ -77,7 +102,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                     {loading ? <Loader2 className="animate-spin" size={16} /> : <Clock size={16}/>}
                     Загрузить проект
                 </button>
+                <button type="button" className="btn-secondary" onClick={() => refreshProjects()} title="Обновить список проектов">
+                    <RefreshCw size={16} />
+                </button>
             </form>
+            {error && <div className="error-banner">{error}</div>}
             
             <main className="dashboard-content">
                 {project ? (
@@ -92,8 +121,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                             </div>
                             <div className="card-actions">
                                 {project.status !== 'running' && (
-                                    <button onClick={handleRun} className="btn-secondary">
+                                    <button onClick={() => handleRun(project.project_id)} className="btn-secondary">
                                         <Play size={16}/> Запустить пайплайн
+                                    </button>
+                                )}
+                                {project.status !== 'running' && (
+                                    <button onClick={() => handleRun(project.project_id, true)} className="btn-secondary">
+                                        <RefreshCw size={16}/> Перезапустить
                                     </button>
                                 )}
                                 <button onClick={() => onOpenProject(project.project_id)} className="btn-primary">
@@ -130,6 +164,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                                             {run.error && <div className="stage-error">{run.error}</div>}
                                         </div>
                                     ))}
+                                    {(!project.stage_runs || project.stage_runs.length === 0) && (
+                                        <p className="text-muted">Пайплайн еще не запускался.</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -141,6 +178,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                         <p className="text-muted">Введите ID проекта в поиск выше или создайте новый проект в боковом меню.</p>
                     </div>
                 )}
+
+                <section className="projects-section glass-panel">
+                    <div className="section-header">
+                        <div>
+                            <h3>Последние проекты</h3>
+                            <p className="text-muted">Карточки берутся из рабочего каталога backend.</p>
+                        </div>
+                        <span className="text-sm text-muted">Всего: {projects.length}</span>
+                    </div>
+                    <div className="projects-grid" data-testid="project-list">
+                        {projects.map(item => (
+                            <article key={item.project_id} className="project-mini-card">
+                                <div className="mini-card-title">
+                                    <strong>{item.project_id}</strong>
+                                    <span className={`badge ${item.status}`}>{item.status}</span>
+                                </div>
+                                <div className="mini-card-meta">
+                                    <span>{item.config?.source_language || 'auto'}</span>
+                                    <ArrowRight size={12} />
+                                    <span>{item.config?.target_language || 'ru'}</span>
+                                    <span>Сегментов: {Array.isArray(item.segments) ? item.segments.length : item.segments}</span>
+                                </div>
+                                <div className="mini-card-actions">
+                                    <button className="btn-secondary" onClick={() => loadStatus(item.project_id)}>
+                                        <Clock size={14}/> Статус
+                                    </button>
+                                    <button className="btn-primary" onClick={() => onOpenProject(item.project_id)}>
+                                        <FolderOpen size={14}/> Открыть
+                                    </button>
+                                </div>
+                            </article>
+                        ))}
+                        {projects.length === 0 && (
+                            <p className="empty-text">Проекты пока не найдены.</p>
+                        )}
+                    </div>
+                </section>
             </main>
         </div>
     );
