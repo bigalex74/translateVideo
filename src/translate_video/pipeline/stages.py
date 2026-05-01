@@ -23,6 +23,11 @@ from translate_video.tts.base import TTSProvider
 from translate_video.timing.base import TimingFitter
 
 
+from translate_video.core.log import Timer, get_logger
+
+_log = get_logger(__name__)
+
+
 class BaseStage:
     """Базовая реализация единообразной записи успеха и ошибки этапа."""
 
@@ -33,25 +38,39 @@ class BaseStage:
         context: StageContext,
         action: Callable[[], tuple[list[str], list[str]]],
     ) -> StageRun:
+        project_id = context.project.id
+        stage_name = self.stage.value
+
         started_at = datetime.now(UTC).isoformat()
         run = StageRun(stage=self.stage, status=JobStatus.RUNNING, started_at=started_at)
         context.store.record_stage_run(context.project, run)
-        try:
-            inputs, outputs = action()
-        except Exception as exc:  # noqa: BLE001 - ошибки этапа нужно сохранить.
-            failed = StageRun(
-                id=run.id,
-                stage=self.stage,
-                status=JobStatus.FAILED,
-                inputs=run.inputs,
-                outputs=[],
-                error=str(exc),
-                attempt=run.attempt,
-                started_at=started_at,
-                finished_at=datetime.now(UTC).isoformat(),
-            )
-            context.store.record_stage_run(context.project, failed)
-            return failed
+
+        _log.info("stage.start", stage=stage_name, project=project_id)
+
+        with Timer() as t:
+            try:
+                inputs, outputs = action()
+            except Exception as exc:  # noqa: BLE001 - ошибки этапа нужно сохранить.
+                failed = StageRun(
+                    id=run.id,
+                    stage=self.stage,
+                    status=JobStatus.FAILED,
+                    inputs=run.inputs,
+                    outputs=[],
+                    error=str(exc),
+                    attempt=run.attempt,
+                    started_at=started_at,
+                    finished_at=datetime.now(UTC).isoformat(),
+                )
+                context.store.record_stage_run(context.project, failed)
+                _log.error(
+                    "stage.fail",
+                    stage=stage_name,
+                    project=project_id,
+                    elapsed_s=t.elapsed,
+                    error=str(exc),
+                )
+                return failed
 
         completed = StageRun(
             id=run.id,
@@ -64,6 +83,13 @@ class BaseStage:
             finished_at=datetime.now(UTC).isoformat(),
         )
         context.store.record_stage_run(context.project, completed)
+        _log.info(
+            "stage.done",
+            stage=stage_name,
+            project=project_id,
+            elapsed_s=t.elapsed,
+            outputs=len(outputs),
+        )
         return completed
 
 

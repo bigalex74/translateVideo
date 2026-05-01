@@ -1,5 +1,39 @@
 # Журнал Изменений
 
+## 1.13.0 - 2026-05-02 - FEAT - TVIDEO-054
+
+### Structured Logging — структурированное логирование пайплайна
+
+Добавлен единый JSON-логгер для измерения производительности каждого
+этапа пайплайна. Теперь можно точно видеть где тратится время.
+
+Новые модули:
+- src/translate_video/core/log.py:
+  - configure_logging(level, fmt, log_file) — настройка при старте сервера.
+  - get_logger(__name__) → StructLogger — поддержка log.info(msg, key=val).
+  - Timer — контекстный таймер для elapsed_s.
+  - JSON-форматтер (_JsonFormatter) и читаемый text (_TextFormatter).
+  - RotatingFileHandler если задан LOG_FILE (10MB x 5 файлов).
+- scripts/log_analyze.py — анализатор: читает JSON-логи, строит таблицу
+  этапов с временем выполнения, статистику rewriter, TTS overflow, Whisper.
+
+Добавлено логирование:
+- pipeline.start / pipeline.done / pipeline.skip (total_elapsed_s, status)
+- stage.start / stage.done / stage.fail (elapsed_s per stage)
+- rewriter.request / rewriter.response (provider, elapsed_s, in/out_chars)
+- rewriter.fallback / rewriter.provider_fail / rewriter.all_failed
+- transcribe.start / transcribe.done / transcribe.slow (elapsed_s, ratio к длине аудио)
+- tts.segment (slot_s, audio_s, rate, adapted, overflow) / tts.overflow
+- api.pipeline_run / api.pipeline_done / api.pipeline_error
+- server.start / server.stop
+
+.env: LOG_LEVEL=INFO, LOG_FORMAT=json, LOG_FILE= (stdout-only default)
+
+Мониторинг:
+  docker logs -f video-translator 2>&1 | jq .
+  docker logs video-translator 2>&1 | jq 'select(.msg==stage.done)'
+  docker logs video-translator 2>&1 | python3 scripts/log_analyze.py
+
 ## 1.12.9 - 2026-05-02 - FIX - TVIDEO-053
 
 ### Исправлен промпт rewriter + модель Gemini

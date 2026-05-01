@@ -12,10 +12,13 @@ from pydantic import BaseModel
 
 from translate_video.api.routes.projects import get_store
 from translate_video.api.webhooks import notify_webhook
+from translate_video.core.log import Timer, get_logger
 from translate_video.core.store import ProjectStore, sanitize_project_id
 from translate_video.pipeline import build_stages, project_summary
 from translate_video.pipeline.context import StageContext
 from translate_video.pipeline.runner import PipelineRunner
+
+_log = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/projects", tags=["pipeline"])
 
@@ -108,16 +111,32 @@ async def run_pipeline_task(
         loaded_project = store.load_project(store.root / safe_project_id)
         runner = PipelineRunner(build_stages(req.provider), force=req.force)
 
+        _log.info(
+            "api.pipeline_run",
+            project=safe_project_id,
+            provider=req.provider,
+            force=req.force,
+        )
+
         # Запускаем блокирующий пайплайн в отдельном потоке,
         # чтобы не блокировать asyncio event loop
-        await asyncio.to_thread(runner.run, StageContext(project=loaded_project, store=store))
+        with Timer() as t:
+            await asyncio.to_thread(runner.run, StageContext(project=loaded_project, store=store))
+
+        restored = store.load_project(loaded_project.work_dir)
+        _log.info(
+            "api.pipeline_done",
+            project=safe_project_id,
+            status=restored.status.value,
+            total_elapsed_s=t.elapsed,
+        )
 
         if webhook_url:
-            restored = store.load_project(loaded_project.work_dir)
             summary = project_summary(restored)
             await notify_webhook(webhook_url, summary)
 
     except Exception as e:
+        _log.error("api.pipeline_error", project=project_id, error=str(e)[:200])
         if webhook_url:
             await notify_webhook(
                 webhook_url, {"project_id": project_id, "status": "failed", "error": str(e)}
