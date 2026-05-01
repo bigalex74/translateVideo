@@ -2,6 +2,7 @@
 
 import asyncio
 import ipaddress
+import socket
 import threading
 from typing import Annotated
 from urllib.parse import urlparse
@@ -22,37 +23,70 @@ router = APIRouter(prefix="/api/v1/projects", tags=["pipeline"])
 _running_lock = threading.Lock()
 _running_projects: set[str] = set()
 
-# CIDR-блоки приватных адресов (SSRF-защита)
-_PRIVATE_NETWORKS = [
-    ipaddress.ip_network(cidr)
-    for cidr in (
-        "10.0.0.0/8",
-        "172.16.0.0/12",
-        "192.168.0.0/16",
-        "127.0.0.0/8",
-        "::1/128",
-        "fc00::/7",
+_BLOCKED_HOSTNAMES = {"localhost", "localhost.localdomain"}
+
+
+def _is_forbidden_webhook_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Вернуть True для адресов, опасных для webhook-запросов наружу."""
+
+    return any(
+        (
+            addr.is_private,
+            addr.is_loopback,
+            addr.is_link_local,
+            addr.is_reserved,
+            addr.is_multicast,
+            addr.is_unspecified,
+        )
     )
-]
+
+
+def _resolve_webhook_addresses(hostname: str, port: int | None) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    """Разрешить hostname в IP-адреса для SSRF-проверки."""
+
+    try:
+        records = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="X-Webhook-Url: hostname не удалось проверить",
+        ) from exc
+
+    addresses: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+    for record in records:
+        raw_host = record[4][0]
+        try:
+            addresses.append(ipaddress.ip_address(raw_host))
+        except ValueError:
+            continue
+    return addresses
 
 
 def _validate_webhook_url(url: str | None) -> None:
     """Проверить webhook URL на SSRF-безопасность.
 
-    Разрешены только http/https URL, не указывающие на приватные IP.
+    Разрешены только http/https URL, не указывающие на внутренние IP.
     """
     if not url:
         return
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise HTTPException(status_code=400, detail="X-Webhook-Url: только http/https схемы")
-    hostname = parsed.hostname or ""
+    hostname = (parsed.hostname or "").strip().lower()
+    if not hostname:
+        raise HTTPException(status_code=400, detail="X-Webhook-Url: hostname обязателен")
+    if hostname in _BLOCKED_HOSTNAMES or hostname.endswith(".localhost"):
+        raise HTTPException(status_code=400, detail="X-Webhook-Url: локальные hostname запрещены")
+
     try:
-        addr = ipaddress.ip_address(hostname)
-        if any(addr in net for net in _PRIVATE_NETWORKS):
-            raise HTTPException(status_code=400, detail="X-Webhook-Url: приватные IP-адреса запрещены")
+        addresses = [ipaddress.ip_address(hostname)]
     except ValueError:
-        pass  # hostname — не IP, проверка пройдена
+        addresses = _resolve_webhook_addresses(hostname, parsed.port)
+
+    if not addresses:
+        raise HTTPException(status_code=400, detail="X-Webhook-Url: hostname не удалось проверить")
+    if any(_is_forbidden_webhook_address(addr) for addr in addresses):
+        raise HTTPException(status_code=400, detail="X-Webhook-Url: внутренние IP-адреса запрещены")
 
 
 

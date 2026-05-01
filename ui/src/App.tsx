@@ -3,7 +3,7 @@ import { Dashboard } from './components/Dashboard';
 import { Workspace } from './components/Workspace';
 import { NewProject } from './components/NewProject';
 import { Settings as SettingsPage } from './components/Settings';
-import { applyTheme, getPersistedTheme, getPersistedLargeText } from './components/Settings';
+import { applyTheme, getPersistedTheme, getPersistedLargeText } from './store/settings';
 import { LayoutList, PlusCircle, Settings, Video, Sun, Moon } from 'lucide-react';
 import './App.css';
 

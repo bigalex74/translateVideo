@@ -3,7 +3,7 @@ import { getProjectStatus, listProjects, runPipeline } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
 import { stageLabel, statusLabel, STATUS_EMOJI } from '../i18n';
 import { ConfirmRunModal } from './ConfirmRunModal';
-import { getPersistedProvider } from './Settings';
+import { getPersistedProvider } from '../store/settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2,
   ArrowRight, RefreshCw, Clock, Search
@@ -31,7 +31,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
     }
   }, []);
 
-  const loadStatus = async (id: string) => {
+  const loadStatus = useCallback(async (id: string) => {
     if (!id.trim()) return;
     setLoading(true);
     setError('');
@@ -45,12 +45,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshProjects]);
 
   const handleRunConfirmed = async (id: string, force: boolean) => {
     setConfirm(null);
     try {
-      await runPipeline(id, force, 'fake');
+      await runPipeline(id, force, getPersistedProvider());
       await loadStatus(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось запустить перевод');
@@ -58,16 +58,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
   };
 
   useEffect(() => {
-    refreshProjects();
-  }, [refreshProjects]);
+    let cancelled = false;
+    void listProjects()
+      .then(data => {
+        if (!cancelled) setProjects(data);
+      })
+      .catch(e => console.error(e));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Автопобновление статуса открытого проекта
   useEffect(() => {
     if (!project?.project_id || project.status !== 'running') return;
     const interval = setInterval(() => loadStatus(project.project_id), 3000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.project_id, project?.status]);
+  }, [loadStatus, project?.project_id, project?.status]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
