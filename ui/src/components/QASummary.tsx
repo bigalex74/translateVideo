@@ -26,6 +26,8 @@ export const QASummary: React.FC<QASummaryProps> = ({ segments, projectStatus, l
     const dur = (s.end ?? 0) - (s.start ?? 0);
     return dur < 0.3 && dur >= 0;
   });
+  const flaggedSegments = segments.filter(s => (s.qa_flags ?? []).length > 0);
+  const qaFlags = Array.from(new Set(flaggedSegments.flatMap(s => s.qa_flags ?? [])));
 
   const verdict: 'ok' | 'warn' | 'fail' =
     projectStatus !== 'completed' ? 'fail' :
@@ -68,9 +70,15 @@ export const QASummary: React.FC<QASummaryProps> = ({ segments, projectStatus, l
           </span>
           <span className="qa-metric-label">{t('qa.shortPhrases', locale)}</span>
         </div>
+        <div className="qa-metric">
+          <span className={`qa-metric-value ${flaggedSegments.length > 0 ? 'qa-metric--warn' : ''}`}>
+            {flaggedSegments.length}
+          </span>
+          <span className="qa-metric-label">{t('qa.degradationFlags', locale)}</span>
+        </div>
       </div>
 
-      {(reviewCount > 0 || longSegments.length > 0 || shortSegments.length > 0) && (
+      {(reviewCount > 0 || longSegments.length > 0 || shortSegments.length > 0 || qaFlags.length > 0) && (
         <ul className="qa-issues">
           {reviewCount > 0 && (
             <li className="qa-issue qa-issue--warn">
@@ -90,6 +98,12 @@ export const QASummary: React.FC<QASummaryProps> = ({ segments, projectStatus, l
               {shortSegments.length} {t('qa.shortIssue', locale)}
             </li>
           )}
+          {qaFlags.map(flag => (
+            <li key={flag} className="qa-issue qa-issue--warn">
+              <AlertTriangle size={12} />
+              {t(`qa.flag.${flag}`, locale)}
+            </li>
+          ))}
         </ul>
       )}
     </div>

@@ -147,6 +147,7 @@ class TestTtsProviderPretrim(unittest.TestCase):
             len(long_translated),
             "TTS должен получить укороченный текст"
         )
+        self.assertIn("tts_pretrim", seg.qa_flags)
 
     def test_synthesize_unchanged_for_short_segment(self):
         """Короткий перевод в большом слоте → текст не трогается."""
@@ -182,6 +183,7 @@ class TestTtsProviderPretrim(unittest.TestCase):
             provider.synthesize(project, [seg])
 
         self.assertEqual(synthesized_texts[0], short_text)
+        self.assertNotIn("tts_pretrim", seg.qa_flags)
 
 
 if __name__ == "__main__":
