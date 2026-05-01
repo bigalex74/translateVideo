@@ -118,8 +118,9 @@ def _moviepy_volume_filter(clip, volume: float):
 
 
 def _moviepy_speedx(clip, factor: float):
-    """Ускорить аудиоклип через MoviePy speedx."""
+    """Ускорить аудиоклип через fl_time (moviepy 1.x совместимо).
 
-    from moviepy.audio.fx.all import audio_speedx
-
-    return audio_speedx(clip, factor)
+    audio_speedx не существует в moviepy 1.0.3.
+    fl_time(lambda t: t * factor) читает сэмплы быстрее → ускорение.
+    """
+    return clip.fl_time(lambda t: t * factor, apply_to="audio").set_duration(clip.duration / factor)
