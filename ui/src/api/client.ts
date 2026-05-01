@@ -7,10 +7,10 @@ import type {
     VideoProject,
 } from "../types/schemas";
 
-// Если приложение запущено на домене, используем относительный путь, 
-// иначе fallback на localhost (для локальной разработки)
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE = isLocalhost ? "http://localhost:8002/api/v1" : "/api/v1";
+// Vite dev-сервер не проксирует API, поэтому в dev используем backend 8002.
+// Если UI отдан самим FastAPI (fullstack E2E/production), работаем через origin.
+const isViteDevServer = ['5173', '5174'].includes(window.location.port);
+const API_BASE = isViteDevServer ? "http://localhost:8002/api/v1" : "/api/v1";
 
 async function readError(res: Response): Promise<string> {
     const text = await res.text();
