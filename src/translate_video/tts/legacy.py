@@ -1,28 +1,20 @@
-"""edge-tts адаптер синтеза речи.
+"""edge-tts адаптер синтеза речи с LLM-сжатием (TVIDEO-037).
 
-Pre-trim стратегия (TVIDEO-030c):
-Перед синтезом оцениваем сколько символов уместится в слот.
-Текст укорачивается на естественных границах (предложение → слово),
-чтобы голос не обрывался на полуслове.
+Если синтезированная озвучка не укладывается в временной слот:
+1. Измеряем длительность через ffprobe
+2. Запрашиваем Ollama сократить перевод (сохранив смысл)
+3. Переозвучиваем — до compress_max_retries попыток
+4. Pre-trim удалён: не обрезаем текст символьным счётчиком
 """
 
 from __future__ import annotations
 
 import asyncio
-import re
+import logging
 
-# Символов в секунду для edge-tts на русском при rate=+15%.
-# Реалистичная оценка: 18-22 chars/sec. Берём 20 как середину.
-# При 14 текст обрезался почти везде — слишком консервативно (TVIDEO-036).
-_CHARS_PER_SECOND = 20.0
+from translate_video.tts.compress import compress_via_llm, get_audio_duration
 
-# Pre-trim срабатывает только при экстремальном превышении (2x слот).
-# Небольшие превышения (до 2x) обрабатывает atempo в рендерере.
-# Старый порог 1.15 обрезал почти каждый сегмент (TVIDEO-036 hotfix).
-_OVERFLOW_THRESHOLD = 2.0
-
-# Знаки конца предложения
-_SENTENCE_END_RE = re.compile(r'[.!?…]')
+logger = logging.getLogger(__name__)
 
 
 class EdgeTTSProvider:
@@ -42,86 +34,78 @@ class EdgeTTSProvider:
         self.base_rate = base_rate
 
     def synthesize(self, project, segments):
-        """Синтезировать каждый переведенный сегмент в отдельный аудиофайл."""
+        """Синтезировать каждый переведенный сегмент в отдельный аудиофайл.
 
+        Если озвучка длиннее слота — сжимаем перевод через Ollama и
+        переозвучиваем (до config.compress_max_retries попыток).
+        """
+
+        cfg = project.config
         voice = self.DEFAULT_VOICES.get(
-            project.config.target_language.lower(),
+            cfg.target_language.lower(),
             self.DEFAULT_VOICES["en"],
         )
         rate = f"+{self.base_rate}%"
+
         for index, segment in enumerate(segments):
             text = segment.translated_text.strip()
             if not text:
                 continue
 
-            # Pre-trim: укорачиваем текст если он не уложится в слот
-            slot_duration = segment.end - segment.start
-            tts_text = _compute_tts_text(text, slot_duration)
-            if tts_text != text and "tts_pretrim" not in segment.qa_flags:
-                segment.qa_flags.append("tts_pretrim")
-
+            slot = segment.end - segment.start
             output = project.work_dir / "tts" / f"{segment.id or index}.mp3"
-            communicate = self.communicate_factory(tts_text, voice, rate=rate)
-            self.async_runner(communicate.save(str(output)))
+
+            # Первичный синтез
+            self._synth(text, voice, rate, output)
+
+            # Цикл LLM-сжатия при переполнении
+            for attempt in range(cfg.compress_max_retries):
+                dur = get_audio_duration(output)
+                if dur is None:
+                    break  # ffprobe недоступен — идём дальше
+                if dur <= slot * cfg.compress_slack:
+                    break  # укладывается — всё OK
+
+                logger.info(
+                    "Сегмент %s: tts=%.2fs > slot=%.2fs (x%.2f), "
+                    "попытка сжатия %d/%d",
+                    segment.id, dur, slot, dur / slot,
+                    attempt + 1, cfg.compress_max_retries,
+                )
+
+                target_sec = slot * 0.92  # целим в 92% от слота
+                compressed = compress_via_llm(
+                    text=text,
+                    current_sec=dur,
+                    target_sec=target_sec,
+                    model=cfg.compress_llm_model,
+                    ollama_url=cfg.compress_llm_url,
+                )
+                if not compressed:
+                    logger.warning(
+                        "LLM не помог для сегмента %s — оставляем как есть",
+                        segment.id,
+                    )
+                    break
+
+                text = compressed
+                self._synth(text, voice, rate, output)
+
+            # Сохраняем финальный текст если он изменился
+            if text != segment.translated_text.strip():
+                segment.tts_text = text
+                if "tts_llm_compressed" not in segment.qa_flags:
+                    segment.qa_flags.append("tts_llm_compressed")
+
             segment.tts_path = output.relative_to(project.work_dir).as_posix()
             segment.voice = voice
+
         return segments
 
-
-# ─── Pre-trim логика ──────────────────────────────────────────────────────────
-
-def _compute_tts_text(text: str, slot_duration: float) -> str:
-    """Вычислить текст для TTS-синтеза с учётом временного слота.
-
-    Если текст превышает ёмкость слота на OVERFLOW_THRESHOLD — укорачиваем
-    на естественной границе (конец предложения или слово), чтобы голос
-    не обрывался посреди слова.
-
-    `text` — полный переведённый текст (для UI).
-    Возвращает текст для TTS (может быть короче).
-    """
-    if slot_duration <= 0:
-        return text
-
-    max_chars = slot_duration * _CHARS_PER_SECOND
-    if len(text) <= max_chars * _OVERFLOW_THRESHOLD:
-        # Текст укладывается — не трогаем
-        return text
-
-    # Текст слишком длинный — ищем место обрезки
-    target = int(max_chars)
-    return _trim_at_natural_boundary(text, target)
-
-
-def _trim_at_natural_boundary(text: str, max_chars: int) -> str:
-    """Обрезать текст на ближайшей естественной границе ≤ max_chars.
-
-    Приоритет обрезки:
-    1. Конец предложения (.!?…) — идеально
-    2. Конец слова (пробел)    — приемлемо
-    3. Жёсткая обрезка         — крайний случай (должно быть редким)
-    """
-    if max_chars >= len(text):
-        return text
-
-    # Окно поиска: от max_chars назад до 60% от max_chars
-    search_start = max(0, int(max_chars * 0.6))
-    window = text[search_start:max_chars + 1]
-
-    # 1. Последний конец предложения в окне
-    for match in reversed(list(_SENTENCE_END_RE.finditer(window))):
-        cut = search_start + match.end()
-        if cut > 0:
-            return text[:cut].strip()
-
-    # 2. Последний пробел в окне
-    last_space = window.rfind(' ')
-    if last_space > 0:
-        cut = search_start + last_space
-        return text[:cut].strip()
-
-    # 3. Жёсткая обрезка
-    return text[:max_chars].strip()
+    def _synth(self, text: str, voice: str, rate: str, output) -> None:
+        """Синтезировать текст и сохранить в файл."""
+        communicate = self.communicate_factory(text, voice, rate=rate)
+        self.async_runner(communicate.save(str(output)))
 
 
 def _edge_communicate(*args, **kwargs):
