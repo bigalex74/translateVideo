@@ -119,12 +119,14 @@ class ProviderPayloadTest(unittest.TestCase):
         self.assertEqual(calls[0][2]["Authorization"], "Bearer secret")
 
     def test_prompt_contains_character_limit(self):
-        """Промпт явно содержит лимит символов и запрет пояснений."""
+        """Промпт явно содержит лимит символов, целевой диапазон и ключевые правила."""
 
         prompt = build_rewrite_prompt("перевод", "source", 42)
 
-        self.assertIn("не больше 42 символов", prompt)
-        self.assertIn("только новая фраза", prompt)
+        self.assertIn("42 символов", prompt)          # лимит упоминается
+        self.assertIn("31 до 42", prompt)              # целевой диапазон (75–100%)
+        self.assertIn("только готовая фраза", prompt)  # запрет пояснений
+        self.assertIn("НЕ обрезай", prompt)            # запрет жёсткой обрезки
 
     def test_openrouter_default_model_is_configured(self):
         """OpenRouter по умолчанию использует правильный ID модели с префиксом и суффиксом :free."""
