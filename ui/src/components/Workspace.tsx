@@ -438,7 +438,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                     <div className="timeline-content">
                       <strong>{stageLabel(run.stage)}</strong>
                       <span className="status-text">{statusLabel(run.status)}</span>
-                      {run.error && <div className="error-text text-sm">{run.error}</div>}
+                      {run.error && (
+                        <div className="stage-error-block">
+                          <span className="stage-error-label">Ошибка:</span>
+                          <code className="stage-error-msg">
+                            {run.error
+                              .replace(/\/app\/runs\/[^/]+\//g, '')
+                              .replace(/runs\/[^/]+\//g, '')
+                              .slice(0, 200)}
+                          </code>
+                        </div>
+                      )}
                     </div>
                   </li>
                 ))}

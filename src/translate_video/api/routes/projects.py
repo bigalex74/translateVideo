@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def get_store() -> ProjectStore:
     """Зависимость для получения хранилища проектов."""
-    work_root = Path(os.getenv("WORK_ROOT", "runs"))
+    work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
     return ProjectStore(work_root)
 
 
