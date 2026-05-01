@@ -67,6 +67,9 @@ export interface StageRun {
     outputs: string[];
     error?: string;
     attempt: number;
+    progress_current?: number | null;
+    progress_total?: number | null;
+    progress_message?: string | null;
 }
 
 export interface ArtifactRecord {

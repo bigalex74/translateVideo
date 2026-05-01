@@ -503,6 +503,47 @@
     transition: width 0.5s ease;
 }
 
+.running-stage-progress {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+}
+
+.running-stage-progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.running-stage-progress-head span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.running-stage-progress-head strong {
+    flex-shrink: 0;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.running-progress-wrap-stage {
+    height: 8px;
+}
+
+.running-progress-bar-stage {
+    background: linear-gradient(90deg, var(--success), var(--accent-primary));
+}
+
 .running-hint {
     font-size: 0.78rem;
     color: var(--text-muted);
@@ -587,6 +628,49 @@
     word-break: break-all;
     white-space: pre-wrap;
     line-height: 1.5;
+}
+
+.timeline-progress {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.timeline-progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.timeline-progress-head span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.timeline-progress-head strong {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.timeline-progress-track {
+    height: 5px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: var(--bg-elevated);
+}
+
+.timeline-progress-bar {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--success), var(--accent-primary));
+    transition: width 0.5s ease;
 }
 
 /* ─── btn-sm: компактная версия кнопок для header-row-actions ──────────── */

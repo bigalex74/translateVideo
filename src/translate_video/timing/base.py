@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Callable, Protocol
 
 from translate_video.core.schemas import Segment, VideoProject
+
+TimingProgressCallback = Callable[[int, int, str | None], None]
 
 
 class TimingFitter(Protocol):
     """Адаптирует переведённые сегменты до TTS без ускорения голоса."""
 
-    def fit(self, project: VideoProject, segments: list[Segment]) -> list[Segment]:
+    def fit(
+        self,
+        project: VideoProject,
+        segments: list[Segment],
+        progress_callback: TimingProgressCallback | None = None,
+    ) -> list[Segment]:
         """Вернуть сегменты с текстом, подготовленным под естественную озвучку."""
 
 

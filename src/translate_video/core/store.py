@@ -194,6 +194,31 @@ class ProjectStore:
         project.stage_runs.append(run)
         self.save_project(project)
 
+    def update_stage_progress(
+        self,
+        project: VideoProject,
+        run_id: str,
+        *,
+        current: int,
+        total: int,
+        message: str | None = None,
+    ) -> None:
+        """Обновить детальный прогресс уже запущенного этапа.
+
+        Метод не создает новую запись запуска: если этап не найден, состояние
+        проекта остается без изменений. Это защищает долгий пайплайн от падения
+        из-за необязательного UI-прогресса.
+        """
+
+        for run in project.stage_runs:
+            if run.id != run_id:
+                continue
+            run.progress_current = max(0, int(current))
+            run.progress_total = max(0, int(total))
+            run.progress_message = message
+            self.save_project(project)
+            return
+
     def export_subtitles(
         self,
         project: VideoProject,
