@@ -57,6 +57,8 @@ class PipelineConfigTest(unittest.TestCase):
             restored.rewrite_provider_order,
             ["gemini", "openrouter", "aihubmix", "polza", "rule_based"],
         )
+        self.assertEqual(restored.rewrite_provider_timeout, 8.0)
+        self.assertTrue(restored.rewrite_provider_disable_on_quota)
         self.assertFalse(restored.allow_tts_rate_adaptation)
         self.assertEqual(restored.render_max_speed, 1.0)
         self.assertEqual(restored.render_gap, 0.05)
