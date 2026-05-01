@@ -1,5 +1,12 @@
 # Журнал Изменений
 
+## 1.12.2 - 2026-05-01 - PATCH - TVIDEO-045
+
+### Исправлен ID модели OpenRouter
+- Дефолтное имя модели исправлено с `gpt-oss-120b` на `openai/gpt-oss-120b:free`.
+- OpenRouter требует полный формат: `provider/model-name:tier`.
+- Исправлено в: `timing/cloud.py`, `.env.example`, тест `test_cloud_timing.py`.
+
 ## 1.12.1 - 2026-05-01 - PATCH - TVIDEO-044
 
 ### Обновление дефолтных rewriter-моделей
