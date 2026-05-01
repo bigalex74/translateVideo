@@ -89,6 +89,12 @@
   color: #fca5a5;
 }
 
+.modal-warning--warn {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+}
+
 .modal-warning--info {
   background: rgba(59, 130, 246, 0.08);
   border-color: rgba(59, 130, 246, 0.2);

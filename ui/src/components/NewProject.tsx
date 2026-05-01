@@ -4,7 +4,7 @@ import type { PreflightReport } from '../types/schemas';
 import { PROVIDER_LABELS, PROVIDER_WARNINGS } from '../i18n';
 import {
   Play, UploadCloud, Link as LinkIcon, FileVideo, Loader2, ShieldCheck,
-  ChevronDown, ChevronUp, AlertTriangle, Clock
+  ChevronDown, ChevronUp, Info, Clock
 } from 'lucide-react';
 import './NewProject.css';
 
@@ -263,8 +263,8 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
                   ))}
                 </select>
                 {providerWarning && (
-                  <div className="provider-warning">
-                    <AlertTriangle size={14} />
+                  <div className="provider-info">
+                    <Info size={14} />
                     {providerWarning}
                   </div>
                 )}

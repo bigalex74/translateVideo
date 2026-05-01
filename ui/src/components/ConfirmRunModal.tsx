@@ -1,6 +1,6 @@
 import React from 'react';
-import { AlertTriangle, Play, RefreshCw, X } from 'lucide-react';
-import { PROVIDER_LABELS, PROVIDER_WARNINGS, needsReviewCount } from '../i18n';
+import { AlertTriangle, Info, Play, RefreshCw, X } from 'lucide-react';
+import { PROVIDER_WARNINGS, needsReviewCount } from '../i18n';
 import type { Segment } from '../types/schemas';
 import './ConfirmRunModal.css';
 
@@ -22,7 +22,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
   onCancel,
 }) => {
   const reviewCount = needsReviewCount(segments);
-  const providerWarning = PROVIDER_WARNINGS[provider];
+  const providerNote = PROVIDER_WARNINGS[provider];
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-run-title">
@@ -30,7 +30,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
         <div className="modal-header">
           <AlertTriangle size={22} className="text-warning" />
           <h3 id="confirm-run-title">
-            {isForce ? 'Принудительный перезапуск' : 'Запустить перевод?'}
+            {isForce ? 'Запустить заново?' : 'Запустить перевод?'}
           </h3>
           <button className="btn-icon" onClick={onCancel} aria-label="Закрыть">
             <X size={18} />
@@ -42,34 +42,32 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
             Проект: <strong>{projectId}</strong>
           </div>
 
-          <div className="modal-provider">
-            <span className="modal-label">Режим обработки:</span>
-            <span>{PROVIDER_LABELS[provider] ?? provider}</span>
-          </div>
-
-          {providerWarning && (
-            <div className="modal-warning">
-              <AlertTriangle size={14} />
-              {providerWarning}
+          {/* Информация о провайдере — только если есть что сказать пользователю */}
+          {providerNote && (
+            <div className="modal-warning modal-warning--info">
+              <Info size={14} />
+              <span>{providerNote}</span>
             </div>
           )}
 
+          {/* Предупреждение о принудительном перезапуске */}
           {isForce && (
             <div className="modal-warning modal-warning--danger">
               <AlertTriangle size={14} />
               <span>
-                <strong>Принудительный перезапуск</strong> пересчитает все этапы заново,
-                включая уже завершённые. Все ранее сгенерированные артефакты будут перезаписаны.
+                Все этапы обработки будут запущены заново, включая уже завершённые.
+                Готовые файлы будут перезаписаны.
               </span>
             </div>
           )}
 
+          {/* QA: непереведённые сегменты */}
           {reviewCount > 0 && segments.length > 0 && (
-            <div className="modal-warning modal-warning--info">
+            <div className="modal-warning modal-warning--warn">
+              <AlertTriangle size={14} />
               <span>
-                ⚠️ В транскрипте <strong>{reviewCount} из {segments.length} сегментов</strong> требуют
-                ручной проверки — перевод не применён или совпадает с оригиналом. Рекомендуем
-                отредактировать их перед запуском TTS.
+                <strong>{reviewCount} из {segments.length} сегментов</strong> не переведены.
+                Рекомендуем заполнить их в редакторе перед запуском озвучки.
               </span>
             </div>
           )}
@@ -81,7 +79,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
           </button>
           <button className="btn-primary" onClick={onConfirm} autoFocus>
             {isForce
-              ? <><RefreshCw size={16} /> Перезапустить</>
+              ? <><RefreshCw size={16} /> Запустить заново</>
               : <><Play size={16} /> Запустить</>
             }
           </button>
