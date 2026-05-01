@@ -202,7 +202,7 @@ class OpenAICompatibleRewriteProvider:
             name="openrouter",
             api_key=api_key,
             base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            model=os.getenv("OPENROUTER_REWRITE_MODEL", "gpt-oss-120b"),
+            model=os.getenv("OPENROUTER_REWRITE_MODEL", "openai/gpt-oss-120b:free"),
             extra_headers={
                 "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "http://localhost:8002"),
                 "X-Title": os.getenv("OPENROUTER_APP_NAME", "translateVideo"),
