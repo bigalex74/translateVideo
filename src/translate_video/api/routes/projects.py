@@ -1,8 +1,9 @@
 """Маршруты для работы с проектами."""
 
+import json
+import logging
 import os
 import shutil
-import json
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from translate_video.core.schemas import ArtifactKind, Segment, VideoProject
 from translate_video.core.store import ProjectStore, sanitize_filename, sanitize_project_id
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
+logger = logging.getLogger(__name__)
 
 
 def get_store() -> ProjectStore:
@@ -69,8 +71,11 @@ def create_project(req: CreateProjectRequest, store: ProjectStore = Depends(get_
         if input_path.is_file():
             store.attach_input_video(project, input_path)
         return project_payload(project)
-    except Exception as e:
+    except (ValueError, FileNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Неожиданная ошибка при создании проекта")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
 @router.post("/upload")
@@ -107,8 +112,11 @@ def create_project_from_file(
         )
         store.attach_input_video(project, temp_path)
         return project_payload(project)
-    except Exception as e:
+    except (ValueError, FileNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Неожиданная ошибка при загрузке файла")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
 @router.get("")
@@ -122,8 +130,9 @@ def list_projects(store: ProjectStore = Depends(get_store)):
                 for project in store.list_projects()
             ]
         }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Неожиданная ошибка при получении списка проектов")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
 @router.get("/{project_id}")

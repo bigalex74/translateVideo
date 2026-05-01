@@ -9,6 +9,7 @@ from translate_video.pipeline.stages import (
     TranslateStage,
     TTSStage,
 )
+from translate_video.pipeline.utils import build_stages, project_summary
 
 __all__ = [
     "ExtractAudioStage",
@@ -18,4 +19,7 @@ __all__ = [
     "TTSStage",
     "TranscribeStage",
     "TranslateStage",
+    "build_stages",
+    "project_summary",
 ]
+
