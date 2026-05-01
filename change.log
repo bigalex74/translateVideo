@@ -1,5 +1,15 @@
 # Журнал Изменений
 
+## 1.12.3 - 2026-05-01 - PATCH - TVIDEO-046
+
+### Прокси + модель Gemini для rewriter
+- Gemini API недоступен в РФ без прокси. Добавлена поддержка HTTPS_PROXY / HTTP_PROXY.
+- Ключ HTTPS_PROXY=http://127.0.0.1:10808 задаётся в .env.
+- Модель Gemini обновлена с gemini-2.5-flash-lite на gemini-3-flash-preview.
+- scripts/test_cloud_providers.py: скрипт живого тестирования всех провайдеров.
+- RuleBased при жёстком лимите не считается ошибкой (fallback, не LLM).
+- Тест: Gemini успешно сократил перевод за 2с через локальный прокси.
+
 ## 1.12.2 - 2026-05-01 - PATCH - TVIDEO-045
 
 ### Исправлен ID модели OpenRouter

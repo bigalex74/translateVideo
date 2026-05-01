@@ -123,7 +123,7 @@ class GeminiRewriteProvider:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-2.5-flash-lite",
+        model: str = "gemini-3-flash-preview",
         timeout: float = 20.0,
         http_post=None,
     ) -> None:
@@ -139,7 +139,7 @@ class GeminiRewriteProvider:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             return None
-        return cls(api_key=api_key, model=os.getenv("GEMINI_REWRITE_MODEL", "gemini-2.5-flash-lite"))
+        return cls(api_key=api_key, model=os.getenv("GEMINI_REWRITE_MODEL", "gemini-3-flash-preview"))
 
     def rewrite(
         self,
@@ -309,19 +309,33 @@ def _post_json(
     headers: dict[str, str],
     timeout: float,
 ) -> dict[str, Any]:
-    """Выполнить JSON POST через стандартную библиотеку."""
+    """Выполнить JSON POST через стандартную библиотеку.
+
+    Если задан HTTPS_PROXY или HTTP_PROXY — использует их.
+    Это позволяет обойти региональные блокировки (например, для Gemini API).
+    """
+
+    all_headers = {"Content-Type": "application/json", **headers}
 
     request = urllib.request.Request(
         url,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            **headers,
-        },
+        headers=all_headers,
         method="POST",
     )
+
+    # Прокси: HTTPS_PROXY → HTTP_PROXY → нет
+    proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy")
+    if proxy_url:
+        opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
+        )
+        open_fn = opener.open
+    else:
+        open_fn = urllib.request.urlopen
+
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with open_fn(request, timeout=timeout) as response:
             raw = response.read().decode("utf-8")
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise RewriteProviderError("rewrite provider unavailable") from exc
