@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments } from '../api/client';
-import type { ArtifactRecord, VideoProject, Segment } from '../types/schemas';
+import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig } from '../api/client';
+import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel } from '../i18n';
 import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
+import { AdvancedSettings } from './AdvancedSettings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
-  Loader2, AlertCircle, Undo2, Redo2
+  Loader2, AlertCircle, Undo2, Redo2, Settings
 } from 'lucide-react';
 import './Workspace.css';
 
@@ -22,6 +23,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [confirm, setConfirm] = useState<{ force: boolean } | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [configPatch, setConfigPatch] = useState<Partial<PipelineConfig>>({});
+  const [savingConfig, setSavingConfig] = useState(false);
 
   // Undo/redo история: массив снапшотов segments
   const [history, setHistory] = useState<Segment[][]>([]);
@@ -198,6 +202,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
             </button>
           )}
           <button
+            className="btn-icon"
+            title="Настройки перевода"
+            aria-label="Настройки перевода"
+            onClick={() => setShowConfig(prev => !prev)}
+          >
+            <Settings size={16} />
+          </button>
+          <button
             className="btn-primary"
             onClick={handleSave}
             disabled={!dirty || saving}
@@ -211,6 +223,41 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
 
       {message && (
         <div className="workspace-message" role="status">{message}</div>
+      )}
+
+      {showConfig && (
+        <div className="workspace-config-panel glass-panel">
+          <div className="config-panel-header">
+            <h4>Настройки перевода</h4>
+            <button
+              className="btn-primary"
+              disabled={savingConfig || Object.keys(configPatch).length === 0}
+              onClick={async () => {
+                if (!project || Object.keys(configPatch).length === 0) return;
+                setSavingConfig(true);
+                try {
+                  const result = await patchProjectConfig(projectId, configPatch);
+                  setProject(prev => prev ? { ...prev, config: result.config } : prev);
+                  setConfigPatch({});
+                  setMessage('✓ Настройки сохранены');
+                  setTimeout(() => setMessage(''), 3000);
+                } catch (e) {
+                  setMessage(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
+                } finally {
+                  setSavingConfig(false);
+                }
+              }}
+            >
+              {savingConfig ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Сохранить настройки
+            </button>
+          </div>
+          <AdvancedSettings
+            config={{ ...(project.config ?? {}), ...configPatch }}
+            onChange={patch => setConfigPatch(prev => ({ ...prev, ...patch }))}
+            disabled={savingConfig}
+          />
+        </div>
       )}
 
       <div className="workspace-grid">

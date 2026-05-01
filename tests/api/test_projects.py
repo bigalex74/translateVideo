@@ -215,3 +215,51 @@ class APIProjectsTest(TestCase):
         data = response.json()
         self.assertEqual(data["segments"][0]["translated_text"], "Привет")
         self.assertTrue((self.work_root / "segments_test" / "transcript.translated.json").exists())
+
+    def test_patch_project_config(self):
+        """Обновление конфигурации проекта через PUT /config."""
+
+        video_path = self.work_root / "_uploads" / "v.mp4"
+        video_path.parent.mkdir(parents=True, exist_ok=True)
+        video_path.write_bytes(b"fake")
+
+        # создаём проект
+        r = self.client.post("/api/v1/projects", json={
+            "input_video": str(video_path),
+            "project_id": "config_test",
+        })
+        self.assertEqual(r.status_code, 200)
+
+        # меняем translation_style
+        r2 = self.client.put("/api/v1/projects/config_test/config", json={
+            "config": {"translation_style": "business"}
+        })
+        self.assertEqual(r2.status_code, 200)
+        data = r2.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["config"]["translation_style"], "business")
+
+    def test_patch_project_config_invalid_style(self):
+        """Недопустимое значение translation_style -> 400."""
+
+        video_path = self.work_root / "_uploads" / "v2.mp4"
+        video_path.parent.mkdir(parents=True, exist_ok=True)
+        video_path.write_bytes(b"fake")
+
+        self.client.post("/api/v1/projects", json={
+            "input_video": str(video_path),
+            "project_id": "config_invalid_test",
+        })
+
+        r = self.client.put("/api/v1/projects/config_invalid_test/config", json={
+            "config": {"translation_style": "not_a_real_style"}
+        })
+        self.assertEqual(r.status_code, 400)
+
+    def test_patch_project_config_not_found(self):
+        """PUT /config для несуществующего проекта -> 404."""
+
+        r = self.client.put("/api/v1/projects/nonexistent_xyz/config", json={
+            "config": {"translation_style": "business"}
+        })
+        self.assertEqual(r.status_code, 404)

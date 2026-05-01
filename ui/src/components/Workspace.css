@@ -331,3 +331,24 @@
   text-transform: none;
 }
 
+
+/* Config panel */
+.workspace-config-panel {
+  margin: 0 0 12px 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+}
+
+.config-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.config-panel-header h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
