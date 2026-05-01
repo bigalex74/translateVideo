@@ -1,15 +1,17 @@
-"""deep-translator адаптер перевода сегментов (TVIDEO-038).
+"""deep-translator адаптер перевода сегментов (TVIDEO-040a).
 
-Стратегия «Маркер-разделитель»:
-1. Объединить source_text сегментов через разделитель |||.
-2. Перевести одним запросом — переводчик видит весь контекст.
-3. Разбить результат обратно по ||| → ровно 1 перевод на 1 сегмент.
-4. Проверить количество частей: len(parts) == len(segments).
-5. Fallback на поштучный перевод при любом несоответствии.
+Стратегия «Единый контекст»:
+1. Объединить все сегменты через ||| в ОДИН запрос — переводчик
+   видит весь ролик целиком → связная, естественная речь.
+2. Если текст не влезает (> MAX_CHARS) — разбить на смысловые чанки
+   по CHUNK_SENTENCES предложений, а не по числу символов.
+   Это сохраняет локальный контекст внутри каждого чанка.
+3. Разбить результат обратно по ||| → гарантируем 1:1.
+4. Fallback на поштучный перевод при потере маркера.
 
-Преимущество перед старым «единым текстом»:
-Маркер сохраняется при переводе, поэтому результат всегда
-точно соответствует количеству сегментов — нет рассинхрона.
+Разница с TVIDEO-038 (старый батчинг по символам):
+- БЫЛО: батч = «набери 4500 символов» → резало по середине темы
+- СТАЛО: сначала пробуем весь текст, потом чанки по N предложений
 """
 
 from __future__ import annotations
@@ -21,27 +23,27 @@ from translate_video.core.schemas import Segment
 
 logger = logging.getLogger(__name__)
 
-# Максимальная длина одного запроса (Google Translate ~5000 символов).
+# Жёсткий лимит Google Translate (символов с учётом разделителей).
 _MAX_CHARS = 4500
 
+# Размер чанка при превышении лимита (в предложениях/сегментах).
+# 12 предложений ≈ 1-2 минуты видео — достаточно для контекста.
+_CHUNK_SENTENCES = 12
+
 # Разделитель между сегментами. Google Translate сохраняет |||.
-# Пробелы вокруг важны — без них переводчик может слить слова.
 _SEP = " ||| "
 
-# Паттерн для нормализации разделителя после перевода:
-# Переводчик может вернуть | || |, |||, || |, |  |  | и т.п.
+# Паттерн для нормализации разделителя после перевода.
 _SEP_RE = re.compile(r"\s*\|{2,3}\s*")
 
 
 class GoogleSegmentTranslator:
     """Переводит сегменты через `deep-translator` GoogleTranslator.
 
-    Алгоритм маркера-разделителя:
-    1. Группируем сегменты в батчи по _MAX_CHARS.
-    2. Внутри батча объединяем через |||.
-    3. Переводим одним запросом.
-    4. Разбиваем по ||| обратно — гарантируем 1:1.
-    5. При несоответствии — fallback поштучно для этого батча.
+    Алгоритм единого контекста (TVIDEO-040a):
+    1. Если весь текст ≤ MAX_CHARS → один запрос, максимальный контекст.
+    2. Иначе → чанки по CHUNK_SENTENCES предложений.
+    3. Результат разбивается по ||| → 1:1 с сегментами.
     """
 
     def __init__(self, translator_factory=None) -> None:
@@ -58,47 +60,50 @@ class GoogleSegmentTranslator:
             target=config.target_language,
         )
 
-        batches = _make_batches(segments)
-        translated_texts: list[str] = []
+        # Считаем суммарную длину с разделителями
+        total_len = sum(len(s.source_text) + len(_SEP) for s in segments)
 
-        for batch in batches:
-            batch_result = _translate_batch(batch, translator)
-            translated_texts.extend(batch_result)
+        if total_len <= _MAX_CHARS:
+            # Весь текст в один запрос — максимальный контекст
+            logger.info(
+                "Перевод всего текста целиком: %d сегм., %d симв.",
+                len(segments), total_len,
+            )
+            texts = _translate_batch(segments, translator)
+        else:
+            # Разбиваем по числу предложений, сохраняем локальный контекст
+            chunks = _make_sentence_chunks(segments, _CHUNK_SENTENCES)
+            logger.info(
+                "Текст большой (%d симв.) → %d чанков по ~%d предложений",
+                total_len, len(chunks), _CHUNK_SENTENCES,
+            )
+            texts = []
+            for chunk in chunks:
+                texts.extend(_translate_batch(chunk, translator))
 
-        return _apply_translations(segments, translated_texts)
+        return _apply_translations(segments, texts)
 
 
-# ─── Батчинг ────────────────────────────────────────────────────────────────
+# ─── Чанкинг по предложениям ─────────────────────────────────────────────────
 
-def _make_batches(segments: list[Segment]) -> list[list[Segment]]:
-    """Разбить сегменты на батчи ≤ MAX_CHARS символов.
+def _make_sentence_chunks(
+    segments: list[Segment],
+    chunk_size: int,
+) -> list[list[Segment]]:
+    """Разбить сегменты на чанки по chunk_size предложений.
 
-    Учитывает длину разделителя при подсчёте.
+    В отличие от батчинга по символам — не режет по середине темы.
     """
-    batches: list[list[Segment]] = []
-    current: list[Segment] = []
-    current_len = 0
-
-    for seg in segments:
-        # +len(_SEP) на разделитель между сегментами
-        text_len = len(seg.source_text) + len(_SEP)
-        if current and current_len + text_len > _MAX_CHARS:
-            batches.append(current)
-            current = []
-            current_len = 0
-        current.append(seg)
-        current_len += text_len
-
-    if current:
-        batches.append(current)
-
-    return batches
+    return [
+        segments[i : i + chunk_size]
+        for i in range(0, len(segments), chunk_size)
+    ]
 
 
 # ─── Перевод батча ───────────────────────────────────────────────────────────
 
 def _translate_batch(segments: list[Segment], translator) -> list[str]:
-    """Перевести батч через маркер ||| с fallback на поштучный.
+    """Перевести группу сегментов через маркер ||| с fallback на поштучный.
 
     Гарантирует len(result) == len(segments).
     """
@@ -125,9 +130,8 @@ def _translate_batch(segments: list[Segment], translator) -> list[str]:
     if parts is not None:
         return parts
 
-    # Маркер потерян или количество не совпало → fallback
     logger.warning(
-        "Маркер ||| не сохранился после перевода → поштучный fallback (%d сегм.)",
+        "Маркер ||| не сохранился → поштучный fallback (%d сегм.)",
         len(segments),
     )
     return _translate_one_by_one(segments, translator)
@@ -140,7 +144,6 @@ def _split_by_separator(translated: str, expected: int) -> list[str] | None:
     Пустые части сохраняются — они могут быть законными пустыми переводами.
     """
     parts = [p.strip() for p in _SEP_RE.split(translated)]
-    # Убираем пустые артефакты только в начале и конце
     while parts and not parts[0]:
         parts.pop(0)
     while parts and not parts[-1]:
@@ -149,7 +152,6 @@ def _split_by_separator(translated: str, expected: int) -> list[str] | None:
     if len(parts) == expected:
         return parts
 
-    # Иногда переводчик добавляет/убирает один разделитель
     alt = [p.strip() for p in translated.split("|||")]
     while alt and not alt[0]:
         alt.pop(0)

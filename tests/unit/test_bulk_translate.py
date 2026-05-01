@@ -1,8 +1,8 @@
-"""Тесты перевода через маркер-разделитель ||| (TVIDEO-038).
+"""Тесты перевода через маркер-разделитель ||| (TVIDEO-040a).
 
 Покрывает:
 - _split_by_separator: корректное разбиение, потеря маркера, alt-разбиение
-- _make_batches: один батч, несколько батчей по лимиту
+- _make_sentence_chunks: один чанк, несколько чанков по числу предложений
 - _translate_batch: маркер сохранён, маркер потерян (fallback), одиночный сегмент
 - GoogleSegmentTranslator.translate: end-to-end с mock translator
 """
@@ -16,7 +16,7 @@ from translate_video.core.schemas import Segment
 from translate_video.translation.legacy import (
     GoogleSegmentTranslator,
     _SEP,
-    _make_batches,
+    _make_sentence_chunks,
     _split_by_separator,
     _translate_batch,
 )
@@ -38,7 +38,7 @@ def _mock_translator(response: str):
 # ─── _split_by_separator ─────────────────────────────────────────────────────
 
 class TestSplitBySeparator(unittest.TestCase):
-    """TVIDEO-038: _split_by_separator — разбиение по |||."""
+    """TVIDEO-040a: _split_by_separator — разбиение по |||."""
 
     def test_exact_match(self):
         """Маркер сохранён точно — возвращает список частей."""
@@ -83,34 +83,38 @@ class TestSplitBySeparator(unittest.TestCase):
         self.assertEqual(result[0], "Только один.")
 
 
-# ─── _make_batches ───────────────────────────────────────────────────────────
+# ─── _make_sentence_chunks ────────────────────────────────────────────────────
 
-class TestMakeBatches(unittest.TestCase):
-    """TVIDEO-038: _make_batches — разбивка на батчи."""
+class TestMakeSentenceChunks(unittest.TestCase):
+    """TVIDEO-040a: _make_sentence_chunks — разбивка по числу предложений."""
 
-    def test_single_batch_for_short_segments(self):
-        """Короткие сегменты помещаются в один батч."""
-        segs = [_seg("Hello world") for _ in range(5)]
-        batches = _make_batches(segs)
-        self.assertEqual(len(batches), 1)
-        self.assertEqual(len(batches[0]), 5)
+    def test_all_fits_in_one_chunk(self):
+        """5 предложений при chunk_size=12 → один чанк."""
+        segs = [_seg(f"Sentence {i}.") for i in range(5)]
+        chunks = _make_sentence_chunks(segs, chunk_size=12)
+        self.assertEqual(len(chunks), 1)
+        self.assertEqual(len(chunks[0]), 5)
 
-    def test_splits_into_multiple_batches_on_limit(self):
-        """Длинные сегменты разбиваются на несколько батчей."""
-        # Каждый сегмент ~500 символов → 10 сегментов = 5000 > 4500 → 2 батча
-        segs = [_seg("A" * 500) for _ in range(10)]
-        batches = _make_batches(segs)
-        self.assertGreater(len(batches), 1)
-        # Все сегменты должны оказаться в батчах
-        total = sum(len(b) for b in batches)
-        self.assertEqual(total, 10)
+    def test_splits_into_multiple_chunks(self):
+        """20 предложений при chunk_size=12 → 2 чанка (12 + 8)."""
+        segs = [_seg(f"Sentence {i}.") for i in range(20)]
+        chunks = _make_sentence_chunks(segs, chunk_size=12)
+        self.assertEqual(len(chunks), 2)
+        self.assertEqual(len(chunks[0]), 12)
+        self.assertEqual(len(chunks[1]), 8)
 
     def test_all_segments_covered(self):
-        """Все сегменты попадают в батчи без потерь."""
-        segs = [_seg(f"Segment {i}") for i in range(20)]
-        batches = _make_batches(segs)
-        all_segs = [s for b in batches for s in b]
-        self.assertEqual(len(all_segs), 20)
+        """Все сегменты попадают в чанки без потерь."""
+        segs = [_seg(f"Segment {i}") for i in range(30)]
+        chunks = _make_sentence_chunks(segs, chunk_size=12)
+        all_segs = [s for c in chunks for s in c]
+        self.assertEqual(len(all_segs), 30)
+
+    def test_exact_chunk_size(self):
+        """Ровно chunk_size сегментов → один чанк."""
+        segs = [_seg(f"S {i}.") for i in range(12)]
+        chunks = _make_sentence_chunks(segs, chunk_size=12)
+        self.assertEqual(len(chunks), 1)
 
 
 # ─── _translate_batch ─────────────────────────────────────────────────────────
