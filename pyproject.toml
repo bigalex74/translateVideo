@@ -1,6 +1,6 @@
 [project]
 name = "translate-video"
-version = "0.6.0"
+version = "0.7.2"
 description = "Движок ИИ-перевода видео с CLI и UI-интерфейсами."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -10,10 +10,23 @@ dependencies = [
     "deep-translator",
     "edge-tts",
     "pydub",
+    "fastapi",
+    "uvicorn",
+    "httpx",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
-dev = []
+dev = ["coverage[toml]"]
 
 [project.scripts]
 translate-video = "translate_video.cli:main"
+
+[tool.coverage.run]
+source = ["translate_video"]
+omit = ["*/legacy.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 80

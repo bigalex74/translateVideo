@@ -1,0 +1,145 @@
+.search-bar {
+    display: flex;
+    gap: 12px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.search-bar .text-input {
+    flex: 1;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.empty-state h3 {
+    margin-bottom: 8px;
+    font-size: 1.2rem;
+}
+
+.project-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0,0,0,0.2);
+}
+
+.card-title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.card-title h3 {
+    font-size: 1.4rem;
+}
+
+.card-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.card-body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.meta-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.meta-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.meta-value {
+    font-size: 1rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stages h4 {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.stages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.stage-pill {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.stage-pill.completed { border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.05); }
+.stage-pill.failed { border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05); }
+.stage-pill.running { border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05); }
+
+.stage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stage-header strong {
+    font-size: 0.9rem;
+    text-transform: capitalize;
+}
+
+.stage-error {
+    font-size: 0.8rem;
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.1);
+    padding: 6px;
+    border-radius: 4px;
+    word-break: break-word;
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+.mb-4 { margin-bottom: 16px; }
+.inline-icon { opacity: 0.5; }

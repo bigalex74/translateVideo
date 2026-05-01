@@ -35,11 +35,21 @@ def main(argv: list[str] | None = None, stdout: TextIO | None = None) -> int:
 
     output = stdout or sys.stdout
     parser = build_parser()
-    args = parser.parse_args(argv)
-    result = args.handler(args)
-    if result is not None:
-        print(json.dumps(result, ensure_ascii=False, indent=2), file=output)
-    return 0
+    
+    try:
+        args = parser.parse_args(argv)
+        result = args.handler(args)
+        if result is not None:
+            print(json.dumps(result, ensure_ascii=False, indent=2), file=output)
+        return 0
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as err:
+        print(f"Ошибка: {err}", file=sys.stderr)
+        return 1
+    except SystemExit as err:
+        if isinstance(err.code, str):
+            print(f"Ошибка: {err.code}", file=sys.stderr)
+            return 1
+        return err.code or 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser = subparsers.add_parser("run", help="создать или загрузить проект и выполнить пайплайн")
     run_parser.add_argument("input_video", nargs="?", help="путь к исходному видео")
     run_parser.add_argument("--work-dir", type=Path, help="папка ранее созданного проекта")
+    run_parser.add_argument("--force", action="store_true", help="принудительно перезапустить завершенные этапы")
     _add_config_arguments(run_parser)
     run_parser.add_argument("--work-root", type=Path, default=Path("runs"), help="корень рабочих папок")
     run_parser.add_argument("--project-id", help="явный идентификатор нового проекта")
@@ -93,6 +104,28 @@ def build_parser() -> argparse.ArgumentParser:
     config_parser = subparsers.add_parser("config", help="показать настройки проекта")
     config_parser.add_argument("work_dir", type=Path, help="папка проекта")
     config_parser.set_defaults(handler=_handle_config)
+
+    export_srt_parser = subparsers.add_parser("export-srt", help="экспортировать субтитры в формате SRT")
+    export_srt_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    export_srt_parser.set_defaults(handler=_handle_export_srt)
+
+    export_vtt_parser = subparsers.add_parser("export-vtt", help="экспортировать субтитры в формате WebVTT")
+    export_vtt_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    export_vtt_parser.set_defaults(handler=_handle_export_vtt)
+
+    timing_parser = subparsers.add_parser("timing-report", help="отчёт по таймингам сегментов")
+    timing_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    timing_parser.set_defaults(handler=_handle_timing_report)
+
+    review_parser = subparsers.add_parser("review", help="отчёт ревью перевода")
+    review_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    review_parser.set_defaults(handler=_handle_review)
+
+    server_parser = subparsers.add_parser("server", help="запустить локальный API сервер")
+    server_parser.add_argument("--host", default="127.0.0.1", help="хост для сервера")
+    server_parser.add_argument("--port", type=int, default=8002, help="порт для сервера")
+    server_parser.add_argument("--work-root", type=Path, default=Path("runs"), help="корень рабочих папок")
+    server_parser.set_defaults(handler=_handle_server)
 
     return parser
 
@@ -154,7 +187,7 @@ def _handle_run(args: argparse.Namespace) -> dict:
     else:
         raise SystemExit("для run укажите input_video или --work-dir")
 
-    runner = PipelineRunner(_build_stages(args.provider))
+    runner = PipelineRunner(_build_stages(args.provider), force=args.force)
     runs = runner.run(StageContext(project=project, store=store))
     restored = store.load_project(project.work_dir)
     summary = _project_summary(restored)
@@ -193,6 +226,53 @@ def _handle_config(args: argparse.Namespace) -> dict:
 
     project = ProjectStore(args.work_dir.parent).load_project(args.work_dir)
     return project.config.to_dict()
+
+
+def _handle_export_srt(args: argparse.Namespace) -> dict:
+    """Экспортировать переведенные субтитры в формате SRT."""
+
+    store = ProjectStore(args.work_dir.parent)
+    project = store.load_project(args.work_dir)
+    output = store.export_subtitles(project, fmt="srt")
+    return {"format": "srt", "path": output.as_posix()}
+
+
+def _handle_export_vtt(args: argparse.Namespace) -> dict:
+    """Экспортировать переведенные субтитры в формате WebVTT."""
+
+    store = ProjectStore(args.work_dir.parent)
+    project = store.load_project(args.work_dir)
+    output = store.export_subtitles(project, fmt="vtt")
+    return {"format": "vtt", "path": output.as_posix()}
+
+
+def _handle_timing_report(args: argparse.Namespace) -> dict:
+    """Вернуть JSON-отчёт по таймингам сегментов проекта."""
+
+    from translate_video.export.timing_report import build_timing_report  # noqa: PLC0415
+
+    project = ProjectStore(args.work_dir.parent).load_project(args.work_dir)
+    return build_timing_report(project.segments)
+
+
+def _handle_review(args: argparse.Namespace) -> dict:
+    """Вернуть JSON-отчёт ревью перевода для ручной проверки."""
+
+    from translate_video.export.review import build_review_artifact  # noqa: PLC0415
+
+    project = ProjectStore(args.work_dir.parent).load_project(args.work_dir)
+    return build_review_artifact(project.segments, project.config.to_dict())
+
+
+def _handle_server(args: argparse.Namespace) -> dict | None:
+    """Запустить FastAPI сервер."""
+
+    import uvicorn
+    import os
+
+    os.environ["WORK_ROOT"] = str(args.work_root)
+    uvicorn.run("translate_video.api.main:app", host=args.host, port=args.port, reload=True)
+    return None
 
 
 def _config_from_args(args: argparse.Namespace) -> PipelineConfig:

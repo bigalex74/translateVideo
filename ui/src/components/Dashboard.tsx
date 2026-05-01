@@ -1,0 +1,147 @@
+import React, { useState, useEffect } from 'react';
+import { getProjectStatus, runPipeline } from '../api/client';
+import type { VideoProject } from '../types/schemas';
+import { Play, Clock, FolderOpen, AlertCircle, CheckCircle2, Loader2, ArrowRight } from 'lucide-react';
+import './Dashboard.css';
+
+interface DashboardProps {
+    onOpenProject: (id: string) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
+    const [project, setProject] = useState<VideoProject | null>(null);
+    const [projectId, setProjectId] = useState('');
+    const [searchInput, setSearchInput] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const loadStatus = async (id: string) => {
+        if (!id) return;
+        setLoading(true);
+        try {
+            const data = await getProjectStatus(id);
+            setProject(data);
+        } catch (e) {
+            console.error(e);
+            setProject(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRun = async () => {
+        if (!project) return;
+        try {
+            await runPipeline(project.project_id, false, 'fake');
+            loadStatus(project.project_id);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        setProjectId(searchInput);
+        loadStatus(searchInput);
+    };
+
+    useEffect(() => {
+        if (!projectId) return;
+        const interval = setInterval(() => loadStatus(projectId), 3000);
+        return () => clearInterval(interval);
+    }, [projectId]);
+
+    const getStatusIcon = (status: string) => {
+        switch(status) {
+            case 'completed': return <CheckCircle2 size={16} className="text-success" />;
+            case 'failed': return <AlertCircle size={16} className="text-danger" />;
+            case 'running': return <Loader2 size={16} className="text-warning animate-spin" />;
+            default: return null;
+        }
+    };
+
+    return (
+        <div className="dashboard page-container fade-in">
+            <header className="page-header">
+                <h2>Дашборд</h2>
+                <p className="subtitle">Управление и мониторинг запущенных проектов перевода.</p>
+            </header>
+
+            <form onSubmit={handleSearch} className="search-bar glass-panel">
+                <input 
+                    className="text-input"
+                    value={searchInput} 
+                    onChange={e => setSearchInput(e.target.value)}
+                    placeholder="Введите ID проекта (например: demo) для загрузки..."
+                />
+                <button type="submit" className="btn-secondary" disabled={loading}>
+                    {loading ? <Loader2 className="animate-spin" size={16} /> : <Clock size={16}/>}
+                    Загрузить проект
+                </button>
+            </form>
+            
+            <main className="dashboard-content">
+                {project ? (
+                    <div className="project-card glass-panel" data-testid="project-card">
+                        <div className="card-header">
+                            <div className="card-title">
+                                <h3>{project.project_id}</h3>
+                                <span className={`badge ${project.status}`}>
+                                    {getStatusIcon(project.status)}
+                                    {project.status}
+                                </span>
+                            </div>
+                            <div className="card-actions">
+                                {project.status !== 'running' && (
+                                    <button onClick={handleRun} className="btn-secondary">
+                                        <Play size={16}/> Запустить пайплайн
+                                    </button>
+                                )}
+                                <button onClick={() => onOpenProject(project.project_id)} className="btn-primary">
+                                    <FolderOpen size={16}/> Открыть Воркспейс
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="card-body">
+                            <div className="meta-info">
+                                <div className="meta-item">
+                                    <span className="meta-label">Путь (Рабочая папка)</span>
+                                    <span className="meta-value">{project.work_dir}</span>
+                                </div>
+                                <div className="meta-item">
+                                    <span className="meta-label">Направление перевода</span>
+                                    <span className="meta-value">
+                                        {project.config?.source_language || 'Auto'} 
+                                        <ArrowRight size={14} className="inline-icon" /> 
+                                        {project.config?.target_language || 'RU'}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div className="stages">
+                                <h4>Прогресс обработки</h4>
+                                <div className="stages-grid">
+                                    {project.stage_runs?.map(run => (
+                                        <div key={run.id} className={`stage-pill ${run.status}`}>
+                                            <div className="stage-header">
+                                                <strong>{run.stage.replace('_', ' ')}</strong>
+                                                {getStatusIcon(run.status)}
+                                            </div>
+                                            {run.error && <div className="stage-error">{run.error}</div>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="empty-state glass-panel">
+                        <FolderOpen size={48} className="text-muted mb-4" />
+                        <h3>Проект не выбран</h3>
+                        <p className="text-muted">Введите ID проекта в поиск выше или создайте новый проект в боковом меню.</p>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+};
