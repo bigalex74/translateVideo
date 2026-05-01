@@ -45,6 +45,15 @@ status:
 test:
 	PYTHONPATH=src python3 -m unittest discover -s tests
 
+## test:ui: Запустить vitest unit-тесты фронтенда
+test\:ui:
+	cd ui && npm test
+
+## test:all: Запустить все тесты (Python + vitest)
+test\:all:
+	PYTHONPATH=src python3 -m unittest discover -s tests -q
+	cd ui && npm test
+
 ## lint: Проверить типы TypeScript + синтаксис Python
 lint:
 	cd ui && npx tsc --noEmit
