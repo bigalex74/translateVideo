@@ -21,7 +21,18 @@ ROOT = Path(__file__).parent.parent
 
 
 def _read_current_version() -> str:
-    return (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    raw = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    if any(m in raw for m in ("<<<<<<", "=======", ">>>>>>")):
+        raise RuntimeError(
+            "VERSION содержит конфликт-маркеры git. "
+            "Разрешите конфликт вручную перед bump."
+        )
+    if not re.fullmatch(r"\d+\.\d+\.\d+", raw):
+        raise RuntimeError(
+            f"VERSION содержит некорректное значение: '{raw}'. "
+            "Ожидается формат X.Y.Z."
+        )
+    return raw
 
 
 def _compute_new_version(current: str, bump: str) -> str:
