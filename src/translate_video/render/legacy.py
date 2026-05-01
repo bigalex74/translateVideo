@@ -118,9 +118,60 @@ def _moviepy_volume_filter(clip, volume: float):
 
 
 def _moviepy_speedx(clip, factor: float):
-    """Ускорить аудиоклип через fl_time (moviepy 1.x совместимо).
+    """Ускорить аудиоклип через ffmpeg atempo — pitch-neutral (moviepy 1.x совместимо).
 
-    audio_speedx не существует в moviepy 1.0.3.
-    fl_time(lambda t: t * factor) читает сэмплы быстрее → ускорение.
+    fl_time изменяет питч голоса (chipmunk effect) — неприемлемо для озвучки.
+    ffmpeg atempo — промышленный стандарт pitch-корректного ускорения.
+
+    Ограничение atempo: один фильтр [0.5, 2.0]. Для factor>2.0 цепочка фильтров.
     """
-    return clip.fl_time(lambda t: t * factor, apply_to="audio").set_duration(clip.duration / factor)
+    import subprocess
+    import tempfile
+    import os
+    from pathlib import Path
+    from moviepy.editor import AudioFileClip
+
+    # Получаем исходный файл
+    if not hasattr(clip, 'filename') or not clip.filename:
+        # Нет физического файла — сохраняем во временный
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
+            tmp_in = f.name
+        clip.write_audiofile(tmp_in, logger=None)
+        owns_input = True
+    else:
+        tmp_in = clip.filename
+        owns_input = False
+
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
+        tmp_out = f.name
+
+    try:
+        # Строим цепочку фильтров atempo (каждый ограничен [0.5, 2.0])
+        remaining = factor
+        filters = []
+        while remaining > 2.0:
+            filters.append('atempo=2.0')
+            remaining /= 2.0
+        while remaining < 0.5:
+            filters.append('atempo=0.5')
+            remaining /= 0.5
+        filters.append(f'atempo={remaining:.6f}')
+        filter_str = ','.join(filters)
+
+        subprocess.run(
+            ['ffmpeg', '-y', '-i', tmp_in, '-filter:a', filter_str, tmp_out],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        result = AudioFileClip(tmp_out)
+        # Сохраняем путь к temp файлу для последующей очистки
+        result._tmp_speedx_file = tmp_out
+        return result
+    except Exception:
+        # Fallback: без ускорения лучше тишины
+        return clip
+    finally:
+        if owns_input and os.path.exists(tmp_in):
+            os.unlink(tmp_in)
+
