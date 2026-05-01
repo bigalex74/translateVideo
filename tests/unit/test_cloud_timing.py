@@ -18,14 +18,31 @@ from translate_video.timing.cloud import (
 class CloudFallbackTimingRewriterTest(unittest.TestCase):
     """Проверяет рейтинг провайдеров и fallback-поведение."""
 
-    def test_from_config_orders_polza_after_free_providers(self):
-        """Polza.ai должен быть последним облачным fallback, потому что он платный."""
+    def test_from_config_skips_paid_polza_by_default(self):
+        """Polza.ai не должен подключаться случайно только из-за наличия ключа."""
 
         env = {
             "GEMINI_API_KEY": "g",
             "OPENROUTER_API_KEY": "o",
             "AIHUBMIX_API_KEY": "a",
             "POLZA_API_KEY": "p",
+        }
+        with patch("translate_video.timing.cloud.load_env_file", lambda: None), \
+                patch.dict("os.environ", env, clear=True):
+            router = CloudFallbackTimingRewriter.from_config(PipelineConfig())
+
+        names = [provider.name for provider in router.providers]
+        self.assertEqual(names, ["gemini", "openrouter", "aihubmix"])
+
+    def test_from_config_orders_polza_after_free_providers_when_paid_allowed(self):
+        """Polza.ai остаётся последним fallback, если платные провайдеры явно разрешены."""
+
+        env = {
+            "GEMINI_API_KEY": "g",
+            "OPENROUTER_API_KEY": "o",
+            "AIHUBMIX_API_KEY": "a",
+            "POLZA_API_KEY": "p",
+            "REWRITE_ALLOW_PAID_FALLBACK": "true",
         }
         with patch("translate_video.timing.cloud.load_env_file", lambda: None), \
                 patch.dict("os.environ", env, clear=True):
@@ -54,15 +71,19 @@ class CloudFallbackTimingRewriterTest(unittest.TestCase):
         self.assertEqual(result, "короткий ответ")
         self.assertIn("rewrite_provider_failed", router.consume_events())
 
-    def test_router_disables_quota_limited_provider_for_run(self):
-        """429/503/timeout отключают провайдера до конца текущего запуска."""
+    def test_router_puts_quota_limited_provider_into_cooldown(self):
+        """429/503/timeout временно ставят провайдера на паузу, а не выключают навсегда."""
 
         failing = _CountingFailingProvider("gemini", "HTTP 429: quota exceeded")
+        clock = _FakeClock()
         router = CloudFallbackTimingRewriter(
             providers=[
                 failing,
                 _StaticProvider("openrouter", "короткий ответ"),
-            ]
+            ],
+            cooldown_seconds=60,
+            now_fn=clock.now,
+            sleep_fn=clock.sleep,
         )
 
         first = router.rewrite(
@@ -85,6 +106,47 @@ class CloudFallbackTimingRewriterTest(unittest.TestCase):
         self.assertEqual(failing.calls, 1)
         self.assertIn("rewrite_provider_quota_limited", first_events)
         self.assertIn("rewrite_provider_skipped", second_events)
+
+        clock.sleep(61)
+        router.rewrite(
+            "Третья длинная фраза для озвучки.",
+            source_text="Third phrase.",
+            max_chars=20,
+            attempt=1,
+        )
+
+        self.assertEqual(failing.calls, 2)
+
+    def test_router_respects_provider_rpm_before_request(self):
+        """RPM-лимит делает паузу до следующего запроса к тому же провайдеру."""
+
+        clock = _FakeClock()
+        provider = _StaticProvider("gemini", "короткий ответ")
+        router = CloudFallbackTimingRewriter(
+            providers=[provider],
+            rate_limits_rpm={"gemini": 5},
+            now_fn=clock.now,
+            sleep_fn=clock.sleep,
+        )
+
+        router.rewrite(
+            "Очень длинная фраза для озвучки.",
+            source_text="Long phrase.",
+            max_chars=20,
+            attempt=1,
+        )
+        first_events = router.consume_events()
+        router.rewrite(
+            "Ещё одна длинная фраза для озвучки.",
+            source_text="Another phrase.",
+            max_chars=20,
+            attempt=1,
+        )
+        second_events = router.consume_events()
+
+        self.assertNotIn("rewrite_provider_rate_limited", first_events)
+        self.assertIn("rewrite_provider_rate_limited", second_events)
+        self.assertEqual(clock.current, 12.0)
 
     def test_router_uses_rule_based_when_no_cloud_candidate(self):
         """Если облако недоступно, остаётся безопасный rule-based fallback."""
@@ -231,6 +293,19 @@ class _CountingFailingProvider:
     def rewrite(self, text: str, *, source_text: str, max_chars: int, attempt: int) -> str:
         self.calls += 1
         raise RewriteProviderError(self.reason)
+
+
+class _FakeClock:
+    """Управляемые часы для тестов rate-limit и cooldown без реального ожидания."""
+
+    def __init__(self) -> None:
+        self.current = 0.0
+
+    def now(self) -> float:
+        return self.current
+
+    def sleep(self, seconds: float) -> None:
+        self.current += seconds
 
 
 if __name__ == "__main__":
