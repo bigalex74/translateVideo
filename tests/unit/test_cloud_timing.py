@@ -126,12 +126,12 @@ class ProviderPayloadTest(unittest.TestCase):
         self.assertIn("только новая фраза", prompt)
 
     def test_openrouter_default_model_is_configured(self):
-        """OpenRouter по умолчанию использует выбранную пользователем free-модель."""
+        """OpenRouter по умолчанию использует правильный ID модели с префиксом и суффиксом :free."""
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "secret"}, clear=True):
             provider = OpenAICompatibleRewriteProvider.openrouter_from_env()
 
-        self.assertEqual(provider.model, "gpt-oss-120b")
+        self.assertEqual(provider.model, "openai/gpt-oss-120b:free")
 
     def test_aihubmix_default_model_is_configured(self):
         """AIHubMix по умолчанию использует выбранную пользователем free-модель."""
