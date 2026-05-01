@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import re
 
+from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import Segment, VideoProject
 from translate_video.timing.base import TimingRewriter
+
+_log = get_logger(__name__)
 
 
 class NaturalVoiceTimingFitter:
@@ -26,44 +29,128 @@ class NaturalVoiceTimingFitter:
         rewriter = self.rewriter or _build_default_rewriter(cfg)
         target_cps = max(1.0, float(cfg.target_chars_per_second))
         max_attempts = max(0, int(cfg.timing_fit_max_rewrites))
+        total_segments = len(segments)
+        needs_rewrite = 0
+        rewritten_count = 0
+        failed_count = 0
 
-        for segment in segments:
-            text = segment.translated_text.strip()
-            segment.tts_text = text
-            if not text:
-                continue
-            if segment.duration <= 0:
-                _add_qa_flag(segment, "timing_fit_invalid_slot")
-                continue
+        _log.info(
+            "timing_fit.start",
+            project=project.id,
+            segments=total_segments,
+            target_cps=target_cps,
+            max_attempts=max_attempts,
+            cloud_enabled=bool(getattr(cfg, "use_cloud_timing_rewriter", True)),
+        )
 
-            max_chars = max(1, int(segment.duration * target_cps))
-            if len(text) <= max_chars:
-                continue
+        with Timer() as timer:
+            for index, segment in enumerate(segments, start=1):
+                was_rewritten, failed = self._fit_segment(
+                    segment,
+                    rewriter=rewriter,
+                    target_cps=target_cps,
+                    max_attempts=max_attempts,
+                    index=index,
+                    total_segments=total_segments,
+                    project_id=project.id,
+                )
+                if was_rewritten or failed:
+                    needs_rewrite += 1
+                if was_rewritten:
+                    rewritten_count += 1
+                if failed:
+                    failed_count += 1
 
-            candidate = text
-            for attempt in range(1, max_attempts + 1):
+        _log.info(
+            "timing_fit.done",
+            project=project.id,
+            elapsed_s=timer.elapsed,
+            segments=total_segments,
+            touched_segments=needs_rewrite,
+            rewritten_segments=rewritten_count,
+            failed_segments=failed_count,
+        )
+        return segments
+
+    def _fit_segment(
+        self,
+        segment: Segment,
+        *,
+        rewriter: TimingRewriter,
+        target_cps: float,
+        max_attempts: int,
+        index: int,
+        total_segments: int,
+        project_id: str,
+    ) -> tuple[bool, bool]:
+        """Подогнать один сегмент и вернуть признаки изменения/неудачи."""
+
+        text = segment.translated_text.strip()
+        segment.tts_text = text
+        if not text:
+            return False, False
+        if segment.duration <= 0:
+            _add_qa_flag(segment, "timing_fit_invalid_slot")
+            return False, True
+
+        max_chars = max(1, int(segment.duration * target_cps))
+        if len(text) <= max_chars:
+            return False, False
+
+        _log.info(
+            "timing_fit.segment_start",
+            project=project_id,
+            segment=segment.id,
+            index=index,
+            total=total_segments,
+            chars=len(text),
+            max_chars=max_chars,
+            duration_s=round(segment.duration, 3),
+        )
+
+        candidate = text
+        for attempt in range(1, max_attempts + 1):
+            with Timer() as rewrite_timer:
                 rewritten = rewriter.rewrite(
                     candidate,
                     source_text=segment.source_text,
                     max_chars=max_chars,
                     attempt=attempt,
                 ).strip()
-                _apply_rewriter_events(segment, rewriter)
-                if not rewritten or rewritten == candidate:
-                    break
-                candidate = rewritten
-                if len(candidate) <= max_chars:
-                    break
+            _log.info(
+                "timing_fit.rewrite_attempt",
+                project=project_id,
+                segment=segment.id,
+                attempt=attempt,
+                elapsed_s=rewrite_timer.elapsed,
+                in_chars=len(candidate),
+                out_chars=len(rewritten),
+                fits=len(rewritten) <= max_chars if rewritten else False,
+            )
+            _apply_rewriter_events(segment, rewriter)
+            if not rewritten or rewritten == candidate:
+                break
+            candidate = rewritten
+            if len(candidate) <= max_chars:
+                break
 
-            if candidate != text:
-                segment.translated_text = candidate
-                segment.tts_text = candidate
-                _add_qa_flag(segment, "translation_rewritten_for_timing")
+        if candidate != text:
+            segment.translated_text = candidate
+            segment.tts_text = candidate
+            _add_qa_flag(segment, "translation_rewritten_for_timing")
 
-            if len(candidate) > max_chars:
-                _add_qa_flag(segment, "timing_fit_failed")
+        if len(candidate) > max_chars:
+            _add_qa_flag(segment, "timing_fit_failed")
+            _log.warning(
+                "timing_fit.segment_failed",
+                project=project_id,
+                segment=segment.id,
+                chars=len(candidate),
+                max_chars=max_chars,
+            )
+            return candidate != text, True
 
-        return segments
+        return candidate != text, False
 
 
 class RuleBasedTimingRewriter:

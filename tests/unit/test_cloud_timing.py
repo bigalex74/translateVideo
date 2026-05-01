@@ -54,6 +54,38 @@ class CloudFallbackTimingRewriterTest(unittest.TestCase):
         self.assertEqual(result, "короткий ответ")
         self.assertIn("rewrite_provider_failed", router.consume_events())
 
+    def test_router_disables_quota_limited_provider_for_run(self):
+        """429/503/timeout отключают провайдера до конца текущего запуска."""
+
+        failing = _CountingFailingProvider("gemini", "HTTP 429: quota exceeded")
+        router = CloudFallbackTimingRewriter(
+            providers=[
+                failing,
+                _StaticProvider("openrouter", "короткий ответ"),
+            ]
+        )
+
+        first = router.rewrite(
+            "Очень длинная фраза для озвучки.",
+            source_text="Long phrase.",
+            max_chars=20,
+            attempt=1,
+        )
+        first_events = router.consume_events()
+        second = router.rewrite(
+            "Ещё одна длинная фраза для озвучки.",
+            source_text="Another phrase.",
+            max_chars=20,
+            attempt=1,
+        )
+        second_events = router.consume_events()
+
+        self.assertEqual(first, "короткий ответ")
+        self.assertEqual(second, "короткий ответ")
+        self.assertEqual(failing.calls, 1)
+        self.assertIn("rewrite_provider_quota_limited", first_events)
+        self.assertIn("rewrite_provider_skipped", second_events)
+
     def test_router_uses_rule_based_when_no_cloud_candidate(self):
         """Если облако недоступно, остаётся безопасный rule-based fallback."""
 
@@ -135,6 +167,20 @@ class ProviderPayloadTest(unittest.TestCase):
             provider = OpenAICompatibleRewriteProvider.openrouter_from_env()
 
         self.assertEqual(provider.model, "openai/gpt-oss-120b:free")
+        self.assertEqual(provider.timeout, 8.0)
+
+    def test_provider_timeout_can_be_overridden_globally(self):
+        """REWRITE_PROVIDER_TIMEOUT задаёт короткий общий timeout для всей цепочки."""
+
+        env = {
+            "OPENROUTER_API_KEY": "secret",
+            "REWRITE_PROVIDER_TIMEOUT": "3.5",
+        }
+        with patch("translate_video.timing.cloud.load_env_file", lambda: None), \
+                patch.dict("os.environ", env, clear=True):
+            router = CloudFallbackTimingRewriter.from_config(PipelineConfig())
+
+        self.assertEqual(router.providers[0].timeout, 3.5)
 
     def test_aihubmix_default_model_is_configured(self):
         """AIHubMix по умолчанию использует выбранную пользователем free-модель."""
@@ -172,6 +218,19 @@ class _FailingProvider:
 
     def rewrite(self, text: str, *, source_text: str, max_chars: int, attempt: int) -> str:
         raise RewriteProviderError("fail")
+
+
+class _CountingFailingProvider:
+    """Тестовый провайдер, который считает вызовы и всегда падает."""
+
+    def __init__(self, name: str, reason: str) -> None:
+        self.name = name
+        self.reason = reason
+        self.calls = 0
+
+    def rewrite(self, text: str, *, source_text: str, max_chars: int, attempt: int) -> str:
+        self.calls += 1
+        raise RewriteProviderError(self.reason)
 
 
 if __name__ == "__main__":

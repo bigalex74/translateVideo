@@ -152,25 +152,51 @@ class StructLogger:
     def __init__(self, logger: logging.Logger) -> None:
         self._logger = logger
 
-    def _log(self, level: int, msg: str, **kwargs: Any) -> None:
+    def _log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Передать событие в logging, отделив служебные kwargs от extra-полей."""
+
         if self._logger.isEnabledFor(level):
-            self._logger.log(level, msg, extra=kwargs)
+            exc_info = kwargs.pop("exc_info", None)
+            stack_info = kwargs.pop("stack_info", False)
+            stacklevel = int(kwargs.pop("stacklevel", 1))
+            extra = kwargs.pop("extra", {})
+            if kwargs:
+                extra = {**extra, **kwargs}
+            self._logger.log(
+                level,
+                msg,
+                *args,
+                exc_info=exc_info,
+                stack_info=stack_info,
+                stacklevel=stacklevel + 1,
+                extra=extra or None,
+            )
 
-    def debug(self, msg: str, **kwargs: Any) -> None:
-        self._log(logging.DEBUG, msg, **kwargs)
+    def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Логировать DEBUG-событие."""
 
-    def info(self, msg: str, **kwargs: Any) -> None:
-        self._log(logging.INFO, msg, **kwargs)
+        self._log(logging.DEBUG, msg, *args, **kwargs)
 
-    def warning(self, msg: str, **kwargs: Any) -> None:
-        self._log(logging.WARNING, msg, **kwargs)
+    def info(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Логировать INFO-событие."""
 
-    def error(self, msg: str, **kwargs: Any) -> None:
-        self._log(logging.ERROR, msg, **kwargs)
+        self._log(logging.INFO, msg, *args, **kwargs)
 
-    def exception(self, msg: str, **kwargs: Any) -> None:
+    def warning(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Логировать WARNING-событие."""
+
+        self._log(logging.WARNING, msg, *args, **kwargs)
+
+    def error(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Логировать ERROR-событие."""
+
+        self._log(logging.ERROR, msg, *args, **kwargs)
+
+    def exception(self, msg: str, *args: Any, **kwargs: Any) -> None:
         """Логировать ERROR с текущим traceback (аналог logger.exception)."""
-        self._log(logging.ERROR, msg, **kwargs)
+
+        kwargs["exc_info"] = True
+        self._log(logging.ERROR, msg, *args, **kwargs)
 
 
 # ── Контекстный таймер ────────────────────────────────────────────────────────

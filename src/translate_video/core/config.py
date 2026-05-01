@@ -95,6 +95,10 @@ class PipelineConfig:
     rewrite_provider_order: list[str] = field(
         default_factory=lambda: ["gemini", "openrouter", "aihubmix", "polza", "rule_based"]
     )
+    # Сетевые rewriter-провайдеры должны быстро отдавать управление fallback-цепочке:
+    # бесплатные лимиты часто отвечают 429/503, и долго ждать их на каждом сегменте нельзя.
+    rewrite_provider_timeout: float = 8.0
+    rewrite_provider_disable_on_quota: bool = True
     allow_tts_rate_adaptation: bool = False
     allow_render_audio_speedup: bool = False
     allow_timeline_shift: bool = True
@@ -155,6 +159,10 @@ class PipelineConfig:
                         "rewrite_provider_order",
                         ["gemini", "openrouter", "aihubmix", "polza", "rule_based"],
                     )
+                ),
+                "rewrite_provider_timeout": float(data.get("rewrite_provider_timeout", 8.0)),
+                "rewrite_provider_disable_on_quota": bool(
+                    data.get("rewrite_provider_disable_on_quota", True)
                 ),
                 "allow_tts_rate_adaptation": bool(data.get("allow_tts_rate_adaptation", False)),
                 "allow_render_audio_speedup": bool(data.get("allow_render_audio_speedup", False)),
