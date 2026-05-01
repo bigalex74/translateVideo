@@ -1,5 +1,21 @@
 # Журнал Изменений
 
+## 1.2.4 - 2026-05-01 - PATCH - TVIDEO-025-fix-video-route
+
+- Исправлена ошибка «неподдерживаемое видео / MIME не найден» на вкладке «Перевод ИИ».
+  Причина: `_resolve_video` отрезал подпапку через `Path(filename).name`,
+  из-за чего `output/translated.mp4` не находился (искался `translated.mp4` в корне).
+- Маршрут `{filename}` заменён на `{filepath:path}` — FastAPI правильно передаёт
+  путь с подпапками (`output/translated.mp4`).
+- `_WORK_ROOT` теперь использует `.resolve()` — абсолютный путь.
+- Защита от path traversal переписана через `resolve()` + проверку `parents`
+  (вместо `Path.name` который лишь маскировал проблему).
+- Добавлены 3 регрессионных теста в `test_video_stream.py`:
+  стриминг из подпапки, Range на подпапку, traversal через подпапку.
+- 183 теста, все зелёные.
+
+
+
 ## 1.2.3 - 2026-05-01 - PATCH - TVIDEO-024-fix-artifact-path-normalization
 
 - Исправлена ошибка `[Errno 2] No such file or directory: source_audio.wav`:

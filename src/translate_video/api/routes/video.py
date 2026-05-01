@@ -9,9 +9,11 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from translate_video.core.store import sanitize_project_id
+
 router = APIRouter(prefix="/api/v1/video", tags=["video"])
 
-_WORK_ROOT = Path(os.getenv("WORK_ROOT", "runs"))
+_WORK_ROOT = Path(os.getenv("WORK_ROOT", "runs")).resolve()
 
 # Список разрешённых расширений
 _ALLOWED_EXTS = {".mp4", ".webm", ".ogg", ".ogv", ".mov", ".mkv", ".avi", ".mp3", ".wav", ".aac"}
@@ -20,26 +22,38 @@ _ALLOWED_EXTS = {".mp4", ".webm", ".ogg", ".ogv", ".mov", ".mkv", ".avi", ".mp3"
 _CHUNK = 1024 * 1024  # 1 MiB
 
 
-def _resolve_video(project_id: str, filename: str) -> Path:
-    """Безопасно разрешить путь к видеофайлу внутри папки проекта."""
-    # Защита от path traversal
-    safe_id = Path(project_id).name
-    safe_file = Path(filename).name
-    if not safe_id or not safe_file:
-        raise HTTPException(status_code=400, detail="Некорректный путь")
-    ext = Path(safe_file).suffix.lower()
+def _resolve_video(project_id: str, rel_path: str) -> Path:
+    """Безопасно разрешить путь к видеофайлу внутри папки проекта.
+
+    Поддерживает подпапки (например 'output/translated.mp4').
+    Защита от path traversal через resolve() + проверку принадлежности work_dir.
+    """
+    try:
+        safe_id = sanitize_project_id(project_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Некорректный ID проекта")
+
+    ext = Path(rel_path).suffix.lower()
     if ext not in _ALLOWED_EXTS:
-        raise HTTPException(status_code=400, detail=f"Расширение файла не поддерживается: {ext}")
-    path = _WORK_ROOT / safe_id / safe_file
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="Видеофайл не найден")
-    return path
+        raise HTTPException(status_code=400, detail=f"Расширение файла не поддерживается: {ext!r}")
+
+    project_dir = (_WORK_ROOT / safe_id).resolve()
+    candidate = (project_dir / rel_path).resolve()
+
+    # Защита от path traversal: candidate должен быть внутри project_dir
+    if project_dir not in candidate.parents and candidate != project_dir:
+        raise HTTPException(status_code=400, detail="Путь выходит за пределы проекта")
+
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail=f"Видеофайл не найден: {rel_path}")
+
+    return candidate
 
 
 def _mime(path: Path) -> str:
     """Определить MIME-тип по расширению."""
     mime, _ = mimetypes.guess_type(str(path))
-    if mime and mime.startswith("video/"):
+    if mime and mime.startswith(("video/", "audio/")):
         return mime
     ext = path.suffix.lower()
     return {
@@ -69,10 +83,14 @@ def _stream(path: Path, start: int, end: int):
             yield chunk
 
 
-@router.get("/{project_id}/{filename}")
-def stream_video(project_id: str, filename: str, request: Request):
-    """Стриминг видео/аудио-файла с поддержкой Range-запросов (необходима для перемотки)."""
-    path = _resolve_video(project_id, filename)
+@router.get("/{project_id}/{filepath:path}")
+def stream_video(project_id: str, filepath: str, request: Request):
+    """Стриминг видео/аудио-файла с поддержкой Range-запросов.
+
+    filepath — путь относительно project_dir, может содержать подпапки
+    (например 'output/translated.mp4').
+    """
+    path = _resolve_video(project_id, filepath)
     file_size = path.stat().st_size
     content_type = _mime(path)
 
