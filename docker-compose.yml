@@ -13,3 +13,5 @@ services:
       - .env            # ключи облачных rewriter-провайдеров (Gemini, OR, AIHubMix...)
     environment:
       - WORK_ROOT=/app/runs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux: хост доступен как host.docker.internal
