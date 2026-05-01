@@ -116,13 +116,9 @@ def main():
         print(f"\n  {YELLOW}⚠  AIHubMix: AIHUBMIX_API_KEY не задан — пропуск{RESET}")
         results["AIHubMix"] = None
 
-    # 4. Polza
-    if os.getenv("POLZA_API_KEY"):
-        p = OpenAICompatibleRewriteProvider.polza_from_env()
-        results["Polza"] = test_provider("Polza", p, p.model)
-    else:
-        print(f"\n  {YELLOW}⚠  Polza: POLZA_API_KEY не задан — пропуск{RESET}")
-        results["Polza"] = None
+    # 4. Polza — платный агрегатор, не тестируем вживую (деньги списываются за каждый запрос)
+    print(f"\n  {YELLOW}💰 Polza: платный провайдер — пропуск в live-тесте{RESET}")
+    print(f"     Тест логики (без API) покрыт в tests/unit/test_cloud_timing.py")
 
     # 5. RuleBased (всегда)
     p = RuleBasedTimingRewriter()
@@ -136,8 +132,10 @@ def main():
     # ── Итог ─────────────────────────────────────────────────────────────────
     print(f"\n{BOLD}══ ИТОГ ══════════════════════════════════════════{RESET}")
     # RuleBased — это всегда-доступный fallback, он не LLM.
-    # Провалить агрессивный лимит 25 симв. — нормально. Не учитываем в ошибках.
-    cloud_results = {k: v for k, v in results.items() if k != "RuleBased"}
+    # Polza — платный, не тестируем вживую. RuleBased — не LLM.
+    # Исключаем оба из учёта в итогах.
+    SKIP_FROM_RESULTS = {"RuleBased", "Polza"}
+    cloud_results = {k: v for k, v in results.items() if k not in SKIP_FROM_RESULTS}
     tested   = {k: v for k, v in cloud_results.items() if v is not None}
     skipped  = [k for k, v in cloud_results.items() if v is None]
     passed   = [k for k, v in tested.items() if v]
