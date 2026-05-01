@@ -150,7 +150,7 @@ class LegacyAdaptersTest(unittest.TestCase):
 
         stages = _build_stages("legacy")
 
-        self.assertEqual(len(stages), 5)
+        self.assertEqual(len(stages), 6)  # +RegroupStage (TVIDEO-039)
 
 
 def _project(temp_dir: str, config: PipelineConfig | None = None) -> VideoProject:

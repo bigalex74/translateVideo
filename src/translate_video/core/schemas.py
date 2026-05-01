@@ -38,7 +38,7 @@ class Stage(StrEnum):
     PROBE = "probe"
     EXTRACT_AUDIO = "extract_audio"
     TRANSCRIBE = "transcribe"
-    SPEAKER_ANALYSIS = "speaker_analysis"
+    REGROUP = "regroup"     # перегруппировка по предложениям (TVIDEO-039)
     TRANSLATE = "translate"
     VOICE_CAST = "voice_cast"
     TTS = "tts"

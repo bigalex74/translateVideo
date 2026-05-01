@@ -121,6 +121,43 @@ class TranscribeStage(BaseStage):
         return self._record(context, action)
 
 
+
+class RegroupStage(BaseStage):
+    """Объединяет Whisper-фрагменты в сегменты уровня предложения (TVIDEO-039).
+
+    Запускается после TranscribeStage и до TranslateStage.
+    Не обращается к внешним сервисам — только чистая логика.
+    """
+
+    stage = Stage.REGROUP
+
+    def run(self, context: StageContext) -> StageRun:
+        def action() -> tuple[list[str], list[str]]:
+            from translate_video.speech.regroup import regroup_by_sentences
+
+            before = len(context.project.segments)
+            context.project.segments = regroup_by_sentences(
+                context.project.segments,
+                max_slot=context.project.config.regroup_max_slot,
+            )
+            after = len(context.project.segments)
+
+            # Перезаписываем source transcript с перегруппированными сегментами
+            output_path = context.store.save_segments(
+                context.project, context.project.segments, translated=False
+            )
+            output = output_path.relative_to(context.project.work_dir).as_posix()
+
+            import logging
+            logging.getLogger(__name__).info(
+                "regroup: %d фрагментов → %d предложений (max_slot=%.1f)",
+                before, after, context.project.config.regroup_max_slot,
+            )
+            return [], [output]
+
+        return self._record(context, action)
+
+
 class TranslateStage(BaseStage):
     """Переводит исходные сегменты на настроенный целевой язык."""
 
