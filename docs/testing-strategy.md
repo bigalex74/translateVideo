@@ -81,6 +81,17 @@ cd ui
 npm run test:e2e
 ```
 
+Fullstack browser E2E:
+
+```bash
+cd ui
+npm run test:e2e:fullstack
+```
+
+Этот сценарий собирает UI, запускает реальный FastAPI backend, загружает
+маленькое тестовое видео, запускает fake-пайплайн и проверяет артефакты без
+Playwright-моков API.
+
 ### Нагрузочные Тесты
 
 Область:
@@ -107,11 +118,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests/load
 Перед каждым коммитом:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests
-python3 -m compileall -q src tests
-(cd ui && npm run build)
-(cd ui && npm run lint)
-git diff --check
+make test:release
 ```
 
 Перед слиянием ветки задачи в `develop`:
@@ -126,14 +133,8 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 Перед слиянием `develop` в `master`:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests/unit
-PYTHONPATH=src python3 -m unittest discover -s tests/integration
-PYTHONPATH=src python3 -m unittest discover -s tests/e2e
-PYTHONPATH=src python3 -m unittest discover -s tests/load
-(cd ui && npm run build)
-(cd ui && npm run lint)
-(cd ui && npm run test:e2e)
+make test:release
 ```
 
-CLI E2E, нагрузочные тесты и browser E2E являются обязательной частью проверки
-перед слиянием `develop -> master`.
+CLI E2E, нагрузочные тесты, browser E2E и fullstack browser E2E являются
+обязательной частью проверки перед слиянием `develop -> master`.

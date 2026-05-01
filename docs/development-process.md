@@ -90,13 +90,17 @@ git checkout -b TVIDEO-XXX-short-name
 - Нагрузочные тесты: пропускная способность, параллельность, большие задачи, давление
   на очереди и потребление ресурсов.
 
-Текущая команда полного прогона:
+Текущая команда полного релизного прогона:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests
+make test:release
 ```
 
-Проверка синтаксиса:
+Команда включает Python unit/integration/e2e/load, `compileall`, ESLint,
+vitest, production build, browser E2E на моках, fullstack browser E2E против
+реального FastAPI backend и `git diff --check`.
+
+Быстрая проверка синтаксиса:
 
 ```bash
 python3 -m compileall -q src tests
