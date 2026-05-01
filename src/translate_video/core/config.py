@@ -77,13 +77,12 @@ class PipelineConfig:
     background_ducking: bool = True
     subtitle_formats: list[str] = field(default_factory=lambda: ["srt"])
     glossary_path: Path | None = None
-    # ── LLM-сжатие озвучки (TVIDEO-037) ──────────────────────────────────────
-    # Если TTS-озвучка сегмента длиннее слота на compress_slack,
-    # вызываем Ollama для семантического сжатия перевода и переозвучиваем.
-    compress_llm_url: str = "http://127.0.0.1:11434"  # Ollama endpoint
-    compress_llm_model: str = "qwen3.5:9b"            # модель сжатия
-    compress_slack: float = 1.05                       # 5% запас, иначе compress
-    compress_max_retries: int = 2                      # макс итераций сжатия
+    # ── Адаптивный rate TTS (TVIDEO-040b) ────────────────────────────────────
+    # Если TTS-аудио длиннее слота более чем на tts_rate_slack,
+    # автоматически переозвучиваем с бОльшим rate (без изменения тона).
+    tts_base_rate: int = 5          # базовый rate TTS в % (+5 = чуть быстрее нормы)
+    tts_max_rate: int = 40          # максимальный rate при адаптации
+    tts_rate_slack: float = 1.03    # 3% запас перед решением об ускорении
 
     # ── Перегруппировка по предложениям (TVIDEO-039) ─────────────────────────
     # Максимальная длительность слота после слияния фрагментов Whisper.
@@ -106,6 +105,11 @@ class PipelineConfig:
         data = dict(payload)
         if data.get("glossary_path"):
             data["glossary_path"] = Path(data["glossary_path"])
+        # Удаляем устаревшие поля Ollama-compress (TVIDEO-037→040b)
+        for old_key in ("compress_llm_url", "compress_llm_model",
+                         "compress_slack", "compress_max_retries"):
+            data.pop(old_key, None)
+
         return cls(
             **{
                 **data,
@@ -114,12 +118,12 @@ class PipelineConfig:
                 "adaptation_level": AdaptationLevel(data.get("adaptation_level", "natural")),
                 "voice_strategy": VoiceStrategy(data.get("voice_strategy", "single")),
                 "quality_gate": QualityGate(data.get("quality_gate", "balanced")),
-                # LLM compress — новые поля с дефолтами для совместимости
-                "compress_llm_url": data.get("compress_llm_url", "http://127.0.0.1:11434"),
-                "compress_llm_model": data.get("compress_llm_model", "qwen3.5:9b"),
-                "compress_slack": float(data.get("compress_slack", 1.05)),
-                "compress_max_retries": int(data.get("compress_max_retries", 2)),
-                # Regroup — новое поле с дефолтом для совместимости
+                # Адаптивный TTS rate — дефолты для совместимости со старыми project.json
+                "tts_base_rate": int(data.get("tts_base_rate", 5)),
+                "tts_max_rate": int(data.get("tts_max_rate", 40)),
+                "tts_rate_slack": float(data.get("tts_rate_slack", 1.03)),
+                # Regroup — дефолт для совместимости
                 "regroup_max_slot": float(data.get("regroup_max_slot", 8.0)),
             }
         )
+
