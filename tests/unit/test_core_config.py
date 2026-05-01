@@ -7,6 +7,7 @@ from translate_video.core.config import (
     AdaptationLevel,
     PipelineConfig,
     QualityGate,
+    TimingPolicy,
     TranslationMode,
     TranslationStyle,
     VoiceStrategy,
@@ -42,15 +43,21 @@ class PipelineConfigTest(unittest.TestCase):
         self.assertEqual(restored.quality_gate, QualityGate.STRICT)
         self.assertEqual(restored.glossary_path, Path("glossary.yaml"))
         self.assertEqual(restored.do_not_translate, ["OpenAI"])
+        self.assertEqual(restored.timing_policy, TimingPolicy.NATURAL_VOICE)
 
     def test_timing_safe_render_defaults_are_restored(self):
         """Старые project.json получают безопасные дефолты рендера."""
 
         restored = PipelineConfig.from_dict({"target_language": "ru"})
 
-        self.assertEqual(restored.render_max_speed, 1.3)
+        self.assertEqual(restored.tts_base_rate, 0)
+        self.assertEqual(restored.tts_max_rate, 0)
+        self.assertFalse(restored.allow_tts_rate_adaptation)
+        self.assertEqual(restored.render_max_speed, 1.0)
         self.assertEqual(restored.render_gap, 0.05)
+        self.assertFalse(restored.allow_render_audio_speedup)
         self.assertFalse(restored.allow_render_audio_trim)
+        self.assertTrue(restored.allow_timeline_shift)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,27 @@
 # Журнал Изменений
 
+## 1.11.0 - 2026-05-01 - MINOR - TVIDEO-042
+
+### Естественная озвучка без ускорения
+- Дефолтная стратегия изменена на `natural_voice`: TTS генерируется на
+  естественной скорости `+0%`.
+- Адаптивное ускорение TTS теперь работает только при явном
+  `allow_tts_rate_adaptation=True`.
+- Рендер больше не ускоряет аудио по умолчанию. Speedup доступен только в
+  явном fast-режиме `allow_render_audio_speedup=True`.
+- Добавлен этап `timing_fit` между переводом и TTS. Он готовит текст под
+  длительность сегмента до синтеза речи.
+- Добавлен безопасный `RuleBasedTimingRewriter`: сокращает очевидные длинные
+  обороты, но не делает жёсткую обрезку текста.
+- Если текст нельзя безопасно сократить, ставится `timing_fit_failed`, а смысл
+  сохраняется.
+- Рендер умеет мягко сдвигать следующие реплики (`timeline_shifted`), чтобы
+  уменьшить наложения без ускорения и обрезки.
+- Новые QA-флаги: `tts_overflow_natural_rate`,
+  `translation_rewritten_for_timing`, `timing_fit_failed`,
+  `timing_fit_invalid_slot`, `timeline_shifted`,
+  `timeline_shift_limit_reached`, `timeline_audio_extends_video`.
+
 ## 1.10.1 - 2026-05-01 - PATCH - TVIDEO-041
 
 ### Безопасный рендер без потери смысла

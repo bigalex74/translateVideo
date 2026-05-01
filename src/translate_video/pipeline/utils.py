@@ -11,6 +11,7 @@ from translate_video.pipeline import (
     RegroupStage,
     RenderStage,
     TTSStage,
+    TimingFitStage,
     TranscribeStage,
     TranslateStage,
 )
@@ -65,6 +66,16 @@ class FakeTTSProvider:
         return segments
 
 
+class FakeTimingFitter:
+    """Имитационная подгонка таймингов без изменения текста."""
+
+    def fit(self, project: VideoProject, segments):
+        """Заполнить tts_text для smoke-тестов."""
+        for segment in segments:
+            segment.tts_text = segment.translated_text
+        return segments
+
+
 class FakeRenderer:
     """Имитационный рендерер для создания итогового видео-артефакта."""
 
@@ -88,6 +99,7 @@ def build_stages(provider: str) -> list:
             TranscribeStage(FakeTranscriber()),
             RegroupStage(),
             TranslateStage(FakeTranslator()),
+            TimingFitStage(FakeTimingFitter()),
             TTSStage(FakeTTSProvider()),
             RenderStage(FakeRenderer()),
         ]
@@ -95,6 +107,7 @@ def build_stages(provider: str) -> list:
         from translate_video.media import LegacyMoviePyMediaProvider
         from translate_video.render import MoviePyVoiceoverRenderer
         from translate_video.speech import FasterWhisperTranscriber
+        from translate_video.timing import NaturalVoiceTimingFitter
         from translate_video.translation import GoogleSegmentTranslator
         from translate_video.tts import EdgeTTSProvider
 
@@ -103,6 +116,7 @@ def build_stages(provider: str) -> list:
             TranscribeStage(FasterWhisperTranscriber()),
             RegroupStage(),
             TranslateStage(GoogleSegmentTranslator()),
+            TimingFitStage(NaturalVoiceTimingFitter()),
             TTSStage(EdgeTTSProvider()),
             RenderStage(MoviePyVoiceoverRenderer()),
         ]

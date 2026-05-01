@@ -114,6 +114,7 @@ class ProjectStore:
         project: VideoProject,
         segments: list[Segment],
         translated: bool = False,
+        stage: Stage | None = None,
     ) -> Path:
         """Сохранить исходные или переведенные сегменты расшифровки."""
 
@@ -131,7 +132,7 @@ class ProjectStore:
             ArtifactRecord(
                 kind=kind,
                 path=relative_path,
-                stage=Stage.TRANSLATE if translated else Stage.TRANSCRIBE,
+                stage=stage or (Stage.TRANSLATE if translated else Stage.TRANSCRIBE),
                 content_type="application/json",
                 metadata={"segments": len(segments)},
             )

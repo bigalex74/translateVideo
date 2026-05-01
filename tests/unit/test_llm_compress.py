@@ -79,13 +79,21 @@ class TestEdgeTTSProviderAdaptive(unittest.TestCase):
         from translate_video.core.schemas import Segment
         return Segment(start=start, end=end, source_text="Hello.", translated_text=text)
 
-    def _make_project(self, tmp_dir, base_rate=5, max_rate=40, slack=1.03):
+    def _make_project(
+        self,
+        tmp_dir,
+        base_rate=0,
+        max_rate=0,
+        slack=1.03,
+        allow_rate=False,
+    ):
         from translate_video.core.config import PipelineConfig
         project = MagicMock()
         project.config = PipelineConfig(
             tts_base_rate=base_rate,
             tts_max_rate=max_rate,
             tts_rate_slack=slack,
+            allow_tts_rate_adaptation=allow_rate,
         )
         project.config.target_language = "ru"
         project.work_dir = tmp_dir
@@ -115,7 +123,7 @@ class TestEdgeTTSProviderAdaptive(unittest.TestCase):
                 provider.synthesize(project, [seg])
 
             self.assertEqual(len(synth_rates), 1)
-            self.assertEqual(synth_rates[0], "+5%")
+            self.assertEqual(synth_rates[0], "+0%")
             self.assertNotIn("tts_rate_adapted", seg.qa_flags)
 
     def test_adaptation_triggered_on_overflow(self):
@@ -125,7 +133,13 @@ class TestEdgeTTSProviderAdaptive(unittest.TestCase):
             tmp = Path(tmp)
             (tmp / "tts").mkdir()
             seg = self._make_segment(start=0.0, end=2.0)  # слот 2с
-            project = self._make_project(tmp, base_rate=5, max_rate=40, slack=1.03)
+            project = self._make_project(
+                tmp,
+                base_rate=5,
+                max_rate=40,
+                slack=1.03,
+                allow_rate=True,
+            )
             synth_rates = []
 
             def fake_comm(text, voice, rate=None):
@@ -156,7 +170,13 @@ class TestEdgeTTSProviderAdaptive(unittest.TestCase):
             tmp = Path(tmp)
             (tmp / "tts").mkdir()
             seg = self._make_segment(start=0.0, end=1.0)  # слот 1с
-            project = self._make_project(tmp, base_rate=5, max_rate=40, slack=1.03)
+            project = self._make_project(
+                tmp,
+                base_rate=5,
+                max_rate=40,
+                slack=1.03,
+                allow_rate=True,
+            )
             synth_rates = []
 
             def fake_comm(text, voice, rate=None):
@@ -235,7 +255,13 @@ class TestEdgeTTSProviderAdaptive(unittest.TestCase):
             tmp = Path(tmp)
             (tmp / "tts").mkdir()
             seg = self._make_segment(start=0.0, end=2.0)
-            project = self._make_project(tmp, base_rate=5, max_rate=40, slack=1.03)
+            project = self._make_project(
+                tmp,
+                base_rate=5,
+                max_rate=40,
+                slack=1.03,
+                allow_rate=True,
+            )
 
             def fake_comm(text, voice, rate=None):
                 m = MagicMock()
@@ -251,6 +277,33 @@ class TestEdgeTTSProviderAdaptive(unittest.TestCase):
 
             self.assertIn("tts_rate_adapted", seg.qa_flags)
             self.assertIn("tts_overflow_after_rate", seg.qa_flags)
+
+    def test_default_overflow_is_reported_without_speedup(self):
+        """По умолчанию длинная озвучка не ускоряется, а помечается как overflow."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "tts").mkdir()
+            seg = self._make_segment(start=0.0, end=2.0)
+            project = self._make_project(tmp, base_rate=5, max_rate=40, slack=1.03)
+            synth_rates = []
+
+            def fake_comm(text, voice, rate=None):
+                synth_rates.append(rate)
+                m = MagicMock()
+                m.save = MagicMock(return_value=None)
+                return m
+
+            provider = EdgeTTSProvider(
+                communicate_factory=fake_comm,
+                async_runner=lambda coro: None,
+            )
+            with patch("translate_video.tts.legacy.get_audio_duration", return_value=4.0):
+                provider.synthesize(project, [seg])
+
+            self.assertEqual(synth_rates, ["+0%"])
+            self.assertNotIn("tts_rate_adapted", seg.qa_flags)
+            self.assertIn("tts_overflow_natural_rate", seg.qa_flags)
 
     def test_zero_duration_slot_does_not_divide_by_zero(self):
         """Нулевой слот не должен ломать TTS-этап делением на ноль."""

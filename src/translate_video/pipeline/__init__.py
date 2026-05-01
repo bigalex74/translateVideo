@@ -6,6 +6,7 @@ from translate_video.pipeline.stages import (
     ExtractAudioStage,
     RegroupStage,
     RenderStage,
+    TimingFitStage,
     TranscribeStage,
     TranslateStage,
     TTSStage,
@@ -19,9 +20,9 @@ __all__ = [
     "RenderStage",
     "StageContext",
     "TTSStage",
+    "TimingFitStage",
     "TranscribeStage",
     "TranslateStage",
     "build_stages",
     "project_summary",
 ]
-

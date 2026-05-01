@@ -19,7 +19,7 @@ export const QASummary: React.FC<QASummaryProps> = ({ segments, projectStatus, l
   const translatedCount = total - reviewCount;
   const coveragePercent = Math.round((translatedCount / total) * 100);
 
-  // Сегменты с очень длинным текстом (>200 символов — риск обрезки в TTS)
+  // Сегменты с очень длинным текстом (>200 символов — риск проблем с естественным таймингом)
   const longSegments = segments.filter(s => (s.translated_text ?? '').length > 200);
   // Сегменты с нулевой или очень короткой длительностью (< 0.3с)
   const shortSegments = segments.filter(s => {
