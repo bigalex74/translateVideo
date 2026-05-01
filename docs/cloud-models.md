@@ -17,6 +17,8 @@
    Дефолтная модель: `gpt-4.1-nano-free`.
 4. `polza` — последний fallback, потому что провайдер платный.
    Дефолтная модель: `google/gemini-2.5-flash-lite-preview-09-2025`.
+   По умолчанию не включается даже при наличии ключа; нужен явный флаг
+   `REWRITE_ALLOW_PAID_FALLBACK=true`.
 5. `rule_based` — локальный безопасный fallback без сети.
 
 ## Переменные Окружения
@@ -40,6 +42,7 @@ AIHUBMIX_REWRITE_MODEL=gpt-4.1-nano-free
 POLZA_API_KEY=...
 POLZA_BASE_URL=https://api.polza.ai/api/v1
 POLZA_REWRITE_MODEL=google/gemini-2.5-flash-lite-preview-09-2025
+REWRITE_ALLOW_PAID_FALLBACK=false
 
 REWRITE_PROVIDER_TIMEOUT=8
 ```
@@ -52,17 +55,39 @@ REWRITE_PROVIDER_TIMEOUT=8
 Если провайдер вернул ошибку, пустой ответ, слишком длинный ответ или ответ без
 сокращения, роутер переходит к следующему провайдеру. Ошибки `429`, `503` и
 `timeout` считаются признаком исчерпанного лимита или перегрузки: такой
-провайдер отключается до конца текущего запуска, чтобы не ждать его заново на
-каждом длинном сегменте. Если все облачные модели недоступны, используется
-`RuleBasedTimingRewriter`.
+провайдер временно уходит в cooldown, а не отключается навсегда. После cooldown
+он снова может использоваться в том же запуске.
+
+Для бесплатных моделей включён консервативный RPM-лимит: по умолчанию `5`
+запросов в минуту для `gemini`, `openrouter` и `aihubmix`. Это медленнее, но
+сильно снижает вероятность `429`. Настройки хранятся в `project.json`:
+
+```json
+{
+  "rewrite_provider_rpm": {
+    "gemini": 5.0,
+    "openrouter": 5.0,
+    "aihubmix": 5.0,
+    "polza": 30.0
+  },
+  "rewrite_provider_cooldown_seconds": 75.0,
+  "rewrite_provider_wait_for_rate_limit": true,
+  "rewrite_allow_paid_fallback": false
+}
+```
+
+Если все бесплатные облачные модели недоступны, а платный fallback не разрешён,
+используется `RuleBasedTimingRewriter`.
 
 QA-флаги:
 
 - `rewrite_provider_used`: использован облачный провайдер.
 - `rewrite_fallback_used`: был переход на fallback.
 - `rewrite_provider_failed`: один из провайдеров не дал полезный ответ.
-- `rewrite_provider_quota_limited`: провайдер отключён после 429/503/timeout.
-- `rewrite_provider_skipped`: провайдер пропущен, потому что ранее был отключён.
+- `rewrite_provider_quota_limited`: провайдер получил 429/503/timeout.
+- `rewrite_provider_cooldown`: провайдер временно пропущен из-за cooldown.
+- `rewrite_provider_rate_limited`: роутер сделал паузу перед запросом по RPM.
+- `rewrite_provider_skipped`: провайдер временно пропущен.
 - `rewrite_provider_gemini`: сработал Gemini.
 - `rewrite_provider_openrouter`: сработал OpenRouter.
 - `rewrite_provider_aihubmix`: сработал AIHubMix.

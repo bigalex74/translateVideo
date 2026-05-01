@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -44,12 +45,23 @@ class CloudFallbackTimingRewriter:
         fallback: TimingRewriter | None = None,
         *,
         disable_on_quota: bool = True,
+        rate_limits_rpm: dict[str, float] | None = None,
+        cooldown_seconds: float = 75.0,
+        wait_for_rate_limit: bool = True,
+        now_fn=None,
+        sleep_fn=None,
     ) -> None:
         self.providers = providers
         self.fallback = fallback or RuleBasedTimingRewriter()
         self.disable_on_quota = disable_on_quota
+        self.rate_limits_rpm = rate_limits_rpm or {}
+        self.cooldown_seconds = cooldown_seconds
+        self.wait_for_rate_limit = wait_for_rate_limit
+        self._now = now_fn or time.monotonic
+        self._sleep = sleep_fn or time.sleep
         self._events: list[str] = []
-        self._disabled_providers: set[str] = set()
+        self._cooldown_until: dict[str, float] = {}
+        self._next_allowed_at: dict[str, float] = {}
 
     @classmethod
     def from_config(cls, config: PipelineConfig) -> "CloudFallbackTimingRewriter":
@@ -57,6 +69,10 @@ class CloudFallbackTimingRewriter:
 
         load_env_file()
         timeout = _env_float("REWRITE_PROVIDER_TIMEOUT", config.rewrite_provider_timeout)
+        allow_paid = _env_bool(
+            "REWRITE_ALLOW_PAID_FALLBACK",
+            config.rewrite_allow_paid_fallback,
+        )
         factories = {
             "gemini": GeminiRewriteProvider.from_env,
             "openrouter": OpenAICompatibleRewriteProvider.openrouter_from_env,
@@ -69,12 +85,18 @@ class CloudFallbackTimingRewriter:
             factory = factories.get(name)
             if factory is None:
                 continue
+            if name == "polza" and not allow_paid:
+                _log.info("rewriter.paid_provider_skip", provider=name)
+                continue
             provider = factory(timeout=timeout)
             if provider is not None:
                 providers.append(provider)
         return cls(
             providers=providers,
             disable_on_quota=config.rewrite_provider_disable_on_quota,
+            rate_limits_rpm=config.rewrite_provider_rpm,
+            cooldown_seconds=config.rewrite_provider_cooldown_seconds,
+            wait_for_rate_limit=config.rewrite_provider_wait_for_rate_limit,
         )
 
     def rewrite(
@@ -92,16 +114,23 @@ class CloudFallbackTimingRewriter:
 
         for provider in self.providers:
             name = getattr(provider, "name", provider.__class__.__name__)
-            if name in self._disabled_providers:
-                self._events.extend(["rewrite_provider_skipped", "rewrite_fallback_used"])
+            cooldown_remaining = self._cooldown_remaining(name)
+            if cooldown_remaining > 0:
+                self._events.extend([
+                    "rewrite_provider_cooldown",
+                    "rewrite_provider_skipped",
+                    "rewrite_fallback_used",
+                ])
                 _log.warning(
                     "rewriter.provider_skip",
                     provider=name,
-                    reason="disabled_after_quota_or_timeout",
+                    reason="cooldown_after_quota_or_timeout",
+                    wait_s=round(cooldown_remaining, 3),
                 )
                 prev_provider = name
                 continue
             try:
+                self._respect_rate_limit(name)
                 _log.debug(
                     "rewriter.request",
                     provider=name,
@@ -125,12 +154,13 @@ class CloudFallbackTimingRewriter:
                 )
                 self._events.extend(["rewrite_provider_failed", "rewrite_fallback_used"])
                 if self.disable_on_quota and _is_quota_or_overload(reason):
-                    self._disabled_providers.add(name)
+                    self._cooldown_until[name] = self._now() + self.cooldown_seconds
                     self._events.append("rewrite_provider_quota_limited")
                     _log.warning(
-                        "rewriter.provider_disable",
+                        "rewriter.provider_cooldown",
                         provider=name,
                         reason=reason,
+                        cooldown_s=self.cooldown_seconds,
                     )
                 prev_provider = name
                 continue
@@ -190,6 +220,37 @@ class CloudFallbackTimingRewriter:
         events = list(dict.fromkeys(self._events))
         self._events = []
         return events
+
+    def _cooldown_remaining(self, provider_name: str) -> float:
+        """Вернуть остаток cooldown для провайдера в секундах."""
+
+        until = self._cooldown_until.get(provider_name, 0.0)
+        return max(0.0, until - self._now())
+
+    def _respect_rate_limit(self, provider_name: str) -> None:
+        """Выдержать минимальную паузу между запросами к бесплатной модели."""
+
+        rpm = self.rate_limits_rpm.get(provider_name, 0.0)
+        if rpm <= 0:
+            return
+        interval = 60.0 / rpm
+        now = self._now()
+        allowed_at = self._next_allowed_at.get(provider_name, now)
+        if allowed_at > now:
+            wait_s = allowed_at - now
+            self._events.append("rewrite_provider_rate_limited")
+            _log.info(
+                "rewriter.rate_limit_wait",
+                provider=provider_name,
+                wait_s=round(wait_s, 3),
+                rpm=rpm,
+            )
+            if self.wait_for_rate_limit:
+                self._sleep(wait_s)
+                now = self._now()
+            else:
+                raise RewriteProviderError(f"rate limit wait required: {wait_s:.3f}s")
+        self._next_allowed_at[provider_name] = max(allowed_at, now) + interval
 
 
 class GeminiRewriteProvider:
@@ -497,8 +558,17 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    """Прочитать bool из окружения с привычными значениями yes/no."""
+
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on", "да"}
+
+
 def _is_quota_or_overload(reason: str) -> bool:
-    """Определить ошибки, после которых провайдера лучше пропустить до конца запуска."""
+    """Определить ошибки, после которых провайдера лучше отправить в cooldown."""
 
     normalized = reason.lower()
     return any(marker in normalized for marker in ("429", "503", "quota", "rate", "timeout"))
