@@ -12,8 +12,11 @@
 
 1. `gemini` — основной бесплатный/условно бесплатный провайдер качества.
 2. `openrouter` — агрегатор бесплатных моделей, первый fallback.
+   Дефолтная модель: `gpt-oss-120b`.
 3. `aihubmix` — резервный OpenAI-compatible агрегатор.
+   Дефолтная модель: `gemini-3-flash-preview-free`.
 4. `polza` — последний fallback, потому что провайдер платный.
+   Дефолтная модель: `google/gemini-2.5-flash-lite-preview-09-2025`.
 5. `rule_based` — локальный безопасный fallback без сети.
 
 ## Переменные Окружения
@@ -26,17 +29,17 @@ GEMINI_API_KEY=...
 GEMINI_REWRITE_MODEL=gemini-2.5-flash-lite
 
 OPENROUTER_API_KEY=...
-OPENROUTER_REWRITE_MODEL=openrouter/auto
+OPENROUTER_REWRITE_MODEL=gpt-oss-120b
 OPENROUTER_SITE_URL=http://localhost:8002
 OPENROUTER_APP_NAME=translateVideo
 
 AIHUBMIX_API_KEY=...
 AIHUBMIX_BASE_URL=https://aihubmix.com/v1
-AIHUBMIX_REWRITE_MODEL=gpt-4o-mini
+AIHUBMIX_REWRITE_MODEL=gemini-3-flash-preview-free
 
 POLZA_API_KEY=...
 POLZA_BASE_URL=https://api.polza.ai/api/v1
-POLZA_REWRITE_MODEL=gpt-4o-mini
+POLZA_REWRITE_MODEL=google/gemini-2.5-flash-lite-preview-09-2025
 ```
 
 Реальный `.env` игнорируется Git. Не добавляйте ключи в код, тесты,

@@ -125,6 +125,30 @@ class ProviderPayloadTest(unittest.TestCase):
         self.assertIn("не больше 42 символов", prompt)
         self.assertIn("только новая фраза", prompt)
 
+    def test_openrouter_default_model_is_configured(self):
+        """OpenRouter по умолчанию использует выбранную пользователем free-модель."""
+
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "secret"}, clear=True):
+            provider = OpenAICompatibleRewriteProvider.openrouter_from_env()
+
+        self.assertEqual(provider.model, "gpt-oss-120b")
+
+    def test_aihubmix_default_model_is_configured(self):
+        """AIHubMix по умолчанию использует выбранную пользователем free-модель."""
+
+        with patch.dict("os.environ", {"AIHUBMIX_API_KEY": "secret"}, clear=True):
+            provider = OpenAICompatibleRewriteProvider.aihubmix_from_env()
+
+        self.assertEqual(provider.model, "gemini-3-flash-preview-free")
+
+    def test_polza_default_model_is_configured(self):
+        """Polza.ai по умолчанию использует выбранную пользователем модель."""
+
+        with patch.dict("os.environ", {"POLZA_API_KEY": "secret"}, clear=True):
+            provider = OpenAICompatibleRewriteProvider.polza_from_env()
+
+        self.assertEqual(provider.model, "google/gemini-2.5-flash-lite-preview-09-2025")
+
 
 class _StaticProvider:
     """Тестовый провайдер с фиксированным ответом."""

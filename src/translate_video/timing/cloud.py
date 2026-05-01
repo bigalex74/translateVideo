@@ -202,7 +202,7 @@ class OpenAICompatibleRewriteProvider:
             name="openrouter",
             api_key=api_key,
             base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            model=os.getenv("OPENROUTER_REWRITE_MODEL", "openrouter/auto"),
+            model=os.getenv("OPENROUTER_REWRITE_MODEL", "gpt-oss-120b"),
             extra_headers={
                 "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "http://localhost:8002"),
                 "X-Title": os.getenv("OPENROUTER_APP_NAME", "translateVideo"),
@@ -220,7 +220,7 @@ class OpenAICompatibleRewriteProvider:
             name="aihubmix",
             api_key=api_key,
             base_url=os.getenv("AIHUBMIX_BASE_URL", "https://aihubmix.com/v1"),
-            model=os.getenv("AIHUBMIX_REWRITE_MODEL", "gpt-4o-mini"),
+            model=os.getenv("AIHUBMIX_REWRITE_MODEL", "gemini-3-flash-preview-free"),
         )
 
     @classmethod
@@ -234,7 +234,7 @@ class OpenAICompatibleRewriteProvider:
             name="polza",
             api_key=api_key,
             base_url=os.getenv("POLZA_BASE_URL", "https://api.polza.ai/api/v1"),
-            model=os.getenv("POLZA_REWRITE_MODEL", "gpt-4o-mini"),
+            model=os.getenv("POLZA_REWRITE_MODEL", "google/gemini-2.5-flash-lite-preview-09-2025"),
         )
 
     def rewrite(
