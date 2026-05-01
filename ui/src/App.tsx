@@ -18,6 +18,13 @@ function App() {
     applyTheme(theme, largeText);
   }, [theme, largeText]);
 
+  // Миграция: если пользователь ранее сохранил 'fake' как провайдер — переключаем на 'legacy'
+  useEffect(() => {
+    if (localStorage.getItem('tv_default_provider') === 'fake') {
+      localStorage.setItem('tv_default_provider', 'legacy');
+    }
+  }, []);
+
   const openWorkspace = (id: string) => {
     setActiveProject(id);
     setCurrentView('workspace');
