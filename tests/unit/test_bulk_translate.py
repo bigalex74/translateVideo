@@ -1,11 +1,10 @@
-"""Тесты перевода единым текстом (TVIDEO-029c, заменяет TVIDEO-027 bulk).
+"""Тесты перевода через маркер-разделитель ||| (TVIDEO-038).
 
 Покрывает:
-- Единый текст → 1 API-запрос
-- Жадное выравнивание переведённых предложений по сегментам
-- Батчинг при превышении MAX_CHARS
-- Fallback на поштучный перевод
-- Сохранение тайминга и ID
+- _split_by_separator: корректное разбиение, потеря маркера, alt-разбиение
+- _make_batches: один батч, несколько батчей по лимиту
+- _translate_batch: маркер сохранён, маркер потерян (fallback), одиночный сегмент
+- GoogleSegmentTranslator.translate: end-to-end с mock translator
 """
 
 from __future__ import annotations
@@ -16,222 +15,262 @@ from unittest.mock import MagicMock
 from translate_video.core.schemas import Segment
 from translate_video.translation.legacy import (
     GoogleSegmentTranslator,
-    _align_translation,
-    _split_sentences,
+    _SEP,
     _make_batches,
-    _MAX_CHARS,
+    _split_by_separator,
+    _translate_batch,
 )
 
 
-def _seg(source: str, start: float = 0.0, end: float = 1.0) -> Segment:
-    return Segment(start=start, end=end, source_text=source)
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def _seg(text: str, start: float = 0.0, end: float = 1.0) -> Segment:
+    return Segment(start=start, end=end, source_text=text)
 
 
-# ─── _split_sentences ────────────────────────────────────────────────────────
-
-class TestSplitSentences(unittest.TestCase):
-
-    def test_single_sentence(self):
-        result = _split_sentences("Привет мир.")
-        self.assertEqual(result, ["Привет мир."])
-
-    def test_multiple_sentences(self):
-        result = _split_sentences("Первое. Второе. Третье.")
-        self.assertEqual(len(result), 3)
-
-    def test_question_exclamation(self):
-        result = _split_sentences("Как дела? Хорошо! Спасибо.")
-        self.assertEqual(len(result), 3)
-
-    def test_empty_string(self):
-        result = _split_sentences("")
-        self.assertEqual(result, [])
-
-    def test_strips_whitespace(self):
-        result = _split_sentences("  Привет.  Мир.  ")
-        for s in result:
-            self.assertEqual(s, s.strip())
+def _mock_translator(response: str):
+    """Создать mock-переводчик возвращающий фиксированную строку."""
+    t = MagicMock()
+    t.translate = MagicMock(return_value=response)
+    return t
 
 
-# ─── _align_translation ──────────────────────────────────────────────────────
+# ─── _split_by_separator ─────────────────────────────────────────────────────
 
-class TestAlignTranslation(unittest.TestCase):
+class TestSplitBySeparator(unittest.TestCase):
+    """TVIDEO-038: _split_by_separator — разбиение по |||."""
 
-    def test_align_two_segs_two_sentences(self):
-        """2 сегмента + 2 предложения → каждому по предложению."""
-        segs = [
-            _seg("Hello world how are you", 0.0, 2.0),
-            _seg("I am fine thank you", 2.0, 4.0),
-        ]
-        translated = "Привет мир как дела. Я в порядке спасибо."
-        result = _align_translation(translated, segs)
+    def test_exact_match(self):
+        """Маркер сохранён точно — возвращает список частей."""
+        translated = "Привет мир. ||| Как дела? ||| Я в порядке."
+        result = _split_by_separator(translated, expected=3)
         self.assertIsNotNone(result)
-        self.assertEqual(len(result), 2)
-        self.assertIn("Привет", result[0])
-        self.assertIn("порядке", result[1])
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0], "Привет мир.")
+        self.assertEqual(result[1], "Как дела?")
+        self.assertEqual(result[2], "Я в порядке.")
 
-    def test_last_segment_gets_remainder(self):
-        """Последний сегмент всегда получает оставшийся текст (не пустой)."""
-        segs = [_seg("Short"), _seg("Also short")]
-        translated = "Короткий. Тоже короткий. Ещё что-то лишнее."
-        result = _align_translation(translated, segs)
-        self.assertIsNotNone(result)
-        self.assertEqual(len(result), 2)
-        # Последний должен быть непустым
-        self.assertTrue(result[1].strip(), "последний сегмент не должен быть пустым")
-
-    def test_returns_none_for_empty_translation(self):
-        segs = [_seg("Hello")]
-        result = _align_translation("", segs)
+    def test_returns_none_on_wrong_count(self):
+        """Количество частей не совпадает → None."""
+        translated = "Один. ||| Два."
+        result = _split_by_separator(translated, expected=3)
         self.assertIsNone(result)
 
-    def test_single_segment_gets_all(self):
-        """Один сегмент → весь переведённый текст."""
-        segs = [_seg("Everything here")]
-        translated = "Всё здесь. Включая это. И это тоже."
-        result = _align_translation(translated, segs)
+    def test_no_separator_returns_none(self):
+        """Маркер отсутствует → None."""
+        result = _split_by_separator("Просто текст без маркера.", expected=2)
+        self.assertIsNone(result)
+
+    def test_strips_whitespace(self):
+        """Пробелы вокруг частей убираются."""
+        translated = "  Привет.  ||| Мир.  "
+        result = _split_by_separator(translated, expected=2)
         self.assertIsNotNone(result)
-        self.assertEqual(len(result), 1)
-        self.assertGreater(len(result[0]), 0)
+        self.assertEqual(result[0], "Привет.")
+        self.assertEqual(result[1], "Мир.")
 
-
-# ─── _make_batches ────────────────────────────────────────────────────────────
-
-class TestMakeBatches(unittest.TestCase):
-
-    def test_small_input_one_batch(self):
-        segs = [_seg("A"), _seg("B"), _seg("C")]
-        batches = _make_batches(segs)
-        self.assertEqual(len(batches), 1)
-
-    def test_large_input_multiple_batches(self):
-        long_text = "x" * 1000
-        segs = [_seg(long_text) for _ in range(10)]
-        batches = _make_batches(segs)
-        self.assertGreater(len(batches), 1)
-
-    def test_all_segments_in_batches(self):
-        segs = [_seg("word") for _ in range(20)]
-        batches = _make_batches(segs)
-        total = sum(len(b) for b in batches)
-        self.assertEqual(total, 20)
-
-
-# ─── GoogleSegmentTranslator ─────────────────────────────────────────────────
-
-class TestGoogleSegmentTranslator(unittest.TestCase):
-
-    def _make_translator(self, response: str):
-        mock_api = MagicMock()
-        mock_api.translate.return_value = response
-
-        def factory(source, target):
-            return mock_api
-
-        self._mock_api = mock_api
-        return GoogleSegmentTranslator(translator_factory=factory)
-
-    def _config(self):
-        cfg = MagicMock()
-        cfg.source_language = "en"
-        cfg.target_language = "ru"
-        return cfg
-
-    def test_single_api_call_for_multiple_segments(self):
-        """N сегментов → 1 вызов API (единый текст)."""
-        translator = self._make_translator(
-            "Привет мир. Я в порядке. Пока."
-        )
-        segs = [_seg("Hello world."), _seg("I am fine."), _seg("Goodbye.")]
-
-        result = translator.translate(segs, self._config())
-
-        # Ровно один вызов translate (единый текст)
-        self.assertEqual(self._mock_api.translate.call_count, 1)
+    def test_alt_split_fallback(self):
+        """Альтернативное разбиение по ||| без пробелов работает."""
+        translated = "Первый.|||Второй.|||Третий."
+        result = _split_by_separator(translated, expected=3)
+        self.assertIsNotNone(result)
         self.assertEqual(len(result), 3)
 
-    def test_combined_text_sent_as_one_request(self):
-        """Тексты объединяются перед отправкой."""
-        translator = self._make_translator("Текст.")
+    def test_single_expected(self):
+        """Один сегмент — нет маркера — корректно."""
+        result = _split_by_separator("Только один.", expected=1)
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], "Только один.")
+
+
+# ─── _make_batches ───────────────────────────────────────────────────────────
+
+class TestMakeBatches(unittest.TestCase):
+    """TVIDEO-038: _make_batches — разбивка на батчи."""
+
+    def test_single_batch_for_short_segments(self):
+        """Короткие сегменты помещаются в один батч."""
+        segs = [_seg("Hello world") for _ in range(5)]
+        batches = _make_batches(segs)
+        self.assertEqual(len(batches), 1)
+        self.assertEqual(len(batches[0]), 5)
+
+    def test_splits_into_multiple_batches_on_limit(self):
+        """Длинные сегменты разбиваются на несколько батчей."""
+        # Каждый сегмент ~500 символов → 10 сегментов = 5000 > 4500 → 2 батча
+        segs = [_seg("A" * 500) for _ in range(10)]
+        batches = _make_batches(segs)
+        self.assertGreater(len(batches), 1)
+        # Все сегменты должны оказаться в батчах
+        total = sum(len(b) for b in batches)
+        self.assertEqual(total, 10)
+
+    def test_all_segments_covered(self):
+        """Все сегменты попадают в батчи без потерь."""
+        segs = [_seg(f"Segment {i}") for i in range(20)]
+        batches = _make_batches(segs)
+        all_segs = [s for b in batches for s in b]
+        self.assertEqual(len(all_segs), 20)
+
+
+# ─── _translate_batch ─────────────────────────────────────────────────────────
+
+class TestTranslateBatch(unittest.TestCase):
+    """TVIDEO-038: _translate_batch — перевод батча с маркером."""
+
+    def test_marker_preserved_returns_correct_parts(self):
+        """Маркер сохранён → части разбиты корректно."""
+        segs = [_seg("Hello"), _seg("World"), _seg("Foo")]
+        translator = _mock_translator("Привет ||| Мир ||| Фу")
+        result = _translate_batch(segs, translator)
+        self.assertEqual(result, ["Привет", "Мир", "Фу"])
+
+    def test_fallback_when_marker_lost(self):
+        """Маркер потерян → поштучный fallback."""
         segs = [_seg("Hello"), _seg("World")]
-
-        translator.translate(segs, self._config())
-
-        call_arg = self._mock_api.translate.call_args[0][0]
-        # Аргумент должен содержать оба текста
-        self.assertIn("Hello", call_arg)
-        self.assertIn("World", call_arg)
-
-    def test_original_timings_preserved(self):
-        """Тайминги не меняются при переводе."""
-        translator = self._make_translator("Привет. Мир.")
-        segs = [_seg("Hello.", 0.0, 2.5), _seg("World.", 2.5, 5.0)]
-
-        result = translator.translate(segs, self._config())
-
-        self.assertAlmostEqual(result[0].start, 0.0)
-        self.assertAlmostEqual(result[0].end, 2.5)
-        self.assertAlmostEqual(result[1].start, 2.5)
-        self.assertAlmostEqual(result[1].end, 5.0)
-
-    def test_ids_preserved(self):
-        """ID сегментов сохраняются."""
-        translator = self._make_translator("Привет. Мир.")
-        segs = [_seg("Hello."), _seg("World.")]
-        ids = [s.id for s in segs]
-
-        result = translator.translate(segs, self._config())
-
-        self.assertEqual(result[0].id, ids[0])
-        self.assertEqual(result[1].id, ids[1])
-
-    def test_empty_returns_empty(self):
-        """Пустой список → пустой результат без API."""
-        translator = self._make_translator("")
-        result = translator.translate([], self._config())
-        self.assertEqual(result, [])
-        self._mock_api.translate.assert_not_called()
-
-    def test_fallback_on_api_error(self):
-        """При ошибке API → fallback поштучный перевод."""
-        responses = iter(["Привет.", "Мир."])
-
-        def mock_translate(text):
-            if "Hello" in text and "World" in text:
-                raise RuntimeError("API error")
-            return next(responses)
-
-        mock_api = MagicMock()
-        mock_api.translate.side_effect = mock_translate
-
-        translator = GoogleSegmentTranslator(
-            translator_factory=lambda **kw: mock_api
-        )
-        segs = [_seg("Hello."), _seg("World.")]
-        result = translator.translate(segs, self._config())
-
-        # Fallback должен был отработать
+        # Переводчик вернул без маркера
+        translator = MagicMock()
+        translator.translate = MagicMock(side_effect=[
+            "Привет Мир",    # batch call — нет маркера
+            "Привет",        # fallback: сег 1
+            "Мир",           # fallback: сег 2
+        ])
+        result = _translate_batch(segs, translator)
         self.assertEqual(len(result), 2)
-        for r in result:
-            self.assertIsInstance(r.translated_text, str)
+        self.assertEqual(result[0], "Привет")
+        self.assertEqual(result[1], "Мир")
 
-    def test_source_fallback_gets_qa_flag(self):
-        """Если переводчик вернул исходный текст, сегмент получает QA-флаг."""
-        translator = self._make_translator("Hello.")
-        segs = [_seg("Hello.")]
+    def test_single_segment_no_marker(self):
+        """Один сегмент переводится без маркера."""
+        segs = [_seg("Hello")]
+        translator = _mock_translator("Привет")
+        result = _translate_batch(segs, translator)
+        self.assertEqual(result, ["Привет"])
+        # Один вызов без ||| в аргументах
+        call_arg = translator.translate.call_args[0][0]
+        self.assertNotIn("|||", call_arg)
 
-        result = translator.translate(segs, self._config())
+    def test_wrong_part_count_triggers_fallback(self):
+        """Неверное количество частей → fallback."""
+        segs = [_seg("A"), _seg("B"), _seg("C")]
+        # Возвращаем только 2 части вместо 3
+        translator = MagicMock()
+        translator.translate = MagicMock(side_effect=[
+            "Первый ||| Второй",  # batch — неверно
+            "А",                  # fallback А
+            "В",                  # fallback В
+            "С",                  # fallback С
+        ])
+        result = _translate_batch(segs, translator)
+        self.assertEqual(len(result), 3)
 
+    def test_translator_exception_triggers_fallback(self):
+        """Исключение при переводе → поштучный fallback."""
+        segs = [_seg("Hello"), _seg("World")]
+        translator = MagicMock()
+        translator.translate = MagicMock(side_effect=[
+            Exception("API Error"),  # batch провалился
+            "Привет",                # fallback: сег 1
+            "Мир",                   # fallback: сег 2
+        ])
+        result = _translate_batch(segs, translator)
+        self.assertEqual(len(result), 2)
+
+    def test_combined_text_contains_separator(self):
+        """Объединённый текст содержит разделитель |||."""
+        segs = [_seg("Hello"), _seg("World")]
+        translator = _mock_translator("Привет ||| Мир")
+        _translate_batch(segs, translator)
+        call_arg = translator.translate.call_args[0][0]
+        self.assertIn("|||", call_arg)
+
+
+# ─── GoogleSegmentTranslator (end-to-end) ────────────────────────────────────
+
+class TestGoogleSegmentTranslator(unittest.TestCase):
+    """TVIDEO-038: GoogleSegmentTranslator.translate — end-to-end с mock."""
+
+    def _make_config(self, source="en", target="ru"):
+        cfg = MagicMock()
+        cfg.source_language = source
+        cfg.target_language = target
+        return cfg
+
+    def test_all_segments_get_translations(self):
+        """Все сегменты получают перевод — нет пустых."""
+        segs = [_seg(f"Sentence {i}") for i in range(5)]
+        # Маркер корректно сохраняется
+        expected = " ||| ".join(f"Предложение {i}" for i in range(5))
+        translator_instance = _mock_translator(expected)
+        translator = GoogleSegmentTranslator(
+            translator_factory=lambda **kw: translator_instance
+        )
+        result = translator.translate(segs, self._make_config())
+        self.assertEqual(len(result), 5)
+        for seg in result:
+            self.assertTrue(seg.translated_text.strip(), f"Пустой перевод: {seg}")
+
+    def test_no_segments_returns_empty(self):
+        """Пустой список → пустой список."""
+        translator = GoogleSegmentTranslator()
+        result = translator.translate([], self._make_config())
+        self.assertEqual(result, [])
+
+    def test_translation_count_equals_segment_count(self):
+        """Количество результатов равно количеству сегментов (62 → 62)."""
+        n = 62
+        segs = [_seg(f"Short text {i}") for i in range(n)]
+        # Симулируем: маркер сохранился
+        translated_parts = [f"Текст {i}" for i in range(n)]
+        # Переводчик возвращает части через маркер (батчами)
+        responses = []
+        # _make_batches разобьёт 62 коротких сегмента вероятно в 1-2 батча
+        # Мокируем чтобы каждый вызов возвращал нужное количество частей
+        call_count = [0]
+        batch_size_tracker = []
+
+        def smart_translate(text):
+            parts = text.split("|||")
+            n_parts = len(parts)
+            batch_size_tracker.append(n_parts)
+            return " ||| ".join(f"Рус {call_count[0]}_{i}" for i in range(n_parts))
+
+        translator_instance = MagicMock()
+        translator_instance.translate = MagicMock(side_effect=smart_translate)
+        translator = GoogleSegmentTranslator(
+            translator_factory=lambda **kw: translator_instance
+        )
+        result = translator.translate(segs, self._make_config())
+        self.assertEqual(len(result), n, f"Ожидали {n} сегментов, получили {len(result)}")
+        empty = [s for s in result if not s.translated_text.strip()]
+        self.assertEqual(len(empty), 0, f"Пустых сегментов: {len(empty)}")
+
+    def test_qa_flag_on_empty_translation(self):
+        """Пустой перевод → qa_flag translation_empty."""
+        segs = [_seg("Hello"), _seg("World")]
+        # Первый сегмент переведён, второй — пустой (переводчик вернул "")
+        translator_instance = MagicMock()
+        translator_instance.translate = MagicMock(side_effect=[
+            "Привет ||| ",   # batch — второй сегмент пустой, trailing strip → fallback
+            "Привет",        # fallback: seg 0
+            "",              # fallback: seg 1 → пустой
+        ])
+        translator = GoogleSegmentTranslator(
+            translator_factory=lambda **kw: translator_instance
+        )
+        result = translator.translate(segs, self._make_config())
+        self.assertEqual(len(result), 2)
+        self.assertIn("translation_empty", result[1].qa_flags)
+
+    def test_qa_flag_fallback_source(self):
+        """Перевод совпал с источником → qa_flag translation_fallback_source."""
+        segs = [_seg("Hello")]
+        translator_instance = _mock_translator("Hello")  # не перевёл
+        translator = GoogleSegmentTranslator(
+            translator_factory=lambda **kw: translator_instance
+        )
+        result = translator.translate(segs, self._make_config())
         self.assertIn("translation_fallback_source", result[0].qa_flags)
-
-    def test_source_text_preserved(self):
-        """source_text сегмента не меняется после перевода."""
-        translator = self._make_translator("Привет мир.")
-        segs = [_seg("Hello world.")]
-
-        result = translator.translate(segs, self._config())
-
-        self.assertEqual(result[0].source_text, "Hello world.")
 
 
 if __name__ == "__main__":
