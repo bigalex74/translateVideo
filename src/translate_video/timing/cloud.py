@@ -220,7 +220,7 @@ class OpenAICompatibleRewriteProvider:
             name="aihubmix",
             api_key=api_key,
             base_url=os.getenv("AIHUBMIX_BASE_URL", "https://aihubmix.com/v1"),
-            model=os.getenv("AIHUBMIX_REWRITE_MODEL", "gemini-3-flash-preview-free"),
+            model=os.getenv("AIHUBMIX_REWRITE_MODEL", "gpt-4.1-nano-free"),
         )
 
     @classmethod
@@ -287,8 +287,15 @@ def build_rewrite_prompt(text: str, source_text: str, max_chars: int) -> str:
 
 
 def _clean_candidate(candidate: str) -> str:
-    """Убрать типичные кавычки вокруг ответа модели."""
+    """Убрать кавычки и thinking-блоки вокруг ответа модели.
 
+    Reasoning-модели (minimax, DeepSeek-R1, Qwen) оборачивают рассуждения в
+    <think>...</think>. Нам нужен только итоговый текст после закрывающего тега.
+    """
+
+    import re
+    # Убираем <think>...</think> блоки reasoning-моделей
+    candidate = re.sub(r"<think>.*?</think>", "", candidate, flags=re.DOTALL)
     return candidate.strip().strip('"«»').strip()
 
 
