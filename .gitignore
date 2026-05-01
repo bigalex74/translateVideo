@@ -5,4 +5,6 @@ __pycache__/
 *.mp3
 segments_cache.json
 temp_audio/
+ui/test-results/
+ui/playwright-report/
 .coverage

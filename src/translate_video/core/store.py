@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import hashlib
+import re
+import shutil
 from pathlib import Path
 from uuid import uuid4
 
@@ -41,7 +43,9 @@ class ProjectStore:
 
         input_path = Path(input_video)
         resolved_config = config or PipelineConfig()
-        resolved_id = project_id or f"{input_path.stem}-{uuid4().hex[:8]}"
+        resolved_id = sanitize_project_id(project_id) if project_id else sanitize_project_id(
+            f"{input_path.stem}-{uuid4().hex[:8]}"
+        )
         project = VideoProject(
             id=resolved_id,
             input_video=input_path,
@@ -51,6 +55,25 @@ class ProjectStore:
         self._ensure_layout(project)
         self.save_project(project)
         return project
+
+    def attach_input_video(
+        self,
+        project: VideoProject,
+        source_path: Path | str,
+        filename: str = "input.mp4",
+    ) -> Path:
+        """Скопировать исходное видео в папку проекта и обновить метаданные."""
+
+        safe_filename = sanitize_filename(filename, fallback="input.mp4")
+        destination = project.work_dir / safe_filename
+        source = Path(source_path)
+        if not source.is_file():
+            raise FileNotFoundError(f"исходный файл не найден: {source}")
+        if source.resolve() != destination.resolve():
+            shutil.copyfile(source, destination)
+        project.input_video = destination
+        self.save_project(project)
+        return destination
 
     def save_project(self, project: VideoProject) -> None:
         """Сохранить метаданные проекта и настройки в JSON."""
@@ -203,3 +226,27 @@ class ProjectStore:
     @staticmethod
     def _read_json(path: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
+
+
+def sanitize_project_id(value: str) -> str:
+    """Вернуть безопасный идентификатор проекта для имени папки."""
+
+    raw = value.strip()
+    if "/" in raw or "\\" in raw or raw in {".", ".."}:
+        raise ValueError("идентификатор проекта содержит недопустимый путь")
+    cleaned = re.sub(r"[^\w.-]+", "-", raw).strip(".-_")
+    if not cleaned:
+        raise ValueError("идентификатор проекта не может быть пустым")
+    return cleaned
+
+
+def sanitize_filename(value: str, fallback: str = "file") -> str:
+    """Вернуть безопасное имя файла без директорий."""
+
+    name = Path(value or fallback).name
+    cleaned = re.sub(r"[^\w.-]+", "-", name).strip(".-_")
+    if not cleaned:
+        cleaned = fallback
+    if cleaned in {".", ".."} or "/" in cleaned or "\\" in cleaned:
+        raise ValueError("имя файла содержит недопустимый путь")
+    return cleaned

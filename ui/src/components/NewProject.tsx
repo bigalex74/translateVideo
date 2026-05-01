@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { createProject, uploadProject } from '../api/client';
-import { Play, UploadCloud, Link as LinkIcon, FileVideo } from 'lucide-react';
+import { Play, UploadCloud, Link as LinkIcon, FileVideo, Loader2 } from 'lucide-react';
 import './NewProject.css';
 
 interface NewProjectProps {
@@ -31,7 +31,6 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
             const droppedFile = e.dataTransfer.files[0];
             setFile(droppedFile);
             if (!projectId) {
-                // Automatically set project ID from filename without extension
                 const name = droppedFile.name.replace(/\.[^/.]+$/, "");
                 setProjectId(name);
             }
@@ -52,11 +51,11 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (inputType === 'upload' && !file) {
-            setError('Please select or drop a video file.');
+            setError('Пожалуйста, выберите или перетащите видеофайл.');
             return;
         }
         if (inputType === 'url' && !videoUrl) {
-            setError('Please enter a valid URL or local path.');
+            setError('Пожалуйста, введите корректный URL или локальный путь к файлу.');
             return;
         }
 
@@ -78,8 +77,8 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
             }
             
             onProjectCreated(project.project_id);
-        } catch (err: any) {
-            setError(err.message || 'Failed to create project');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Ошибка при создании проекта');
         } finally {
             setLoading(false);
         }
@@ -88,8 +87,8 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
     return (
         <div className="new-project page-container fade-in">
             <header className="page-header">
-                <h2>Create New Translation</h2>
-                <p className="subtitle">Upload a video or provide a link to start the AI translation pipeline.</p>
+                <h2>Создание нового перевода</h2>
+                <p className="subtitle">Загрузите видео или укажите ссылку для старта конвейера ИИ-перевода.</p>
             </header>
 
             <form onSubmit={handleSubmit} className="glass-panel wizard-form">
@@ -99,14 +98,14 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
                         className={inputType === 'upload' ? 'active' : ''} 
                         onClick={() => setInputType('upload')}
                     >
-                        <UploadCloud size={16} /> Upload File
+                        <UploadCloud size={16} /> Загрузить файл
                     </button>
                     <button 
                         type="button" 
                         className={inputType === 'url' ? 'active' : ''} 
                         onClick={() => setInputType('url')}
                     >
-                        <LinkIcon size={16} /> URL / Local Path
+                        <LinkIcon size={16} /> URL / Путь на сервере
                     </button>
                 </div>
 
@@ -128,77 +127,78 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
                             <div className="file-info">
                                 <FileVideo size={48} className="text-accent" />
                                 <span className="file-name">{file.name}</span>
-                                <span className="file-size">{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
-                                <span className="change-file">Click or drop to change</span>
+                                <span className="file-size">{(file.size / (1024 * 1024)).toFixed(2)} МБ</span>
+                                <span className="change-file">Кликните или перетащите другой файл для замены</span>
                             </div>
                         ) : (
                             <div className="drop-prompt">
                                 <UploadCloud size={48} className="text-muted" />
-                                <span>Drag and drop your video file here</span>
-                                <span className="text-muted text-sm">or click to browse</span>
+                                <span>Перетащите ваше видео сюда</span>
+                                <span className="text-muted text-sm">или кликните для выбора файла</span>
                             </div>
                         )}
                     </div>
                 ) : (
                     <div className="form-group">
-                        <label>Input Video URL or Server Path</label>
+                        <label>URL видео или путь на сервере</label>
                         <input 
                             className="text-input"
                             value={videoUrl}
                             onChange={e => setVideoUrl(e.target.value)}
-                            placeholder="https://example.com/video.mp4 or /app/data/video.mp4"
+                            placeholder="https://example.com/video.mp4 или /app/data/video.mp4"
                         />
                     </div>
                 )}
 
                 <div className="form-group">
-                    <label>Project Name (ID)</label>
+                    <label>Имя проекта (ID)</label>
                     <input 
                         className="text-input"
                         value={projectId}
                         onChange={e => setProjectId(e.target.value)}
-                        placeholder="Leave empty to auto-generate"
+                        placeholder="Оставьте пустым для автогенерации из имени файла"
                     />
-                    <small className="help-text">Used for folder naming and URL routes.</small>
+                    <small className="help-text">Используется для названия папки проекта и формирования URL.</small>
                 </div>
 
                 <div className="form-row">
                     <div className="form-group">
-                        <label>Source Language</label>
+                        <label>Исходный язык</label>
                         <select className="select-input" value={sourceLang} onChange={e => setSourceLang(e.target.value)}>
-                            <option value="auto">Auto Detect</option>
-                            <option value="en">English (en)</option>
-                            <option value="ko">Korean (ko)</option>
-                            <option value="ja">Japanese (ja)</option>
-                            <option value="zh">Chinese (zh)</option>
+                            <option value="auto">Автоопределение</option>
+                            <option value="en">Английский (en)</option>
+                            <option value="ko">Корейский (ko)</option>
+                            <option value="ja">Японский (ja)</option>
+                            <option value="zh">Китайский (zh)</option>
+                            <option value="ru">Русский (ru)</option>
                         </select>
                     </div>
 
                     <div className="form-group">
-                        <label>Target Language</label>
+                        <label>Язык перевода</label>
                         <select className="select-input" value={targetLang} onChange={e => setTargetLang(e.target.value)}>
-                            <option value="ru">Russian (ru)</option>
-                            <option value="en">English (en)</option>
-                            <option value="es">Spanish (es)</option>
+                            <option value="ru">Русский (ru)</option>
+                            <option value="en">Английский (en)</option>
+                            <option value="es">Испанский (es)</option>
                         </select>
                     </div>
                 </div>
 
                 <div className="form-group">
-                    <label>Translation Mode</label>
+                    <label>Режим перевода</label>
                     <select className="select-input" value={mode} onChange={e => setMode(e.target.value)}>
-                        <option value="voiceover">Voiceover (Original muted)</option>
-                        <option value="dub">Dub (Replace original)</option>
-                        <option value="subtitles">Subtitles Only</option>
+                        <option value="voiceover">Закадровый голос (оригинал приглушен)</option>
+                        <option value="dub">Дубляж (полная замена оригинала)</option>
+                        <option value="subtitles">Только субтитры</option>
                     </select>
                 </div>
 
                 {error && <div className="error-banner">{error}</div>}
 
                 <div className="form-actions">
-                    <button type="submit" disabled={loading || (inputType === 'upload' && !file)} className="btn-primary w-full">
-                        <Play size={18} /> 
-                        {loading ? 'Uploading & Creating...' : 'Initialize Project'}
+                    <button type="submit" disabled={loading || (inputType === 'upload' && !file)} className="btn-primary w-full" style={{justifyContent: 'center'}}>
+                        {loading ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
+                        {loading ? ' Загрузка и инициализация...' : ' Создать проект'}
                     </button>
                 </div>
             </form>

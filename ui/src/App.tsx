@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Workspace } from './components/Workspace';
 import { NewProject } from './components/NewProject';
+import { Settings as SettingsPage } from './components/Settings';
 import { LayoutDashboard, PlusCircle, Settings, Video } from 'lucide-react';
 import './App.css';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'new_project' | 'workspace'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'new_project' | 'workspace' | 'settings'>('dashboard');
   const [activeProject, setActiveProject] = useState<string | null>(null);
 
   const openWorkspace = (id: string) => {
@@ -19,21 +20,21 @@ function App() {
       <aside className="sidebar">
         <div className="sidebar-header">
             <Video className="text-accent" size={24} />
-            <h1>AI Translator</h1>
+            <h1>ИИ Переводчик</h1>
         </div>
         <nav>
           <ul>
             <li className={currentView === 'dashboard' ? "active" : ""} onClick={() => setCurrentView('dashboard')}>
               <LayoutDashboard size={18} />
-              Dashboard
+              Дашборд
             </li>
             <li className={currentView === 'new_project' ? "active" : ""} onClick={() => setCurrentView('new_project')}>
               <PlusCircle size={18} />
-              New Translation
+              Новый перевод
             </li>
-            <li className="mt-auto opacity-50" style={{marginTop: 'auto', opacity: 0.5}}>
+            <li className={currentView === 'settings' ? "active mt-auto" : "mt-auto"} style={{marginTop: 'auto'}} onClick={() => setCurrentView('settings')}>
               <Settings size={18} />
-              Settings
+              Настройки
             </li>
           </ul>
         </nav>
@@ -41,6 +42,7 @@ function App() {
       <div className="main-content">
         {currentView === 'dashboard' && <Dashboard onOpenProject={openWorkspace} />}
         {currentView === 'new_project' && <NewProject onProjectCreated={openWorkspace} />}
+        {currentView === 'settings' && <SettingsPage />}
         {currentView === 'workspace' && activeProject && (
           <Workspace projectId={activeProject} onBack={() => setCurrentView('dashboard')} />
         )}
