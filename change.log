@@ -1,5 +1,14 @@
 # Журнал Изменений
 
+## 1.12.8 - 2026-05-01 - FIX - TVIDEO-052
+
+### network_mode: host — прямой доступ к мосту Gemini из Docker
+- docker-compose.yml: network_mode: host (вместо bridge + port mapping).
+  Контейнер видит все хост-сервисы напрямую: мост :5000, прокси :10808.
+- .env: GEMINI_BRIDGE_URL=http://127.0.0.1:5000/v1 (localhost хоста).
+- Тест из контейнера: GeminiRewriteProvider → OpenAICompatibleRewriteProvider
+  → 127.0.0.1:5000 → gemini-3-flash-preview → ответ за ~2с ✅.
+
 ## 1.12.7 - 2026-05-01 - FEAT - TVIDEO-051
 
 ### Поддержка OpenAI-совместимого моста для Gemini
