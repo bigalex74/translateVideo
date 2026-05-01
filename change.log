@@ -1,5 +1,15 @@
 # Журнал Изменений
 
+## 1.12.5 - 2026-05-01 - FIX - TVIDEO-049
+
+### Корневая причина наложения аудио: .env не попадал в Docker
+- docker-compose.yml: добавлен env_file: .env.
+  Без этого CloudFallbackTimingRewriter не получал ключи API,
+  падал на RuleBasedTimingRewriter, который не мог агрессивно
+  сжать текст -> tts_text = полный перевод -> аудио > слота -> наложение.
+- Теперь контейнер получает GEMINI_API_KEY, OPENROUTER_API_KEY,
+  AIHUBMIX_API_KEY, HTTPS_PROXY и все остальные переменные из .env.
+
 ## 1.12.4 - 2026-05-01 - PATCH - TVIDEO-047
 
 ### Фикс AIHubMix модели + обработка thinking-блоков
