@@ -58,10 +58,17 @@ class EdgeTTSProvider:
 
             slot = segment.end - segment.start
             output = project.work_dir / "tts" / f"{segment.id or index}.mp3"
+            segment.tts_text = text
 
             # Первичный синтез с базовым rate
             rate = _fmt_rate(cfg.tts_base_rate)
             self._synth(text, voice, rate, output)
+
+            if slot <= 0:
+                _add_qa_flag(segment, "tts_invalid_slot")
+                segment.tts_path = output.relative_to(project.work_dir).as_posix()
+                segment.voice = voice
+                continue
 
             # Адаптивное ускорение при переполнении
             dur = get_audio_duration(output)
@@ -80,8 +87,11 @@ class EdgeTTSProvider:
                     rate = _fmt_rate(needed)
                     self._synth(text, voice, rate, output)
 
-                    if "tts_rate_adapted" not in segment.qa_flags:
-                        segment.qa_flags.append("tts_rate_adapted")
+                    _add_qa_flag(segment, "tts_rate_adapted")
+                    dur = get_audio_duration(output)
+
+                if dur is not None and dur > slot * cfg.tts_rate_slack:
+                    _add_qa_flag(segment, "tts_overflow_after_rate")
 
             segment.tts_path = output.relative_to(project.work_dir).as_posix()
             segment.voice = voice
@@ -117,6 +127,13 @@ def _fmt_rate(rate: int) -> str:
     if rate >= 0:
         return f"+{rate}%"
     return f"{rate}%"
+
+
+def _add_qa_flag(segment, flag: str) -> None:
+    """Добавить QA-флаг сегменту без дублей."""
+
+    if flag not in segment.qa_flags:
+        segment.qa_flags.append(flag)
 
 
 def _edge_communicate(*args, **kwargs):

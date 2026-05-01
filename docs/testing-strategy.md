@@ -28,7 +28,7 @@
 Команда:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests/unit
+make test:unit
 ```
 
 ### Интеграционные Тесты
@@ -118,7 +118,16 @@ PYTHONPATH=src python3 -m unittest discover -s tests/load
 Перед каждым коммитом:
 
 ```bash
-make test:release
+make test:unit
+PYTHONPATH=src python3 -m unittest discover -s tests/integration
+```
+
+Если изменение затрагивает UI, дополнительно запускаются:
+
+```bash
+cd ui
+npm run lint
+npm test
 ```
 
 Перед слиянием ветки задачи в `develop`:
@@ -127,8 +136,9 @@ make test:release
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-Эта команда полного обнаружения тестов включает модульные и интеграционные тесты.
-Отдельные команды уровней полезны для диагностики.
+Эта команда полного обнаружения тестов включает модульные, интеграционные,
+API, E2E-smoke и нагрузочные Python-тесты. Отдельные команды уровней полезны
+для диагностики.
 
 Перед слиянием `develop` в `master`:
 

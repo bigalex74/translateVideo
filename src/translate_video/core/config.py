@@ -84,6 +84,13 @@ class PipelineConfig:
     tts_max_rate: int = 40          # максимальный rate при адаптации
     tts_rate_slack: float = 1.03    # 3% запас перед решением об ускорении
 
+    # ── Безопасный рендер озвучки (TVIDEO-041) ───────────────────────────────
+    # По умолчанию запрещаем обрезку TTS-аудио: потеря смысла хуже, чем
+    # контролируемое наложение, которое видно в QA-отчёте.
+    render_max_speed: float = 1.3
+    render_gap: float = 0.05
+    allow_render_audio_trim: bool = False
+
     # ── Перегруппировка по предложениям (TVIDEO-039) ─────────────────────────
     # Максимальная длительность слота после слияния фрагментов Whisper.
     # Если предложение длиннее — сбрасываем буфер принудительно.
@@ -122,8 +129,11 @@ class PipelineConfig:
                 "tts_base_rate": int(data.get("tts_base_rate", 5)),
                 "tts_max_rate": int(data.get("tts_max_rate", 40)),
                 "tts_rate_slack": float(data.get("tts_rate_slack", 1.03)),
+                # Безопасный рендер — дефолты для совместимости
+                "render_max_speed": float(data.get("render_max_speed", 1.3)),
+                "render_gap": float(data.get("render_gap", 0.05)),
+                "allow_render_audio_trim": bool(data.get("allow_render_audio_trim", False)),
                 # Regroup — дефолт для совместимости
                 "regroup_max_slot": float(data.get("regroup_max_slot", 8.0)),
             }
         )
-

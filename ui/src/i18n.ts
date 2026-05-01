@@ -151,6 +151,10 @@ const TEXT: LocaleMap = {
     'qa.flag.render_speed_fallback': 'ускорение аудио не применилось',
     'qa.flag.render_audio_speedup': 'аудио было ускорено под тайминг',
     'qa.flag.render_audio_trimmed': 'аудио было обрезано под тайминг',
+    'qa.flag.tts_rate_adapted': 'TTS был переозвучен с повышенной скоростью',
+    'qa.flag.tts_overflow_after_rate': 'озвучка не помещается даже после ускорения',
+    'qa.flag.tts_invalid_slot': 'у сегмента некорректная длительность для озвучки',
+    'qa.flag.render_audio_overflow': 'озвучка длиннее слота; обрезка отключена, возможны наложения',
 
     'artifact.copyApiUrl': 'Скопировать URL API',
     'artifact.copyApiUrlAria': 'Скопировать URL для API',
@@ -158,6 +162,7 @@ const TEXT: LocaleMap = {
 
     'stage.extract_audio': '🎙️ Извлечение аудио',
     'stage.transcribe': '📝 Распознавание речи',
+    'stage.regroup': '✂️ Склейка фраз',
     'stage.translate': '🌐 Перевод текста',
     'stage.tts': '🔊 Создание озвучки',
     'stage.render': '🎬 Сборка видео',
@@ -316,6 +321,10 @@ const TEXT: LocaleMap = {
     'qa.flag.render_speed_fallback': 'audio speed-up was not applied',
     'qa.flag.render_audio_speedup': 'audio was sped up to fit timing',
     'qa.flag.render_audio_trimmed': 'audio was trimmed to fit timing',
+    'qa.flag.tts_rate_adapted': 'TTS was regenerated with a higher speech rate',
+    'qa.flag.tts_overflow_after_rate': 'speech still does not fit after speed adaptation',
+    'qa.flag.tts_invalid_slot': 'segment has invalid duration for speech synthesis',
+    'qa.flag.render_audio_overflow': 'speech is longer than the slot; trimming is disabled, overlap is possible',
 
     'artifact.copyApiUrl': 'Copy API URL',
     'artifact.copyApiUrlAria': 'Copy API URL',
@@ -323,6 +332,7 @@ const TEXT: LocaleMap = {
 
     'stage.extract_audio': '🎙️ Audio extraction',
     'stage.transcribe': '📝 Speech recognition',
+    'stage.regroup': '✂️ Phrase regrouping',
     'stage.translate': '🌐 Text translation',
     'stage.tts': '🔊 Voice generation',
     'stage.render': '🎬 Video rendering',

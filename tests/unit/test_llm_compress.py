@@ -228,6 +228,54 @@ class TestEdgeTTSProviderAdaptive(unittest.TestCase):
 
             self.assertEqual(synth_count[0], 0)
 
+    def test_overflow_after_rate_is_reported(self):
+        """Если ускоренная озвучка всё равно длинная, ставится QA-флаг overflow."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "tts").mkdir()
+            seg = self._make_segment(start=0.0, end=2.0)
+            project = self._make_project(tmp, base_rate=5, max_rate=40, slack=1.03)
+
+            def fake_comm(text, voice, rate=None):
+                m = MagicMock()
+                m.save = MagicMock(return_value=None)
+                return m
+
+            provider = EdgeTTSProvider(
+                communicate_factory=fake_comm,
+                async_runner=lambda coro: None,
+            )
+            with patch("translate_video.tts.legacy.get_audio_duration", side_effect=[4.0, 3.0]):
+                provider.synthesize(project, [seg])
+
+            self.assertIn("tts_rate_adapted", seg.qa_flags)
+            self.assertIn("tts_overflow_after_rate", seg.qa_flags)
+
+    def test_zero_duration_slot_does_not_divide_by_zero(self):
+        """Нулевой слот не должен ломать TTS-этап делением на ноль."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "tts").mkdir()
+            seg = self._make_segment(start=1.0, end=1.0)
+            project = self._make_project(tmp)
+
+            def fake_comm(text, voice, rate=None):
+                m = MagicMock()
+                m.save = MagicMock(return_value=None)
+                return m
+
+            provider = EdgeTTSProvider(
+                communicate_factory=fake_comm,
+                async_runner=lambda coro: None,
+            )
+            with patch("translate_video.tts.legacy.get_audio_duration") as duration_probe:
+                provider.synthesize(project, [seg])
+
+            duration_probe.assert_not_called()
+            self.assertIn("tts_invalid_slot", seg.qa_flags)
+
 
 if __name__ == "__main__":
     unittest.main()
