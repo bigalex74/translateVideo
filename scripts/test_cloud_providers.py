@@ -13,10 +13,11 @@ import sys
 import os
 import time
 
-# Загружаем .env если есть
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+# Загружаем .env из корня проекта (scripts/../.env)
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 from translate_video.core.env import load_env_file
-load_env_file()
+load_env_file(os.path.join(_PROJECT_ROOT, ".env"))
 
 from translate_video.timing.cloud import (
     GeminiRewriteProvider,
@@ -24,11 +25,21 @@ from translate_video.timing.cloud import (
 )
 from translate_video.timing.natural import RuleBasedTimingRewriter
 
-# ── Тестовый текст ──────────────────────────────────────────────────────────
-# Оригинальный: "The era of manual coding is coming to an end."
-SOURCE_TEXT = "The era of manual coding is coming to an end."
-TRANSLATED  = "Эпоха ручного программирования подходит к концу."
-MAX_CHARS   = 25   # жёсткое ограничение → нужно реальное сжатие
+# ── Боевой текст (реальный сегмент из пайплайна) ────────────────────────────
+# Оригинал: "For decades, building an application meant you had to be the
+#            constructor, manually laying down every brick of code."
+# Слот: 7.3 секунды → max_chars = 7.3 × 14.0 = 102 символа
+SOURCE_TEXT = (
+    "For decades, building an application meant you had to be the constructor, "
+    "manually laying down every brick of code."
+)
+TRANSLATED = (
+    "На протяжении десятилетий создание приложения означало, что вам приходилось "
+    "быть строителем, вручную укладывая каждый кирпичик кода."
+)
+SLOT_SECS = 7.3              # длительность слота
+CPS       = 14.0             # символов в секунду (дефолт pipeline)
+MAX_CHARS = int(SLOT_SECS * CPS)   # = 102 символа
 
 GREEN  = "\033[92m"
 RED    = "\033[91m"
@@ -77,9 +88,10 @@ def main():
     print(f"\n{BOLD}╔══════════════════════════════════════════════════╗")
     print(f"║   Тест облачных rewriter-провайдеров              ║")
     print(f"╚══════════════════════════════════════════════════╝{RESET}")
-    print(f"Исходный EN: «{SOURCE_TEXT}»")
-    print(f"Перевод RU:  «{TRANSLATED}» ({len(TRANSLATED)} симв.)")
-    print(f"Ограничение: ≤{MAX_CHARS} симв. (нужно реальное сжатие)")
+    print(f"Исходный EN: «{SOURCE_TEXT[:60]}...»")
+    print(f"Перевод RU:  «{TRANSLATED}»")
+    print(f"Длина:       {len(TRANSLATED)} симв.")
+    print(f"Слот:        {SLOT_SECS}с × {CPS} cps = {MAX_CHARS} симв. (нужно сжать на {len(TRANSLATED) - MAX_CHARS} симв.)")
 
     results = {}
 
