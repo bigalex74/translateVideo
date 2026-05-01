@@ -77,6 +77,14 @@ class PipelineConfig:
     background_ducking: bool = True
     subtitle_formats: list[str] = field(default_factory=lambda: ["srt"])
     glossary_path: Path | None = None
+    # ── LLM-сжатие озвучки (TVIDEO-037) ──────────────────────────────────────
+    # Если TTS-озвучка сегмента длиннее слота на compress_slack,
+    # вызываем Ollama для семантического сжатия перевода и переозвучиваем.
+    compress_llm_url: str = "http://127.0.0.1:11434"  # Ollama endpoint
+    compress_llm_model: str = "qwen3.5:9b"            # модель сжатия
+    compress_slack: float = 1.05                       # 5% запас, иначе compress
+    compress_max_retries: int = 2                      # макс итераций сжатия
+
     do_not_translate: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -101,5 +109,10 @@ class PipelineConfig:
                 "adaptation_level": AdaptationLevel(data.get("adaptation_level", "natural")),
                 "voice_strategy": VoiceStrategy(data.get("voice_strategy", "single")),
                 "quality_gate": QualityGate(data.get("quality_gate", "balanced")),
+                # LLM compress — новые поля с дефолтами для совместимости
+                "compress_llm_url": data.get("compress_llm_url", "http://127.0.0.1:11434"),
+                "compress_llm_model": data.get("compress_llm_model", "qwen3.5:9b"),
+                "compress_slack": float(data.get("compress_slack", 1.05)),
+                "compress_max_retries": int(data.get("compress_max_retries", 2)),
             }
         )
