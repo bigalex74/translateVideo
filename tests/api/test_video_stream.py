@@ -27,7 +27,7 @@ class VideoStreamTest(TestCase):
         os.environ["WORK_ROOT"] = self.temp.name
         # Перезагружаем роутер чтобы WORK_ROOT обновился
         from translate_video.api.routes import video as vm
-        vm._WORK_ROOT = Path(self.temp.name)
+        vm._WORK_ROOT = Path(self.temp.name).resolve()   # .resolve() — обязательно
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -74,3 +74,39 @@ class VideoStreamTest(TestCase):
             headers={"Range": f"bytes={size}-{size + 999}"},
         )
         self.assertEqual(r.status_code, 416)
+
+    # ─── TVIDEO-025: видео в подпапке ────────────────────────────────────────
+
+    def test_video_in_subfolder_streams_correctly(self):
+        """TVIDEO-025: output/translated.mp4 должен стримиться корректно.
+
+        Регрессия: _resolve_video брал только Path(filename).name и отрезал
+        подпапку, из-за чего output/translated.mp4 не находился → MIME ошибка в плеере.
+        """
+        output_dir = self.project_dir / "output"
+        output_dir.mkdir()
+        translated = output_dir / "translated.mp4"
+        translated.write_bytes(b"TRANSLATED_MP4" * 640)
+
+        r = self.client.get("/api/v1/video/test_proj/output/translated.mp4")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("video/mp4", r.headers["content-type"])
+
+    def test_subfolder_range_request_206(self):
+        """TVIDEO-025: Range-запрос к файлу в подпапке возвращает 206."""
+        output_dir = self.project_dir / "output"
+        output_dir.mkdir()
+        translated = output_dir / "translated.mp4"
+        translated.write_bytes(b"TRANSLATED_MP4" * 640)
+
+        r = self.client.get(
+            "/api/v1/video/test_proj/output/translated.mp4",
+            headers={"Range": "bytes=0-511"},
+        )
+        self.assertEqual(r.status_code, 206)
+        self.assertEqual(len(r.content), 512)
+
+    def test_subfolder_traversal_blocked(self):
+        """TVIDEO-025: path traversal через подпапку → 400."""
+        r = self.client.get("/api/v1/video/test_proj/output/../../etc/passwd")
+        self.assertIn(r.status_code, [400, 404, 422])
