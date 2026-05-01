@@ -10,6 +10,13 @@ from fastapi.staticfiles import StaticFiles
 
 from translate_video import __version__
 from translate_video.api.routes import pipeline, preflight, projects, video
+from translate_video.core.env import load_env_file
+from translate_video.core.log import configure_from_env, get_logger
+
+# Загружаем .env и настраиваем логирование как можно раньше
+load_env_file()
+configure_from_env()
+_log = get_logger(__name__)
 
 
 def _get_allowed_origins() -> list[str]:
@@ -28,7 +35,9 @@ async def lifespan(application: FastAPI):
     work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
     work_root.mkdir(parents=True, exist_ok=True)
     application.mount("/runs", StaticFiles(directory=str(work_root)), name="runs")
+    _log.info("server.start", version=__version__, work_root=str(work_root))
     yield
+    _log.info("server.stop")
 
 
 app = FastAPI(

@@ -11,9 +11,11 @@ import asyncio
 import logging
 import math
 
+from translate_video.core.log import Timer, get_logger
 from translate_video.tts.compress import get_audio_duration
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # legacy compat
+_log = get_logger(__name__)
 
 
 class EdgeTTSProvider:
@@ -54,19 +56,22 @@ class EdgeTTSProvider:
             output = project.work_dir / "tts" / f"{segment.id or index}.mp3"
             segment.tts_text = text
 
-            # Первичный синтез на естественной скорости, если fast-режим не включён.
+            # Первичный синтез на естественной скорости
             base_rate = cfg.tts_base_rate if cfg.allow_tts_rate_adaptation else 0
             rate = _fmt_rate(base_rate)
-            self._synth(text, voice, rate, output)
+            with Timer() as t:
+                self._synth(text, voice, rate, output)
 
             if slot <= 0:
                 _add_qa_flag(segment, "tts_invalid_slot")
                 segment.tts_path = output.relative_to(project.work_dir).as_posix()
                 segment.voice = voice
+                _log.debug("tts.segment", idx=index, slot_s=slot, status="invalid_slot")
                 continue
 
             # Адаптивное ускорение при переполнении
             dur = get_audio_duration(output)
+            adapted = False
             if (
                 cfg.allow_tts_rate_adaptation
                 and cfg.tts_max_rate > base_rate
@@ -86,17 +91,40 @@ class EdgeTTSProvider:
                     )
                     rate = _fmt_rate(needed)
                     self._synth(text, voice, rate, output)
-
                     _add_qa_flag(segment, "tts_rate_adapted")
                     dur = get_audio_duration(output)
+                    adapted = True
 
-            if dur is not None and dur > slot * cfg.tts_rate_slack:
+            overflow = dur is not None and dur > slot * cfg.tts_rate_slack
+            if overflow:
                 flag = (
                     "tts_overflow_after_rate"
                     if cfg.allow_tts_rate_adaptation
                     else "tts_overflow_natural_rate"
                 )
                 _add_qa_flag(segment, flag)
+                _log.warning(
+                    "tts.overflow",
+                    idx=index,
+                    seg_id=segment.id,
+                    audio_s=round(dur, 3) if dur else None,
+                    slot_s=round(slot, 3),
+                    rate=rate,
+                    flag=flag,
+                )
+
+            _log.debug(
+                "tts.segment",
+                idx=index,
+                seg_id=segment.id,
+                text_len=len(text),
+                slot_s=round(slot, 3),
+                audio_s=round(dur, 3) if dur else None,
+                rate=rate,
+                adapted=adapted,
+                overflow=overflow,
+                elapsed_s=t.elapsed,
+            )
 
             segment.tts_path = output.relative_to(project.work_dir).as_posix()
             segment.voice = voice
