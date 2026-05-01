@@ -203,3 +203,20 @@
 .mini-card-actions {
     justify-content: flex-end;
 }
+
+/* ─── Усечение длинных имён проектов ───────────────────────────────────── */
+.card-title h3 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 55vw;
+}
+
+.mini-card-title strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+    font-size: 0.9rem;
+}

@@ -494,3 +494,21 @@
     flex-direction: column;
     gap: 10px;
 }
+
+/* ─── Шапка: усечение длинного имени проекта ─────────────────────────── */
+.header-left h2 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 40vw;
+}
+
+/* ─── Modal: усечение имени проекта ──────────────────────────────────── */
+.modal-project-id strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    word-break: break-all;
+}

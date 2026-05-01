@@ -6,6 +6,7 @@ import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
 import { ArtifactCard } from './ArtifactCard';
+import { getPersistedProvider } from './Settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings,
@@ -223,7 +224,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
           <button onClick={onBack} className="btn-icon" title="Назад к списку проектов">
             <ArrowLeft size={20} />
           </button>
-          <h2>{projectId}</h2>
+          <h2 title={projectId}>{projectId}</h2>
           <span className={`badge ${project.status}`}>{statusLabel(project.status)}</span>
         </div>
         <div className="header-right">
@@ -483,7 +484,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
       {confirm && (
         <ConfirmRunModal
           projectId={projectId}
-          provider="fake"
+          provider={getPersistedProvider()}
           isForce={confirm.force}
           segments={segments}
           onConfirm={() => handleRunConfirmed(confirm.force)}
