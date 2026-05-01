@@ -1,5 +1,18 @@
 # Журнал Изменений
 
+## 1.2.1 - 2026-05-01 - PATCH - TVIDEO-022-regression-tests
+
+- Добавлены 12 регрессионных тестов в `tests/api/test_regressions.py`:
+  - **TVIDEO-021**: тест абсолютного пути `get_store()`, тест отсутствия дублирования
+    artifact.path, тест сквозного нахождения аудио между этапами pipeline.
+  - **TVIDEO-019/020**: тест дефолтного провайдера `RunPipelineRequest.provider == "legacy"`,
+    тест API без поля provider использует legacy.
+  - **TVIDEO-021 tooling**: 7 тестов `bump_version.py` — защита от конфликт-маркеров,
+    keyword-as-version, SemVer-расчёт major/minor/patch, явная версия, невалидный ввод.
+- Итого 178 тестов, все ✅.
+
+
+
 ## 1.2.0 - 2026-05-01 - MINOR - TVIDEO-021-fix-paths-and-ui-errors
 
 - **Backend**: исправлен корень ошибки «[Errno 2] No such file or directory» при
