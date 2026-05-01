@@ -408,19 +408,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                 </div>
               ))}
               {segments.length === 0 && !isRunning && (
-                <div className="segments-empty-cta">
-                  <div className="segments-empty-icon">🎬</div>
-                  <p className="segments-empty-title">Перевод ещё не запускался</p>
-                  <p className="segments-empty-hint">
-                    Нажмите кнопку ниже, чтобы начать. Распознавание речи и перевод
-                    выполнятся автоматически.
+                <div className="editor-empty-state">
+                  <span className="editor-empty-icon">🎬</span>
+                  <p className="editor-empty-title">Перевод ещё не запускался</p>
+                  <p className="editor-empty-hint">
+                    Нажмите кнопку ниже — распознавание речи и перевод выполнятся автоматически.
                   </p>
                   <button
-                    className="btn-primary segments-empty-run"
+                    className="btn-primary"
                     onClick={() => setConfirm({ force: false })}
                   >
                     <RefreshCw size={16} /> Запустить перевод
                   </button>
+                </div>
+              )}
+              {segments.length === 0 && isRunning && (
+                <div className="editor-empty-state">
+                  <Loader2 size={32} className="animate-spin editor-empty-icon" />
+                  <p className="editor-empty-title">Выполняется обработка…</p>
+                  <p className="editor-empty-hint">Сегменты появятся автоматически после завершения этапа распознавания речи.</p>
                 </div>
               )}
             </div>
