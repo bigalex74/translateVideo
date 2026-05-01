@@ -8,3 +8,4 @@ temp_audio/
 ui/test-results/
 ui/playwright-report/
 .coverage
+runs/
