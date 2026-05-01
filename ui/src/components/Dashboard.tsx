@@ -3,6 +3,7 @@ import { getProjectStatus, listProjects, runPipeline } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
 import { stageLabel, statusLabel, STATUS_EMOJI } from '../i18n';
 import { ConfirmRunModal } from './ConfirmRunModal';
+import { getPersistedProvider } from './Settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2,
   ArrowRight, RefreshCw, Clock, Search
@@ -249,7 +250,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
       {confirm && (
         <ConfirmRunModal
           projectId={confirm.id}
-          provider="fake"
+          provider={getPersistedProvider()}
           isForce={confirm.force}
           segments={segments}
           onConfirm={() => handleRunConfirmed(confirm.id, confirm.force)}

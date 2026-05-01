@@ -10,7 +10,7 @@ const LS_THEME    = 'tv_theme';
 const LS_FONTSIZE = 'tv_large_text';
 
 export function getPersistedWebhook(): string  { return localStorage.getItem(LS_WEBHOOK)  ?? ''; }
-export function getPersistedProvider(): string  { return localStorage.getItem(LS_PROVIDER) ?? 'fake'; }
+export function getPersistedProvider(): string  { return localStorage.getItem(LS_PROVIDER) ?? 'legacy'; }
 export function getPersistedTheme(): string     { return localStorage.getItem(LS_THEME)    ?? 'dark'; }
 export function getPersistedLargeText(): boolean { return localStorage.getItem(LS_FONTSIZE) === 'true'; }
 
