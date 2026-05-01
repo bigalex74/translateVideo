@@ -1,6 +1,21 @@
 # Журнал Изменений
 
-## patch - 2026-05-01 - TYPE - TVIDEO-XXX-name
+## 1.1.4 - 2026-05-01 - PATCH - TVIDEO-020-fix-legacy-provider-migration
+
+- Исправлена причина запуска fake-провайдера: localStorage хранил устаревшее
+  значение 'fake', которое перекрывало новый дефолт.
+- App.tsx: одноразовая миграция при старте — если tv_default_provider === 'fake',
+  автоматически перезаписывается в 'legacy'.
+- client.ts: fallback в runPipeline изменён с 'fake' на 'legacy'.
+- pipeline.py: дефолт RunPipelineRequest.provider изменён с 'fake' на 'legacy'.
+  Реальный перевод гарантирован на трёх уровнях.
+
+
+- Описание изменений...
+
+
+- Описание изменений...
+
 
 - Описание изменений...
 
