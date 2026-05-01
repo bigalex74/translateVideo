@@ -156,6 +156,7 @@ class Segment:
     confidence: float | None = None
     status: SegmentStatus = SegmentStatus.DRAFT
     tts_path: str | None = None
+    qa_flags: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.end < self.start:

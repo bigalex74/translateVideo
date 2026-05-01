@@ -95,8 +95,19 @@ class ReviewCountsTest(unittest.TestCase):
         """Каждая запись содержит все обязательные поля."""
         row = self.report["segments"][0]
         for field in ("id", "start", "end", "source_text", "translated_text",
-                      "needs_review", "status"):
+                      "needs_review", "qa_flags", "status"):
             self.assertIn(field, row)
+
+    def test_qa_flag_counts(self):
+        """Отчёт агрегирует QA-флаги для UI и автономной проверки."""
+        seg = _seg("s1", 0.0, 1.0, source="Hello", translated="Hello")
+        seg.qa_flags.append("translation_fallback_source")
+
+        report = build_review_artifact([seg])
+
+        self.assertEqual(report["qa_flag_counts"]["translation_fallback_source"], 1)
+        self.assertEqual(report["quality_warnings_count"], 1)
+        self.assertEqual(report["segments"][0]["qa_flags"], ["translation_fallback_source"])
 
 
 if __name__ == "__main__":

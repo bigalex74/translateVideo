@@ -215,6 +215,15 @@ class TestGoogleSegmentTranslator(unittest.TestCase):
         for r in result:
             self.assertIsInstance(r.translated_text, str)
 
+    def test_source_fallback_gets_qa_flag(self):
+        """Если переводчик вернул исходный текст, сегмент получает QA-флаг."""
+        translator = self._make_translator("Hello.")
+        segs = [_seg("Hello.")]
+
+        result = translator.translate(segs, self._config())
+
+        self.assertIn("translation_fallback_source", result[0].qa_flags)
+
     def test_source_text_preserved(self):
         """source_text сегмента не меняется после перевода."""
         translator = self._make_translator("Привет мир.")

@@ -37,6 +37,7 @@ export interface Segment {
     confidence?: number;
     status: SegmentStatus;
     tts_path?: string;
+    qa_flags?: string[];
 }
 
 export interface StageRun {

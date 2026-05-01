@@ -55,6 +55,8 @@ class EdgeTTSProvider:
             # Pre-trim: укорачиваем текст если он не уложится в слот
             slot_duration = segment.end - segment.start
             tts_text = _compute_tts_text(text, slot_duration)
+            if tts_text != text and "tts_pretrim" not in segment.qa_flags:
+                segment.qa_flags.append("tts_pretrim")
 
             output = project.work_dir / "tts" / f"{segment.id or index}.mp3"
             communicate = self.communicate_factory(tts_text, voice, rate=rate)
