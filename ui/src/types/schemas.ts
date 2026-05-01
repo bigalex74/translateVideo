@@ -1,7 +1,7 @@
 export type SegmentStatus = "draft" | "transcribed" | "translated" | "tts_ready" | "failed";
 export type ProjectStatus = "created" | "running" | "completed" | "failed";
 export type JobStatus = "pending" | "running" | "completed" | "failed" | "skipped";
-export type Stage = "init" | "probe" | "extract_audio" | "transcribe" | "speaker_analysis" | "translate" | "voice_cast" | "tts" | "timing_fit" | "mix" | "render" | "qa" | "export";
+export type Stage = "init" | "probe" | "extract_audio" | "transcribe" | "regroup" | "translate" | "voice_cast" | "tts" | "timing_fit" | "mix" | "render" | "qa" | "export";
 
 export interface PipelineConfig {
     source_language: string;
@@ -21,6 +21,13 @@ export interface PipelineConfig {
     background_ducking: boolean;
     subtitle_formats: string[];
     glossary_path?: string;
+    tts_base_rate: number;
+    tts_max_rate: number;
+    tts_rate_slack: number;
+    render_max_speed: number;
+    render_gap: number;
+    allow_render_audio_trim: boolean;
+    regroup_max_slot: number;
     do_not_translate: string[];
 }
 
@@ -37,6 +44,7 @@ export interface Segment {
     confidence?: number;
     status: SegmentStatus;
     tts_path?: string;
+    tts_text?: string;
     qa_flags?: string[];
 }
 

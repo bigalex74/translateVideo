@@ -1,4 +1,4 @@
-.PHONY: help build deploy restart logs status test test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:release lint ui-build ui-dev
+.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:release lint ui-build ui-dev
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -44,6 +44,10 @@ status:
 ## test: Запустить Python unit-тесты
 test:
 	PYTHONPATH=src python3 -m unittest discover -s tests
+
+## test:unit: Запустить только Python unit-тесты
+test\:unit:
+	PYTHONPATH=src python3 -m unittest discover -s tests/unit
 
 ## test:ui: Запустить vitest unit-тесты фронтенда
 test\:ui:
