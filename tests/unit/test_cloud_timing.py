@@ -91,6 +91,7 @@ class ProviderPayloadTest(unittest.TestCase):
 
         self.assertEqual(result, "короче")
         self.assertIn("gemini-test:generateContent", calls[0][0])
+
         self.assertIn("secret", calls[0][0])
 
     def test_openai_compatible_provider_parses_chat_completion(self):
