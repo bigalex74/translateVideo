@@ -133,13 +133,32 @@ class GeminiRewriteProvider:
         self.http_post = http_post or _post_json
 
     @classmethod
-    def from_env(cls) -> "GeminiRewriteProvider | None":
-        """Создать провайдер, если ключ Gemini есть в окружении."""
+    def from_env(cls) -> "GeminiRewriteProvider | OpenAICompatibleRewriteProvider | None":
+        """Создать провайдер Gemini из окружения.
+
+        Если задан GEMINI_BRIDGE_URL — использует OpenAI-совместимый мост
+        (например http://127.0.0.1:5000/v1). Мост авторизуется самостоятельно,
+        GEMINI_API_KEY не нужен.
+
+        Иначе — нативный Gemini generateContent API с GEMINI_API_KEY.
+        """
+
+        model = os.getenv("GEMINI_REWRITE_MODEL", "gemini-3-flash-preview")
+        bridge_url = os.getenv("GEMINI_BRIDGE_URL")
+
+        if bridge_url:
+            # OpenAI-совместимый мост (127.0.0.1:5000 и др.)
+            return OpenAICompatibleRewriteProvider(
+                name="gemini",
+                api_key=os.getenv("GEMINI_API_KEY", "bridge"),  # мост авторизуется сам
+                base_url=bridge_url.rstrip("/"),
+                model=model,
+            )
 
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             return None
-        return cls(api_key=api_key, model=os.getenv("GEMINI_REWRITE_MODEL", "gemini-3-flash-preview"))
+        return cls(api_key=api_key, model=model)
 
     def rewrite(
         self,
