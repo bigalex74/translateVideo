@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig } from '../api/client';
 import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel } from '../i18n';
@@ -6,7 +6,7 @@ import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
 import { ArtifactCard } from './ArtifactCard';
-import { getPersistedProvider } from './Settings';
+import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings, X,
@@ -53,20 +53,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
     }
   }, [activeSegId]);
 
-  const loadProject = useCallback(async (skipIfDirty = true) => {
-    if (skipIfDirty && dirty) return;
-    try {
-      const data = await getProjectStatus(projectId);
-      setProject(data);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [projectId, dirty]);
-
   // Первоначальная загрузка
   useEffect(() => {
-    loadProject(false);
-  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    void getProjectStatus(projectId)
+      .then(data => {
+        if (cancelled) return;
+        setProject(data);
+        const loadedSegments = Array.isArray(data.segments) ? data.segments : [];
+        // История сбрасывается при смене проекта, чтобы undo не переносил сегменты.
+        setHistory(loadedSegments.length > 0 ? [loadedSegments] : []);
+        setHistoryIndex(loadedSegments.length > 0 ? 0 : -1);
+        setDirty(false);
+      })
+      .catch(e => console.error(e));
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   // Поллинг статуса во время работы пайплайна.
   // Намеренно игнорируем dirty — статус нужно обновлять даже при несохранённых правках.
@@ -75,23 +79,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
     const poll = setInterval(async () => {
       try {
         const data = await getProjectStatus(projectId);
-        setProject(data);
+        // Во время поллинга не затираем локально отредактированные сегменты.
+        setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
       } catch (e) {
         console.error('poll error', e);
       }
     }, 2000);
     return () => clearInterval(poll);
-  }, [project?.status, projectId]);
-
-  // Инициализировать историю при первой загрузке сегментов
-  useEffect(() => {
-    if (!project || !Array.isArray(project.segments) || history.length > 0) return;
-    const segs = project.segments as Segment[];
-    if (segs.length > 0) {
-      setHistory([segs]);
-      setHistoryIndex(0);
-    }
-  }, [project, history.length]);
+  }, [dirty, project?.status, projectId]);
 
   if (!project) return (
     <div className="workspace-loading">

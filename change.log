@@ -1,5 +1,22 @@
 # Журнал Изменений
 
+## 1.5.1 - 2026-05-01 - PATCH - TVIDEO-031-release-gate
+
+- Исправлен release gate: `npm run lint` и Playwright E2E снова проходят.
+- Dashboard больше не запускает `fake`-провайдер принудительно: используется
+  выбранный пользователем движок из настроек.
+- Webhook из UI передаётся через заголовок `X-Webhook-Url`, как ожидает API.
+- Усилена SSRF-защита webhook: hostname резолвится в IP, блокируются
+  localhost, private, loopback, link-local, reserved, multicast и unspecified адреса.
+- Настройки UI вынесены в единое хранилище, чтобы компоненты не расходились в
+  дефолтах провайдера, webhook и темы.
+- В `Makefile` добавлены явные цели `test:e2e`, `test:load`, `test:release`,
+  а `lint` теперь включает ESLint.
+- E2E обновлены под актуальный wizard и добавлен браузерный сценарий запуска
+  pipeline с проверкой провайдера и webhook-заголовка.
+- Проверки: 235 Python tests, 25 vitest, 4 Playwright E2E, `npm run lint`,
+  `npm run build`, `python3 -m compileall`, `git diff --check`.
+
 ## 1.5.0 - 2026-05-01 - MINOR - TVIDEO-030
 
 ### 030a: Fix resume (PipelineRunner._already_completed)

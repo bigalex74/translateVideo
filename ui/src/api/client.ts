@@ -69,13 +69,15 @@ export async function runPipeline(
     const effectiveProvider = provider ?? localStorage.getItem('tv_default_provider') ?? 'legacy';
     const effectiveWebhook  = webhookUrl ?? localStorage.getItem('tv_webhook_url') ?? undefined;
 
-    const body: Record<string, unknown> = { force, provider: effectiveProvider };
-    if (effectiveWebhook) body['webhook_url'] = effectiveWebhook;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (effectiveWebhook) {
+        headers["X-Webhook-Url"] = effectiveWebhook;
+    }
 
     const res = await fetch(`${API_BASE}/projects/${project_id}/run`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        headers,
+        body: JSON.stringify({ force, provider: effectiveProvider })
     });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();

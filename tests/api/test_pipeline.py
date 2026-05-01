@@ -1,4 +1,5 @@
 import tempfile
+import socket
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -53,7 +54,11 @@ class APIPipelineTest(TestCase):
     def test_run_pipeline_with_webhook(self, mock_thread):
         """Запуск с webhook-заголовком должен вызвать notify_webhook после завершения."""
         self.store.create_project("dummy.mp4", project_id="webhook_test")
-        with patch("translate_video.api.routes.pipeline.notify_webhook", new_callable=AsyncMock) as mock_notify:
+        public_dns = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 443))]
+        with (
+            patch("translate_video.api.routes.pipeline.socket.getaddrinfo", return_value=public_dns),
+            patch("translate_video.api.routes.pipeline.notify_webhook", new_callable=AsyncMock) as mock_notify,
+        ):
             self.client.post(
                 "/api/v1/projects/webhook_test/run",
                 json={"provider": "fake"},
@@ -66,7 +71,11 @@ class APIPipelineTest(TestCase):
         """Webhook должен вызываться при ошибке пайплайна."""
         mock_thread.side_effect = Exception("Pipeline failed")
         self.store.create_project("dummy.mp4", project_id="webhook_err_test")
-        with patch("translate_video.api.routes.pipeline.notify_webhook", new_callable=AsyncMock) as mock_notify:
+        public_dns = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 443))]
+        with (
+            patch("translate_video.api.routes.pipeline.socket.getaddrinfo", return_value=public_dns),
+            patch("translate_video.api.routes.pipeline.notify_webhook", new_callable=AsyncMock) as mock_notify,
+        ):
             self.client.post(
                 "/api/v1/projects/webhook_err_test/run",
                 json={"provider": "fake"},
@@ -93,6 +102,42 @@ class APIPipelineTest(TestCase):
             json={"provider": "fake"},
             headers={"X-Webhook-Url": "http://127.0.0.1/steal"},
         )
+        self.assertEqual(response.status_code, 400)
+
+    def test_run_rejects_ssrf_localhost_webhook(self):
+        """Webhook на localhost должен возвращать 400 даже без IP-литерала."""
+        self.store.create_project("dummy.mp4", project_id="localhost_test")
+        response = self.client.post(
+            "/api/v1/projects/localhost_test/run",
+            json={"provider": "fake"},
+            headers={"X-Webhook-Url": "http://localhost/webhook"},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_run_rejects_hostname_resolving_to_private_ip(self):
+        """Webhook hostname не должен проходить, если DNS ведёт во внутреннюю сеть."""
+        self.store.create_project("dummy.mp4", project_id="dns_private_test")
+        private_dns = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 80))]
+        with patch("translate_video.api.routes.pipeline.socket.getaddrinfo", return_value=private_dns):
+            response = self.client.post(
+                "/api/v1/projects/dns_private_test/run",
+                json={"provider": "fake"},
+                headers={"X-Webhook-Url": "http://hooks.example.test/webhook"},
+            )
+        self.assertEqual(response.status_code, 400)
+
+    def test_run_rejects_unresolved_webhook_hostname(self):
+        """Webhook hostname должен быть проверяемым до запуска фоновой задачи."""
+        self.store.create_project("dummy.mp4", project_id="dns_fail_test")
+        with patch(
+            "translate_video.api.routes.pipeline.socket.getaddrinfo",
+            side_effect=socket.gaierror("not found"),
+        ):
+            response = self.client.post(
+                "/api/v1/projects/dns_fail_test/run",
+                json={"provider": "fake"},
+                headers={"X-Webhook-Url": "https://missing.example.test/webhook"},
+            )
         self.assertEqual(response.status_code, 400)
 
     def test_run_rejects_non_http_webhook(self):

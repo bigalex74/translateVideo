@@ -2,7 +2,9 @@ import React, { useState, useRef } from 'react';
 import { createProject, preflightVideo, uploadProject } from '../api/client';
 import type { PipelineConfigDraft, PreflightReport } from '../types/schemas';
 import { PROVIDER_LABELS, PROVIDER_WARNINGS } from '../i18n';
-import { AdvancedSettings, DEFAULT_CONFIG } from './AdvancedSettings';
+import { AdvancedSettings } from './AdvancedSettings';
+import { DEFAULT_CONFIG } from './advancedSettingsConfig';
+import { getPersistedProvider, persistProvider } from '../store/settings';
 import type { PipelineConfig } from '../types/schemas';
 import {
   Play, UploadCloud, Link as LinkIcon, FileVideo, Loader2, ShieldCheck,
@@ -81,7 +83,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
   const [sourceLang, setSourceLang] = useState('auto');
   const [targetLang, setTargetLang] = useState('ru');
   const [mode, setMode]             = useState('voiceover');
-  const [provider, setProvider]     = useState('fake');
+  const [provider, setProvider]     = useState(getPersistedProvider);
   const [selectedPreset, setSelectedPreset] = useState('default');
 
   // Шаг 2
@@ -181,6 +183,8 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
       const project = inputType === 'upload' && file
         ? await uploadProject(file, projectId || undefined, config)
         : await createProject(videoUrl, projectId || undefined, config);
+      // Выбор движка на шаге создания считаем явным и используем для следующего запуска.
+      persistProvider(provider);
       onProjectCreated(project.project_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка при создании проекта');
