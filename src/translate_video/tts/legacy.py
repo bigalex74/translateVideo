@@ -1,24 +1,31 @@
-"""edge-tts адаптер синтеза речи с LLM-сжатием (TVIDEO-037).
+"""edge-tts адаптер синтеза речи с адаптивным rate (TVIDEO-040b).
 
 Если синтезированная озвучка не укладывается в временной слот:
 1. Измеряем длительность через ffprobe
-2. Запрашиваем Ollama сократить перевод (сохранив смысл)
-3. Переозвучиваем — до compress_max_retries попыток
-4. Pre-trim удалён: не обрезаем текст символьным счётчиком
+2. Вычисляем нужный rate: base_rate + (duration/slot - 1) * 100
+3. Ограничиваем до tts_max_rate (по умолчанию 40%)
+4. Если нужный rate > базового — переозвучиваем один раз
+
+Преимущества перед Ollama-сжатием:
+- Мгновенно (< 0.1с вычисление)
+- Не зависит от внешних сервисов
+- Сохраняет 100% смысла перевода
+- Тон голоса не изменяется (edge-tts rate ≠ pitch)
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import math
 
-from translate_video.tts.compress import compress_via_llm, get_audio_duration
+from translate_video.tts.compress import get_audio_duration
 
 logger = logging.getLogger(__name__)
 
 
 class EdgeTTSProvider:
-    """Создает TTS-файлы сегментов через `edge-tts`."""
+    """Создает TTS-файлы сегментов через `edge-tts` с адаптивным rate."""
 
     DEFAULT_VOICES = {
         "ru": "ru-RU-SvetlanaNeural",
@@ -28,24 +35,21 @@ class EdgeTTSProvider:
         "fr": "fr-FR-DeniseNeural",
     }
 
-    def __init__(self, communicate_factory=None, async_runner=None, base_rate: int = 15) -> None:
+    def __init__(self, communicate_factory=None, async_runner=None) -> None:
         self.communicate_factory = communicate_factory or _edge_communicate
         self.async_runner = async_runner or asyncio.run
-        self.base_rate = base_rate
 
     def synthesize(self, project, segments):
-        """Синтезировать каждый переведенный сегмент в отдельный аудиофайл.
+        """Синтезировать каждый переведённый сегмент.
 
-        Если озвучка длиннее слота — сжимаем перевод через Ollama и
-        переозвучиваем (до config.compress_max_retries попыток).
+        Если аудио длиннее слота > tts_rate_slack — ускоряем rate и
+        переозвучиваем один раз. Текст не изменяется.
         """
-
         cfg = project.config
         voice = self.DEFAULT_VOICES.get(
             cfg.target_language.lower(),
             self.DEFAULT_VOICES["en"],
         )
-        rate = f"+{self.base_rate}%"
 
         for index, segment in enumerate(segments):
             text = segment.translated_text.strip()
@@ -55,47 +59,29 @@ class EdgeTTSProvider:
             slot = segment.end - segment.start
             output = project.work_dir / "tts" / f"{segment.id or index}.mp3"
 
-            # Первичный синтез
+            # Первичный синтез с базовым rate
+            rate = _fmt_rate(cfg.tts_base_rate)
             self._synth(text, voice, rate, output)
 
-            # Цикл LLM-сжатия при переполнении
-            for attempt in range(cfg.compress_max_retries):
-                dur = get_audio_duration(output)
-                if dur is None:
-                    break  # ffprobe недоступен — идём дальше
-                if dur <= slot * cfg.compress_slack:
-                    break  # укладывается — всё OK
-
-                logger.info(
-                    "Сегмент %s: tts=%.2fs > slot=%.2fs (x%.2f), "
-                    "попытка сжатия %d/%d",
-                    segment.id, dur, slot, dur / slot,
-                    attempt + 1, cfg.compress_max_retries,
+            # Адаптивное ускорение при переполнении
+            dur = get_audio_duration(output)
+            if dur is not None and dur > slot * cfg.tts_rate_slack:
+                needed = _compute_rate(
+                    duration=dur,
+                    slot=slot,
+                    base_rate=cfg.tts_base_rate,
+                    max_rate=cfg.tts_max_rate,
                 )
-
-                target_sec = slot * 0.92  # целим в 92% от слота
-                compressed = compress_via_llm(
-                    text=text,
-                    current_sec=dur,
-                    target_sec=target_sec,
-                    model=cfg.compress_llm_model,
-                    ollama_url=cfg.compress_llm_url,
-                )
-                if not compressed:
-                    logger.warning(
-                        "LLM не помог для сегмента %s — оставляем как есть",
-                        segment.id,
+                if needed > cfg.tts_base_rate:
+                    logger.info(
+                        "Сегмент %s: %.2fс > слот %.2fс → rate +%d%%",
+                        segment.id, dur, slot, needed,
                     )
-                    break
+                    rate = _fmt_rate(needed)
+                    self._synth(text, voice, rate, output)
 
-                text = compressed
-                self._synth(text, voice, rate, output)
-
-            # Сохраняем финальный текст если он изменился
-            if text != segment.translated_text.strip():
-                segment.tts_text = text
-                if "tts_llm_compressed" not in segment.qa_flags:
-                    segment.qa_flags.append("tts_llm_compressed")
+                    if "tts_rate_adapted" not in segment.qa_flags:
+                        segment.qa_flags.append("tts_rate_adapted")
 
             segment.tts_path = output.relative_to(project.work_dir).as_posix()
             segment.voice = voice
@@ -106,6 +92,31 @@ class EdgeTTSProvider:
         """Синтезировать текст и сохранить в файл."""
         communicate = self.communicate_factory(text, voice, rate=rate)
         self.async_runner(communicate.save(str(output)))
+
+
+def _compute_rate(
+    duration: float,
+    slot: float,
+    base_rate: int,
+    max_rate: int,
+) -> int:
+    """Вычислить нужный rate чтобы аудио уложилось в слот.
+
+    Формула: нужно ускорить пропорционально превышению.
+    duration / slot = коэффициент → нужный rate = base + (коэфф - 1) * 100.
+    Округляем вверх и ограничиваем до max_rate.
+    """
+    ratio = duration / slot
+    # Сколько % нужно добавить к скорости
+    extra = math.ceil((ratio - 1.0) * 100)
+    return min(base_rate + extra, max_rate)
+
+
+def _fmt_rate(rate: int) -> str:
+    """Форматировать rate в строку для edge-tts: +15%, -5%, +0%."""
+    if rate >= 0:
+        return f"+{rate}%"
+    return f"{rate}%"
 
 
 def _edge_communicate(*args, **kwargs):
