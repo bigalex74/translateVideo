@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from translate_video import __version__
-from translate_video.api.routes import pipeline, preflight, projects
+from translate_video.api.routes import pipeline, preflight, projects, video
 
 
 def _get_allowed_origins() -> list[str]:
@@ -49,6 +49,7 @@ app.add_middleware(
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(preflight.router)
+app.include_router(video.router)
 
 
 @app.get("/api/health")

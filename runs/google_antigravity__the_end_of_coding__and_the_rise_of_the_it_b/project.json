@@ -1,0 +1,32 @@
+{
+  "id": "google_antigravity__the_end_of_coding__and_the_rise_of_the_it_b",
+  "input_video": "runs/google_antigravity__the_end_of_coding__and_the_rise_of_the_it_b/input.mp4",
+  "work_dir": "runs/google_antigravity__the_end_of_coding__and_the_rise_of_the_it_b",
+  "config": {
+    "source_language": "auto",
+    "target_language": "ru",
+    "translation_mode": "voiceover",
+    "translation_style": "neutral",
+    "adaptation_level": "natural",
+    "voice_strategy": "single",
+    "quality_gate": "balanced",
+    "terminology_domain": "general",
+    "target_audience": "general",
+    "profanity_policy": "keep",
+    "units_policy": "preserve",
+    "preserve_names": true,
+    "preserve_brand_names": true,
+    "original_audio_volume": 0.15,
+    "background_ducking": true,
+    "subtitle_formats": [
+      "srt"
+    ],
+    "glossary_path": null,
+    "do_not_translate": []
+  },
+  "segments": [],
+  "artifacts": {},
+  "artifact_records": [],
+  "stage_runs": [],
+  "status": "created"
+}
