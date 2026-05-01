@@ -36,7 +36,7 @@ class BaseStage:
     def _record(
         self,
         context: StageContext,
-        action: Callable[[], tuple[list[str], list[str]]],
+        action: Callable[[StageRun], tuple[list[str], list[str]]],
     ) -> StageRun:
         project_id = context.project.id
         stage_name = self.stage.value
@@ -49,7 +49,7 @@ class BaseStage:
 
         with Timer() as t:
             try:
-                inputs, outputs = action()
+                inputs, outputs = action(run)
             except Exception as exc:  # noqa: BLE001 - ошибки этапа нужно сохранить.
                 failed = StageRun(
                     id=run.id,
@@ -61,6 +61,9 @@ class BaseStage:
                     attempt=run.attempt,
                     started_at=started_at,
                     finished_at=datetime.now(UTC).isoformat(),
+                    progress_current=run.progress_current,
+                    progress_total=run.progress_total,
+                    progress_message=run.progress_message,
                 )
                 context.store.record_stage_run(context.project, failed)
                 _log.error(
@@ -81,6 +84,9 @@ class BaseStage:
             attempt=run.attempt,
             started_at=started_at,
             finished_at=datetime.now(UTC).isoformat(),
+            progress_current=run.progress_current,
+            progress_total=run.progress_total,
+            progress_message=run.progress_message,
         )
         context.store.record_stage_run(context.project, completed)
         _log.info(
@@ -102,7 +108,7 @@ class ExtractAudioStage(BaseStage):
         self.media_provider = media_provider
 
     def run(self, context: StageContext) -> StageRun:
-        def action() -> tuple[list[str], list[str]]:
+        def action(_run: StageRun) -> tuple[list[str], list[str]]:
             audio_path = self.media_provider.extract_audio(context.project)
             record = context.store.add_artifact(
                 context.project,
@@ -125,7 +131,7 @@ class TranscribeStage(BaseStage):
         self.transcriber = transcriber
 
     def run(self, context: StageContext) -> StageRun:
-        def action() -> tuple[list[str], list[str]]:
+        def action(_run: StageRun) -> tuple[list[str], list[str]]:
             source_audio = _required_artifact(context, ArtifactKind.SOURCE_AUDIO)
             raw_path = Path(source_audio.path)
             if raw_path.is_absolute():
@@ -159,7 +165,7 @@ class RegroupStage(BaseStage):
     stage = Stage.REGROUP
 
     def run(self, context: StageContext) -> StageRun:
-        def action() -> tuple[list[str], list[str]]:
+        def action(_run: StageRun) -> tuple[list[str], list[str]]:
             from translate_video.speech.regroup import regroup_by_sentences
 
             before = len(context.project.segments)
@@ -197,7 +203,7 @@ class TranslateStage(BaseStage):
         self.translator = translator
 
     def run(self, context: StageContext) -> StageRun:
-        def action() -> tuple[list[str], list[str]]:
+        def action(_run: StageRun) -> tuple[list[str], list[str]]:
             source_transcript = _required_artifact(context, ArtifactKind.SOURCE_TRANSCRIPT)
             if not context.project.segments:
                 raise ValueError("исходный transcript не содержит сегментов")
@@ -228,14 +234,33 @@ class TimingFitStage(BaseStage):
         self.timing_fitter = timing_fitter
 
     def run(self, context: StageContext) -> StageRun:
-        def action() -> tuple[list[str], list[str]]:
+        def action(run: StageRun) -> tuple[list[str], list[str]]:
             translated_transcript = _required_artifact(
                 context,
                 ArtifactKind.TRANSLATED_TRANSCRIPT,
             )
             if not context.project.segments:
                 raise ValueError("переведенный transcript не содержит сегментов")
-            segments = self.timing_fitter.fit(context.project, context.project.segments)
+
+            def on_progress(current: int, total: int, message: str | None) -> None:
+                """Сохранить прогресс этапа для UI и API-поллинга."""
+
+                run.progress_current = current
+                run.progress_total = total
+                run.progress_message = message
+                context.store.update_stage_progress(
+                    context.project,
+                    run.id,
+                    current=current,
+                    total=total,
+                    message=message,
+                )
+
+            segments = self.timing_fitter.fit(
+                context.project,
+                context.project.segments,
+                progress_callback=on_progress,
+            )
             context.project.segments = segments
             output_path = context.store.save_segments(
                 context.project,
@@ -258,7 +283,7 @@ class TTSStage(BaseStage):
         self.tts_provider = tts_provider
 
     def run(self, context: StageContext) -> StageRun:
-        def action() -> tuple[list[str], list[str]]:
+        def action(_run: StageRun) -> tuple[list[str], list[str]]:
             translated_transcript = _required_artifact(
                 context,
                 ArtifactKind.TRANSLATED_TRANSCRIPT,
@@ -295,7 +320,7 @@ class RenderStage(BaseStage):
         self.renderer = renderer
 
     def run(self, context: StageContext) -> StageRun:
-        def action() -> tuple[list[str], list[str]]:
+        def action(_run: StageRun) -> tuple[list[str], list[str]]:
             translated_transcript = _required_artifact(
                 context,
                 ArtifactKind.TRANSLATED_TRANSCRIPT,

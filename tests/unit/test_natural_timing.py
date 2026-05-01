@@ -89,6 +89,28 @@ class NaturalVoiceTimingFitterTest(unittest.TestCase):
 
         self.assertIn("timing_fit_invalid_slot", result[0].qa_flags)
 
+    def test_progress_callback_receives_segment_progress(self):
+        """Fitter должен отдавать прогресс после каждого обработанного сегмента."""
+
+        project = _project(PipelineConfig(use_cloud_timing_rewriter=False))
+        segments = [
+            Segment(id="seg_1", start=0.0, end=1.0, source_text="One", translated_text="Один."),
+            Segment(id="seg_2", start=1.0, end=2.0, source_text="Two", translated_text="Два."),
+        ]
+        events: list[tuple[int, int, str | None]] = []
+
+        NaturalVoiceTimingFitter().fit(
+            project,
+            segments,
+            progress_callback=lambda current, total, message: events.append(
+                (current, total, message)
+            ),
+        )
+
+        self.assertEqual(events[0], (0, 2, "Подготовка сегментов"))
+        self.assertIn((1, 2, "Готово 1/2"), events)
+        self.assertEqual(events[-1], (2, 2, "Готово 2/2"))
+
 
 class RuleBasedTimingRewriterTest(unittest.TestCase):
     """Проверяет безопасные rule-based сокращения."""
@@ -140,6 +162,8 @@ class TimingFitStageTest(unittest.TestCase):
             self.assertEqual(run.status, JobStatus.COMPLETED)
             self.assertEqual(record.stage, Stage.TIMING_FIT)
             self.assertIn("translation_rewritten_for_timing", restored.segments[0].qa_flags)
+            self.assertEqual(restored.stage_runs[0].progress_current, 1)
+            self.assertEqual(restored.stage_runs[0].progress_total, 1)
 
 
 def _project(config: PipelineConfig) -> VideoProject:

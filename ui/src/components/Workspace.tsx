@@ -3,6 +3,7 @@ import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments
 import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
+import { stageProgressInfo } from '../progress';
 import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
@@ -106,6 +107,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const completedStages = project.stage_runs?.filter(r => r.status === 'completed') ?? [];
   const totalStages = project.stage_runs?.length ?? 0;
   const progress = totalStages > 0 ? Math.round((completedStages.length / totalStages) * 100) : 0;
+  const runningStageProgress = stageProgressInfo(runningStage);
 
   // ─── History ──────────────────────────────────────────────────────────────
 
@@ -228,6 +230,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             {totalStages > 0 && (
               <div className="running-progress-wrap">
                 <div className="running-progress-bar" style={{ width: `${progress}%` }} />
+              </div>
+            )}
+            {runningStageProgress && (
+              <div className="running-stage-progress" aria-label={t('workspace.stageProgress', locale)}>
+                <div className="running-stage-progress-head">
+                  <span>{runningStageProgress.message ?? t('workspace.stageProgress', locale)}</span>
+                  <strong>{runningStageProgress.label}</strong>
+                </div>
+                <div className="running-progress-wrap running-progress-wrap-stage">
+                  <div
+                    className="running-progress-bar running-progress-bar-stage"
+                    style={{ width: `${runningStageProgress.percent}%` }}
+                  />
+                </div>
               </div>
             )}
             <p className="running-hint">
@@ -500,26 +516,43 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           {rightTab === 'status' && (
             <div className="right-tab-content">
               <ul className="timeline">
-                {project.stage_runs?.map(run => (
-                  <li key={run.id} className={`timeline-item ${run.status}`}>
-                    <div className="timeline-icon">{getStatusIcon(run.status)}</div>
-                    <div className="timeline-content">
-                      <strong>{stageLabel(run.stage, locale)}</strong>
-                      <span className="status-text">{statusLabel(run.status, locale)}</span>
-                      {run.error && (
-                        <div className="stage-error-block">
-                          <span className="stage-error-label">{t('workspace.error', locale)}:</span>
-                          <code className="stage-error-msg">
-                            {run.error
-                              .replace(/\/app\/runs\/[^/]+\//g, '')
-                              .replace(/runs\/[^/]+\//g, '')
-                              .slice(0, 200)}
-                          </code>
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                {project.stage_runs?.map(run => {
+                  const progressInfo = stageProgressInfo(run);
+                  return (
+                    <li key={run.id} className={`timeline-item ${run.status}`}>
+                      <div className="timeline-icon">{getStatusIcon(run.status)}</div>
+                      <div className="timeline-content">
+                        <strong>{stageLabel(run.stage, locale)}</strong>
+                        <span className="status-text">{statusLabel(run.status, locale)}</span>
+                        {progressInfo && (
+                          <div className="timeline-progress">
+                            <div className="timeline-progress-head">
+                              <span>{progressInfo.message ?? t('workspace.stageProgress', locale)}</span>
+                              <strong>{progressInfo.label}</strong>
+                            </div>
+                            <div className="timeline-progress-track">
+                              <div
+                                className="timeline-progress-bar"
+                                style={{ width: `${progressInfo.percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {run.error && (
+                          <div className="stage-error-block">
+                            <span className="stage-error-label">{t('workspace.error', locale)}:</span>
+                            <code className="stage-error-msg">
+                              {run.error
+                                .replace(/\/app\/runs\/[^/]+\//g, '')
+                                .replace(/runs\/[^/]+\//g, '')
+                                .slice(0, 200)}
+                            </code>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
                 {(!project.stage_runs || project.stage_runs.length === 0) && (
                   <p className="empty-text">{t('dashboard.notStarted', locale)}</p>
                 )}

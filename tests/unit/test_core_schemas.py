@@ -85,7 +85,13 @@ class VideoProjectTest(unittest.TestCase):
                 ArtifactRecord(kind=ArtifactKind.SOURCE_AUDIO, path="a.wav", stage=Stage.EXTRACT_AUDIO)
             ],
             stage_runs=[
-                StageRun(stage=Stage.EXTRACT_AUDIO, status=JobStatus.COMPLETED)
+                StageRun(
+                    stage=Stage.EXTRACT_AUDIO,
+                    status=JobStatus.COMPLETED,
+                    progress_current=3,
+                    progress_total=5,
+                    progress_message="Готово 3/5",
+                )
             ]
         )
 
@@ -97,6 +103,9 @@ class VideoProjectTest(unittest.TestCase):
         self.assertEqual(restored.artifacts["source_audio"], "runs/input/source_audio.wav")
         self.assertEqual(restored.artifact_records[0].kind, ArtifactKind.SOURCE_AUDIO)
         self.assertEqual(restored.stage_runs[0].status, JobStatus.COMPLETED)
+        self.assertEqual(restored.stage_runs[0].progress_current, 3)
+        self.assertEqual(restored.stage_runs[0].progress_total, 5)
+        self.assertEqual(restored.stage_runs[0].progress_message, "Готово 3/5")
 
     def test_stagerun_from_dict_minimal(self):
         """StageRun должен успешно десериализовываться с минимальным payload."""
@@ -109,6 +118,8 @@ class VideoProjectTest(unittest.TestCase):
         self.assertEqual(run.status, JobStatus.PENDING)
         self.assertEqual(run.attempt, 1)
         self.assertIsNotNone(run.id)
+        self.assertIsNone(run.progress_current)
+        self.assertIsNone(run.progress_total)
 
 
 if __name__ == "__main__":

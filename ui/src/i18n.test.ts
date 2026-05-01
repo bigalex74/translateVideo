@@ -66,7 +66,7 @@ describe('TVIDEO-019/020: дефолтный провайдер legacy', () => {
 
 describe('stageLabel', () => {
   it('возвращает строку для известных этапов', () => {
-    const stages = ['extract_audio', 'transcribe', 'translate', 'tts', 'render'];
+    const stages = ['extract_audio', 'transcribe', 'translate', 'timing_fit', 'tts', 'render'];
     for (const stage of stages) {
       const label = stageLabel(stage);
       expect(typeof label).toBe('string');
@@ -78,6 +78,7 @@ describe('stageLabel', () => {
     expect(stageLabel('extract_audio')).not.toBe('extract_audio');
     expect(stageLabel('transcribe')).not.toBe('transcribe');
     expect(stageLabel('translate')).not.toBe('translate');
+    expect(stageLabel('timing_fit')).not.toBe('timing_fit');
   });
 });
 
