@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig } from '../api/client';
 import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel } from '../i18n';
 import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
+import { ArtifactCard } from './ArtifactCard';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings
@@ -26,6 +27,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
   const [showConfig, setShowConfig] = useState(false);
   const [configPatch, setConfigPatch] = useState<Partial<PipelineConfig>>({});
   const [savingConfig, setSavingConfig] = useState(false);
+  const [activeSegId, setActiveSegId] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Undo/redo история: массив снапшотов segments
   const [history, setHistory] = useState<Segment[][]>([]);
@@ -275,7 +278,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
             </button>
           </div>
           <div className="video-container">
-            <video controls src={getVideoUrl()} key={getVideoUrl()}>
+            <video
+              ref={videoRef}
+              controls
+              src={getVideoUrl()}
+              key={getVideoUrl()}
+              onTimeUpdate={() => {
+                const segs = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
+                const t = videoRef.current?.currentTime ?? 0;
+                const active = segs.find(s => t >= s.start && t < s.end);
+                setActiveSegId(active?.id ?? null);
+              }}
+            >
               {activeTab === 'subtitles' && project.artifacts['subtitles'] && (
                 <track
                   kind="subtitles"
@@ -301,9 +315,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
           </div>
           <div className="segments-list">
             {segments.map((seg) => (
-              <div key={seg.id} className={`segment-item ${seg.status}`}>
+              <div key={seg.id} className={`segment-item ${seg.status}${activeSegId === seg.id ? ' segment-active' : ''}`}>
                 <div className="seg-header">
-                  <span className="seg-timing">
+                  <span
+                    className="seg-timing seg-timing--clickable"
+                    title="Перейти к этому моменту в видео"
+                    onClick={() => {
+                      if (videoRef.current) {
+                        videoRef.current.currentTime = seg.start;
+                        videoRef.current.play().catch(() => {});
+                      }
+                    }}
+                  >
                     {seg.start.toFixed(1)}с — {seg.end.toFixed(1)}с
                     <span className="seg-duration">({(seg.end - seg.start).toFixed(1)}с)</span>
                   </span>
@@ -344,18 +367,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
           {/* Скачиваемые артефакты */}
           <div className="artifact-downloads">
             <h4>Результаты</h4>
-            {downloadableArtifacts.map(item => (
-              <a
-                key={item.kind}
-                className="artifact-link"
-                href={artifactDownloadUrl(projectId, item.kind)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Download size={14} /> {item.label}
-              </a>
-            ))}
-            {downloadableArtifacts.length === 0 && (
+            {project.artifact_records && project.artifact_records.length > 0 ? (
+              project.artifact_records
+                .filter(r => r.kind !== 'settings')
+                .map(r => <ArtifactCard key={r.kind} record={r} projectId={projectId} />)
+            ) : downloadableArtifacts.length > 0 ? (
+              downloadableArtifacts.map(item => (
+                <a key={item.kind} className="artifact-link" href={artifactDownloadUrl(projectId, item.kind)} target="_blank" rel="noreferrer">
+                  <Download size={14} /> {item.label}
+                </a>
+              ))
+            ) : (
               <p className="empty-text">Результаты ещё не готовы.</p>
             )}
           </div>
