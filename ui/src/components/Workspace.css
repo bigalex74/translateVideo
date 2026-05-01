@@ -19,11 +19,11 @@
 
 .workspace-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
     background: var(--bg-surface);
-    padding: 16px 24px;
+    padding: 14px 20px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
 }
@@ -37,6 +37,37 @@
     color: var(--text-secondary);
 }
 
+/* Строка заголовка: кнопка назад + имя + бедж */
+.header-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.header-row-title {
+    min-width: 0;
+}
+
+.header-row-title h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+
+/* Строка действий: кнопки */
+.header-row-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Обратная совместимость: если в layout ещё используются старые классы */
 .header-left {
     display: flex;
     align-items: center;
@@ -56,6 +87,7 @@
 .header-left h2 {
     font-size: 1.05rem;
     margin: 0;
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -555,4 +587,45 @@
     word-break: break-all;
     white-space: pre-wrap;
     line-height: 1.5;
+}
+
+/* ─── btn-sm: компактная версия кнопок для header-row-actions ──────────── */
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    gap: 5px;
+}
+
+/* ─── Config panel: заголовок с крестиком ──────────────────────────────── */
+.config-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.config-panel-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.config-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-close-btn {
+    color: var(--text-secondary);
+    border-color: transparent;
+}
+
+.config-close-btn:hover {
+    color: var(--danger);
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.08);
 }
