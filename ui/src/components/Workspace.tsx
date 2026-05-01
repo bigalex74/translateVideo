@@ -63,12 +63,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
     }
   }, [projectId, dirty]);
 
+  // Первоначальная загрузка
   useEffect(() => {
     loadProject(false);
-    // Быстрый polling пока running, обычный иначе
-    const fast = setInterval(() => loadProject(true), 2000);
-    return () => clearInterval(fast);
-  }, [loadProject]);
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Поллинг статуса во время работы пайплайна.
+  // Намеренно игнорируем dirty — статус нужно обновлять даже при несохранённых правках.
+  useEffect(() => {
+    if (project?.status !== 'running') return;
+    const poll = setInterval(async () => {
+      try {
+        const data = await getProjectStatus(projectId);
+        setProject(data);
+      } catch (e) {
+        console.error('poll error', e);
+      }
+    }, 2000);
+    return () => clearInterval(poll);
+  }, [project?.status, projectId]);
 
   // Инициализировать историю при первой загрузке сегментов
   useEffect(() => {
@@ -155,15 +168,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
 
   const handleRunConfirmed = async (force: boolean) => {
     setConfirm(null);
-    // Оптимистично переключаем статус чтобы лоадер появился немедленно
-    setProject(prev => prev ? { ...prev, status: 'running' } : prev);
     setMessage('');
     setRightTab('status');
     try {
       await runPipeline(projectId, force);
-      await loadProject(false);
+      // Оптимистично переключаем статус — поллинг подхватит реальный
+      setProject(prev => prev ? { ...prev, status: 'running' } : prev);
     } catch (e) {
-      setProject(prev => prev ? { ...prev, status: 'failed' } : prev);
       setMessage(e instanceof Error ? e.message : 'Не удалось запустить обработку');
     }
   };
