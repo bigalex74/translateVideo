@@ -99,6 +99,20 @@ class PipelineConfig:
     # бесплатные лимиты часто отвечают 429/503, и долго ждать их на каждом сегменте нельзя.
     rewrite_provider_timeout: float = 8.0
     rewrite_provider_disable_on_quota: bool = True
+    # Бесплатные модели обычно дают 5-15 запросов в минуту. Держим
+    # консервативный лимит, чтобы не провоцировать 429 на длинных видео.
+    rewrite_provider_rpm: dict[str, float] = field(
+        default_factory=lambda: {
+            "gemini": 5.0,
+            "openrouter": 5.0,
+            "aihubmix": 5.0,
+            "polza": 30.0,
+        }
+    )
+    rewrite_provider_cooldown_seconds: float = 75.0
+    rewrite_provider_wait_for_rate_limit: bool = True
+    # Платный fallback должен быть явным, даже если ключ Polza.ai есть в .env.
+    rewrite_allow_paid_fallback: bool = False
     allow_tts_rate_adaptation: bool = False
     allow_render_audio_speedup: bool = False
     allow_timeline_shift: bool = True
@@ -164,6 +178,19 @@ class PipelineConfig:
                 "rewrite_provider_disable_on_quota": bool(
                     data.get("rewrite_provider_disable_on_quota", True)
                 ),
+                "rewrite_provider_rpm": dict(
+                    data.get(
+                        "rewrite_provider_rpm",
+                        {"gemini": 5.0, "openrouter": 5.0, "aihubmix": 5.0, "polza": 30.0},
+                    )
+                ),
+                "rewrite_provider_cooldown_seconds": float(
+                    data.get("rewrite_provider_cooldown_seconds", 75.0)
+                ),
+                "rewrite_provider_wait_for_rate_limit": bool(
+                    data.get("rewrite_provider_wait_for_rate_limit", True)
+                ),
+                "rewrite_allow_paid_fallback": bool(data.get("rewrite_allow_paid_fallback", False)),
                 "allow_tts_rate_adaptation": bool(data.get("allow_tts_rate_adaptation", False)),
                 "allow_render_audio_speedup": bool(data.get("allow_render_audio_speedup", False)),
                 "allow_timeline_shift": bool(data.get("allow_timeline_shift", True)),
