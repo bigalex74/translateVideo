@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig } from '../api/client';
 import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
-import { stageLabel, statusLabel } from '../i18n';
+import { stageLabel, statusLabel, t } from '../i18n';
+import type { AppLocale } from '../store/settings';
 import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
@@ -17,6 +18,7 @@ import './Workspace.css';
 interface WorkspaceProps {
   projectId: string;
   onBack: () => void;
+  locale: AppLocale;
 }
 
 // Правая панель: вкладки
@@ -24,7 +26,7 @@ type RightTab = 'status' | 'qa' | 'artifacts';
 
 const API_VIDEO = '/api/v1/video';
 
-export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
+export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale }) => {
   const [project, setProject] = useState<VideoProject | null>(null);
   const [videoTab, setVideoTab] = useState<'source' | 'translated'>('source');
   const [rightTab, setRightTab] = useState<RightTab>('status');
@@ -91,7 +93,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
   if (!project) return (
     <div className="workspace-loading">
       <Loader2 className="animate-spin text-accent" size={32} />
-      <p>Загрузка редактора…</p>
+      <p>{t('workspace.loading', locale)}</p>
     </div>
   );
 
@@ -150,10 +152,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
     try {
       await saveProjectSegments(projectId, segments);
       setDirty(false);
-      setMessage('✓ Сегменты сохранены');
+      setMessage(t('workspace.segmentsSaved', locale));
       setTimeout(() => setMessage(''), 3000);
     } catch (e) {
-      setMessage(`Ошибка сохранения: ${e instanceof Error ? e.message : String(e)}`);
+      setMessage(`${t('workspace.saveError', locale)}: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setSaving(false);
     }
@@ -170,7 +172,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
       // Оптимистично переключаем статус — поллинг подхватит реальный
       setProject(prev => prev ? { ...prev, status: 'running' } : prev);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Не удалось запустить обработку');
+      setMessage(e instanceof Error ? e.message : t('workspace.runError', locale));
     }
   };
 
@@ -217,10 +219,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
         <div className="running-overlay" role="status" aria-live="polite">
           <div className="running-card">
             <Loader2 size={40} className="animate-spin running-spinner" />
-            <h3>Идёт обработка…</h3>
+            <h3>{t('workspace.running', locale)}</h3>
             {runningStage && (
               <p className="running-stage">
-                ⚙️ {stageLabel(runningStage.stage)}
+                ⚙️ {stageLabel(runningStage.stage, locale)}
               </p>
             )}
             {totalStages > 0 && (
@@ -229,7 +231,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
               </div>
             )}
             <p className="running-hint">
-              Страница обновляется автоматически. Можно закрыть вкладку — перевод продолжится на сервере.
+              {t('workspace.runningHint', locale)}
             </p>
           </div>
         </div>
@@ -239,11 +241,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
       <header className="workspace-header">
         {/* Строка 1: название + статус */}
         <div className="header-row header-row-title">
-          <button onClick={onBack} className="btn-icon" title="Назад к списку проектов">
+          <button onClick={onBack} className="btn-icon" title={t('workspace.back', locale)}>
             <ArrowLeft size={18} />
           </button>
           <h2 title={projectId}>{projectId}</h2>
-          <span className={`badge ${project.status}`}>{statusLabel(project.status)}</span>
+          <span className={`badge ${project.status}`}>{statusLabel(project.status, locale)}</span>
         </div>
         {/* Строка 2: кнопки действий */}
         <div className="header-row header-row-actions">
@@ -266,7 +268,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
               onClick={() => setConfirm({ force: false })}
               title="Возобновить с проваленного этапа"
             >
-              <Play size={14} /> Продолжить
+              <Play size={14} /> {t('workspace.continue', locale)}
             </button>
           )}
           {!isRunning && (project.status === 'created' || project.status === 'failed' || project.status === 'completed') && (
@@ -275,13 +277,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
               onClick={() => setConfirm({ force: true })}
               title={project.status === 'completed' ? 'Запустить все этапы заново' : 'Перезапустить всё с начала'}
             >
-              <RefreshCw size={14} /> {project.status === 'completed' ? 'Запустить' : 'Перезапустить'}
+              <RefreshCw size={14} /> {project.status === 'completed' ? t('workspace.run', locale) : t('workspace.restart', locale)}
             </button>
           )}
           <button
             className="btn-icon"
-            title={showConfig ? 'Скрыть настройки' : 'Настройки перевода'}
-            aria-label="Настройки перевода"
+            title={t('workspace.translationSettings', locale)}
+            aria-label={t('workspace.translationSettings', locale)}
             onClick={() => setShowConfig(prev => !prev)}
           >
             <Settings size={15} />
@@ -290,10 +292,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
             className="btn-primary btn-sm"
             onClick={handleSave}
             disabled={!dirty || saving || isRunning}
-            title={dirty ? 'Сохранить правки сегментов' : 'Нет несохранённых изменений'}
+            title={dirty ? t('workspace.saveSegments', locale) : t('workspace.noChanges', locale)}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            Сохранить{dirty ? ' *' : ''}
+            {t('workspace.save', locale)}{dirty ? ' *' : ''}
           </button>
         </div>
       </header>
@@ -307,7 +309,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
       {showConfig && (
         <div className="workspace-config-panel glass-panel">
           <div className="config-panel-header">
-            <h4>Настройки перевода</h4>
+            <h4>{t('workspace.translationSettings', locale)}</h4>
             <div className="config-panel-actions">
               <button
                 className="btn-primary btn-sm"
@@ -319,23 +321,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                     const result = await patchProjectConfig(projectId, configPatch);
                     setProject(prev => prev ? { ...prev, config: result.config } : prev);
                     setConfigPatch({});
-                    setMessage('✓ Настройки сохранены');
+                    setMessage(t('workspace.settingsSaved', locale));
                     setTimeout(() => setMessage(''), 3000);
                     setShowConfig(false);  // закрываем панель после сохранения
                   } catch (e) {
-                    setMessage(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
+                    setMessage(`${t('workspace.error', locale)}: ${e instanceof Error ? e.message : String(e)}`);
                   } finally {
                     setSavingConfig(false);
                   }
                 }}
               >
                 {savingConfig ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                Сохранить
+                {t('workspace.save', locale)}
               </button>
               <button
                 className="btn-icon config-close-btn"
-                title="Закрыть настройки"
-                aria-label="Закрыть панель настроек"
+                title={t('workspace.closeSettings', locale)}
+                aria-label={t('workspace.closeSettings', locale)}
                 onClick={() => setShowConfig(false)}
               >
                 <X size={16} />
@@ -363,15 +365,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                 className={videoTab === 'source' ? 'active' : ''}
                 onClick={() => setVideoTab('source')}
               >
-                <Film size={14} /> Оригинал
+                <Film size={14} /> {t('workspace.original', locale)}
               </button>
               <button
                 className={videoTab === 'translated' ? 'active' : ''}
                 onClick={() => setVideoTab('translated')}
                 disabled={!findArtifact('output_video')}
-                title={!findArtifact('output_video') ? 'Готовое видео ещё не создано' : ''}
+                title={!findArtifact('output_video') ? t('workspace.outputNotReady', locale) : ''}
               >
-                <Film size={14} /> Перевод ИИ
+                <Film size={14} /> {t('workspace.aiTranslation', locale)}
               </button>
             </div>
             <div className="video-container">
@@ -402,10 +404,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
           {/* Редактор сегментов */}
           <div className="panel segments-panel glass-panel">
             <div className="panel-header">
-              <h3><AlignLeft size={16} /> Редактор перевода</h3>
+              <h3><AlignLeft size={16} /> {t('workspace.translationEditor', locale)}</h3>
               <span className="text-sm text-muted">
                 {segments.length} сегментов
-                {dirty && <span className="dirty-indicator"> · Несохранённые правки</span>}
+                {dirty && <span className="dirty-indicator"> · {t('workspace.unsaved', locale)}</span>}
               </span>
             </div>
             <div className="segments-list">
@@ -432,14 +434,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                       {seg.start.toFixed(1)}с — {seg.end.toFixed(1)}с
                       <span className="seg-duration">({(seg.end - seg.start).toFixed(1)}с)</span>
                     </span>
-                    <span className="seg-status">{statusLabel(seg.status ?? '')}</span>
+                    <span className="seg-status">{statusLabel(seg.status ?? '', locale)}</span>
                   </div>
                   <div className="seg-source">{seg.source_text}</div>
                   <textarea
                     className={`seg-translated text-input ${!seg.translated_text?.trim() ? 'seg-empty' : ''}`}
                     value={seg.translated_text ?? ''}
                     onChange={(e) => handleTextChange(seg.id, e.target.value)}
-                    placeholder="Введите перевод…"
+                    placeholder={t('workspace.enterTranslation', locale)}
                     rows={2}
                   />
                 </div>
@@ -447,23 +449,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
               {segments.length === 0 && !isRunning && (
                 <div className="editor-empty-state">
                   <span className="editor-empty-icon">🎬</span>
-                  <p className="editor-empty-title">Перевод ещё не запускался</p>
+                  <p className="editor-empty-title">{t('workspace.notStartedTitle', locale)}</p>
                   <p className="editor-empty-hint">
-                    Нажмите кнопку ниже — распознавание речи и перевод выполнятся автоматически.
+                    {t('workspace.notStartedHint', locale)}
                   </p>
                   <button
                     className="btn-primary"
                     onClick={() => setConfirm({ force: false })}
                   >
-                    <RefreshCw size={16} /> Запустить перевод
+                    <RefreshCw size={16} /> {t('dashboard.run', locale)}
                   </button>
                 </div>
               )}
               {segments.length === 0 && isRunning && (
                 <div className="editor-empty-state">
                   <Loader2 size={32} className="animate-spin editor-empty-icon" />
-                  <p className="editor-empty-title">Выполняется обработка…</p>
-                  <p className="editor-empty-hint">Сегменты появятся автоматически после завершения этапа распознавания речи.</p>
+                  <p className="editor-empty-title">{t('workspace.processing', locale)}</p>
+                  <p className="editor-empty-hint">{t('workspace.processingHint', locale)}</p>
                 </div>
               )}
             </div>
@@ -477,7 +479,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
               className={rightTab === 'status' ? 'active' : ''}
               onClick={() => setRightTab('status')}
             >
-              <Activity size={14} /> Статус
+              <Activity size={14} /> {t('workspace.statusTab', locale)}
             </button>
             <button
               className={rightTab === 'qa' ? 'active' : ''}
@@ -490,7 +492,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
               className={rightTab === 'artifacts' ? 'active' : ''}
               onClick={() => setRightTab('artifacts')}
             >
-              <Download size={14} /> Файлы
+              <Download size={14} /> {t('workspace.filesTab', locale)}
             </button>
           </div>
 
@@ -502,11 +504,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                   <li key={run.id} className={`timeline-item ${run.status}`}>
                     <div className="timeline-icon">{getStatusIcon(run.status)}</div>
                     <div className="timeline-content">
-                      <strong>{stageLabel(run.stage)}</strong>
-                      <span className="status-text">{statusLabel(run.status)}</span>
+                      <strong>{stageLabel(run.stage, locale)}</strong>
+                      <span className="status-text">{statusLabel(run.status, locale)}</span>
                       {run.error && (
                         <div className="stage-error-block">
-                          <span className="stage-error-label">Ошибка:</span>
+                          <span className="stage-error-label">{t('workspace.error', locale)}:</span>
                           <code className="stage-error-msg">
                             {run.error
                               .replace(/\/app\/runs\/[^/]+\//g, '')
@@ -519,7 +521,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                   </li>
                 ))}
                 {(!project.stage_runs || project.stage_runs.length === 0) && (
-                  <p className="empty-text">Обработка ещё не запускалась.</p>
+                  <p className="empty-text">{t('dashboard.notStarted', locale)}</p>
                 )}
               </ul>
             </div>
@@ -529,9 +531,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
           {rightTab === 'qa' && (
             <div className="right-tab-content">
               {segments.length > 0 ? (
-                <QASummary segments={segments} projectStatus={project.status} />
+                <QASummary segments={segments} projectStatus={project.status} locale={locale} />
               ) : (
-                <p className="empty-text">Нет сегментов для анализа.</p>
+                <p className="empty-text">{t('workspace.noSegments', locale)}</p>
               )}
             </div>
           )}
@@ -542,7 +544,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
               {project.artifact_records && project.artifact_records.length > 0 ? (
                 project.artifact_records
                   .filter(r => r.kind !== 'settings')
-                  .map(r => <ArtifactCard key={r.kind} record={r} projectId={projectId} />)
+                  .map(r => <ArtifactCard key={r.kind} record={r} projectId={projectId} locale={locale} />)
               ) : downloadableArtifacts.length > 0 ? (
                 downloadableArtifacts.map(item => (
                   <a key={item.kind} className="artifact-link" href={artifactDownloadUrl(projectId, item.kind)} target="_blank" rel="noreferrer">
@@ -550,7 +552,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                   </a>
                 ))
               ) : (
-                <p className="empty-text">Результаты ещё не готовы.</p>
+                <p className="empty-text">{t('workspace.noResults', locale)}</p>
               )}
             </div>
           )}
@@ -563,6 +565,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
           provider={getPersistedProvider()}
           isForce={confirm.force}
           segments={segments}
+          locale={locale}
           onConfirm={() => handleRunConfirmed(confirm.force)}
           onCancel={() => setConfirm(null)}
         />

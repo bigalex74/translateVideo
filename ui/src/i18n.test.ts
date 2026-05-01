@@ -3,7 +3,7 @@
  * Покрывает: statusLabel, stageLabel, PROVIDER_LABELS, отсутствие технических терминов.
  */
 import { describe, it, expect } from 'vitest';
-import { stageLabel, statusLabel, PROVIDER_LABELS, PROVIDER_WARNINGS } from './i18n';
+import { providerLabel, stageLabel, statusLabel, t, PROVIDER_LABELS, PROVIDER_WARNINGS } from './i18n';
 
 // ─── TVIDEO-023 регрессии ─────────────────────────────────────────────────────
 
@@ -78,5 +78,20 @@ describe('stageLabel', () => {
     expect(stageLabel('extract_audio')).not.toBe('extract_audio');
     expect(stageLabel('transcribe')).not.toBe('transcribe');
     expect(stageLabel('translate')).not.toBe('translate');
+  });
+});
+
+describe('TVIDEO-032: переключение локали RU/EN', () => {
+  it('русский язык остается дефолтным', () => {
+    expect(t('nav.dashboard', 'ru')).toBe('Мои переводы');
+    expect(statusLabel('completed', 'ru')).toBe('Завершён');
+  });
+
+  it('английская локаль возвращает английские UI-строки', () => {
+    expect(t('nav.dashboard', 'en')).toBe('My translations');
+    expect(t('settings.languageLabel', 'en')).toBe('Interface language');
+    expect(statusLabel('running', 'en')).toBe('Running');
+    expect(stageLabel('translate', 'en')).toContain('Text translation');
+    expect(providerLabel('legacy', 'en')).toContain('Full translation');
   });
 });
