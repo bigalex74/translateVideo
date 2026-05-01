@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Callable
 
 from translate_video.core.schemas import (
@@ -99,7 +100,17 @@ class TranscribeStage(BaseStage):
     def run(self, context: StageContext) -> StageRun:
         def action() -> tuple[list[str], list[str]]:
             source_audio = _required_artifact(context, ArtifactKind.SOURCE_AUDIO)
-            audio_path = context.project.work_dir / source_audio.path
+            raw_path = Path(source_audio.path)
+            if raw_path.is_absolute():
+                audio_path = raw_path
+            else:
+                candidate = (context.project.work_dir / raw_path).resolve()
+                if not candidate.exists():
+                    # Старый формат: path содержит work_dir внутри (runs/proj/runs/proj/file)
+                    # Пробуем просто basename
+                    audio_path = context.project.work_dir.resolve() / raw_path.name
+                else:
+                    audio_path = candidate
             segments = self.transcriber.transcribe(audio_path, context.project.config)
             for segment in segments:
                 segment.status = SegmentStatus.TRANSCRIBED
@@ -166,7 +177,7 @@ class TTSStage(BaseStage):
             context.store.add_artifact(
                 context.project,
                 kind=ArtifactKind.TTS_AUDIO,
-                path="tts",
+                path=context.project.work_dir / "tts",
                 stage=self.stage,
                 content_type="inode/directory",
                 metadata={"segments": len(tts_outputs)},
