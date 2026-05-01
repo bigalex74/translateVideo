@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from translate_video.api.routes.projects import get_store
 from translate_video.api.webhooks import notify_webhook
 from translate_video.cli import _build_stages, _project_summary
-from translate_video.core.store import ProjectStore
+from translate_video.core.store import ProjectStore, sanitize_project_id
 from translate_video.pipeline.context import StageContext
 from translate_video.pipeline.runner import PipelineRunner
 
@@ -30,7 +30,8 @@ async def run_pipeline_task(
 ):
     """Фоновая задача выполнения пайплайна с отправкой вебхука."""
     try:
-        project = store.load_project(store.work_root / project_id)
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
         runner = PipelineRunner(_build_stages(req.provider), force=req.force)
         
         # Запускаем блокирующий пайплайн в отдельном потоке, 
@@ -60,12 +61,15 @@ def run_pipeline(
     """Запустить пайплайн для проекта в фоновом режиме."""
     try:
         # Проверяем, существует ли проект
-        store.load_project(store.work_root / project_id)
-        background_tasks.add_task(run_pipeline_task, project_id, store, req, x_webhook_url)
+        safe_project_id = sanitize_project_id(project_id)
+        store.load_project(store.root / safe_project_id)
+        background_tasks.add_task(run_pipeline_task, safe_project_id, store, req, x_webhook_url)
         return {
             "status": "accepted",
-            "project_id": project_id,
+            "project_id": safe_project_id,
             "message": "Pipeline started in background",
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")

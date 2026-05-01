@@ -13,25 +13,27 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
     const [project, setProject] = useState<VideoProject | null>(null);
     const [activeTab, setActiveTab] = useState<'source' | 'translated' | 'subtitles'>('source');
 
-    const loadProject = async () => {
-        try {
-            const data = await getProjectStatus(projectId);
-            setProject(data);
-        } catch (e) {
-            console.error(e);
-        }
-    };
-
     useEffect(() => {
-        loadProject();
+        const loadProject = async () => {
+            try {
+                const data = await getProjectStatus(projectId);
+                setProject(data);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        const initialLoad = setTimeout(loadProject, 0);
         const interval = setInterval(loadProject, 5000);
-        return () => clearInterval(interval);
+        return () => {
+            clearTimeout(initialLoad);
+            clearInterval(interval);
+        };
     }, [projectId]);
 
     if (!project) return (
         <div className="workspace-loading">
             <Loader2 className="animate-spin text-accent" size={32} />
-            <p>Loading Workspace...</p>
+            <p>Загрузка рабочей области...</p>
         </div>
     );
 
@@ -68,15 +70,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
         <div className="workspace fade-in">
             <header className="workspace-header">
                 <div className="header-left">
-                    <button onClick={onBack} className="btn-icon">
+                    <button onClick={onBack} className="btn-icon" title="Вернуться в дашборд">
                         <ArrowLeft size={20} />
                     </button>
                     <h2>{projectId}</h2>
                     <span className={`badge ${project.status}`}>{project.status}</span>
                 </div>
                 <div className="header-right">
-                    <button className="btn-secondary"><Settings size={16} /> Config</button>
-                    <button className="btn-primary"><Save size={16} /> Save Edits</button>
+                    <button className="btn-secondary"><Settings size={16} /> Настройки</button>
+                    <button className="btn-primary"><Save size={16} /> Сохранить изменения</button>
                 </div>
             </header>
 
@@ -84,9 +86,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                 {/* Left: Player */}
                 <div className="panel video-panel glass-panel">
                     <div className="panel-tabs">
-                        <button className={activeTab === 'source' ? 'active' : ''} onClick={() => setActiveTab('source')}>Original Video</button>
-                        <button className={activeTab === 'translated' ? 'active' : ''} onClick={() => setActiveTab('translated')}>AI Voiceover</button>
-                        <button className={activeTab === 'subtitles' ? 'active' : ''} onClick={() => setActiveTab('subtitles')}>Subtitles Only</button>
+                        <button className={activeTab === 'source' ? 'active' : ''} onClick={() => setActiveTab('source')}>Оригинал</button>
+                        <button className={activeTab === 'translated' ? 'active' : ''} onClick={() => setActiveTab('translated')}>Озвучка ИИ</button>
+                        <button className={activeTab === 'subtitles' ? 'active' : ''} onClick={() => setActiveTab('subtitles')}>Субтитры</button>
                     </div>
                     <div className="video-container">
                         <video controls src={getVideoUrl()} key={getVideoUrl()}>
@@ -99,7 +101,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                                     default 
                                 />
                             )}
-                            Your browser does not support the video tag.
+                            Ваш браузер не поддерживает элемент video.
                         </video>
                     </div>
                 </div>
@@ -107,14 +109,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                 {/* Center: Editor */}
                 <div className="panel segments-panel glass-panel">
                     <div className="panel-header">
-                        <h3>Interactive Transcript</h3>
-                        <span className="text-sm text-muted">{segments.length} segments</span>
+                        <h3>Интерактивный транскрипт</h3>
+                        <span className="text-sm text-muted">Сегментов: {segments.length}</span>
                     </div>
                     <div className="segments-list">
                         {segments.map((seg) => (
                             <div key={seg.id} className={`segment-item ${seg.status}`}>
                                 <div className="seg-header">
-                                    <span className="seg-timing">{seg.start.toFixed(1)}s — {seg.end.toFixed(1)}s</span>
+                                    <span className="seg-timing">{seg.start.toFixed(1)}с — {seg.end.toFixed(1)}с</span>
                                     <span className="seg-status">{seg.status}</span>
                                 </div>
                                 <div className="seg-source">{seg.source_text}</div>
@@ -122,14 +124,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                                     className="seg-translated text-input"
                                     value={seg.translated_text}
                                     onChange={(e) => handleTextChange(seg.id, e.target.value)}
-                                    placeholder="Translation..."
+                                    placeholder="Перевод..."
                                 />
                             </div>
                         ))}
                         {segments.length === 0 && (
                             <div className="empty-text">
-                                <p>No transcript available yet.</p>
-                                <small>Wait for the transcription stage to finish.</small>
+                                <p>Транскрипт пока недоступен.</p>
+                                <small>Дождитесь завершения этапа распознавания речи (transcribe).</small>
                             </div>
                         )}
                     </div>
@@ -138,7 +140,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                 {/* Right: Progress */}
                 <div className="panel progress-panel glass-panel">
                     <div className="panel-header">
-                        <h3>Pipeline Status</h3>
+                        <h3>Статус выполнения</h3>
                     </div>
                     <div className="timeline-container">
                         <ul className="timeline">
@@ -155,7 +157,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                                 </li>
                             ))}
                             {(!project.stage_runs || project.stage_runs.length === 0) && (
-                                <p className="empty-text">Pipeline has not started.</p>
+                                <p className="empty-text">Пайплайн еще не запущен.</p>
                             )}
                         </ul>
                     </div>

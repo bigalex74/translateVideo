@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from translate_video.cli import _project_summary
 from translate_video.core.config import PipelineConfig
-from translate_video.core.store import ProjectStore
+from translate_video.core.store import ProjectStore, sanitize_filename, sanitize_project_id
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
 
@@ -34,11 +34,15 @@ def create_project(req: CreateProjectRequest, store: ProjectStore = Depends(get_
     """Создать новый проект перевода по локальному пути или URL."""
     config = PipelineConfig.from_dict(req.config) if req.config else PipelineConfig()
     try:
+        project_id = sanitize_project_id(req.project_id) if req.project_id else None
         project = store.create_project(
             input_video=req.input_video,
             config=config,
-            project_id=req.project_id,
+            project_id=project_id,
         )
+        input_path = Path(req.input_video)
+        if input_path.is_file():
+            store.attach_input_video(project, input_path)
         return _project_summary(project)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -56,12 +60,13 @@ def create_project_from_file(
         conf_dict = json.loads(config)
         pipeline_config = PipelineConfig.from_dict(conf_dict) if conf_dict else PipelineConfig()
         
-        base_name = os.path.splitext(file.filename or "video.mp4")[0]
-        final_project_id = project_id if project_id and project_id.strip() else base_name
+        upload_name = sanitize_filename(file.filename or "video.mp4", fallback="video.mp4")
+        base_name = os.path.splitext(upload_name)[0]
+        final_project_id = sanitize_project_id(project_id) if project_id and project_id.strip() else sanitize_project_id(base_name)
         
-        temp_dir = store.work_root / "_uploads"
+        temp_dir = store.root / "_uploads"
         temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_path = temp_dir / (file.filename or "video.mp4")
+        temp_path = temp_dir / upload_name
         
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -71,6 +76,7 @@ def create_project_from_file(
             config=pipeline_config,
             project_id=final_project_id,
         )
+        store.attach_input_video(project, temp_path)
         return _project_summary(project)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -80,10 +86,13 @@ def create_project_from_file(
 def get_project_status(project_id: str, store: ProjectStore = Depends(get_store)):
     """Получить статус и данные проекта."""
     try:
-        project = store.load_project(store.work_root / project_id)
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
         summary = _project_summary(project)
         summary["stage_runs"] = [run.to_dict() for run in project.stage_runs]
         return summary
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -92,11 +101,14 @@ def get_project_status(project_id: str, store: ProjectStore = Depends(get_store)
 def get_project_artifacts(project_id: str, store: ProjectStore = Depends(get_store)):
     """Получить список артефактов проекта."""
     try:
-        project = store.load_project(store.work_root / project_id)
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
         return {
             "project_id": project.id,
             "work_dir": project.work_dir.as_posix(),
             "artifacts": [record.to_dict() for record in project.artifact_records],
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")

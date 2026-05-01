@@ -6,7 +6,7 @@ from pathlib import Path
 
 from translate_video.core.config import PipelineConfig
 from translate_video.core.schemas import ArtifactKind, JobStatus, Segment, Stage, StageRun
-from translate_video.core.store import ProjectStore
+from translate_video.core.store import ProjectStore, sanitize_filename, sanitize_project_id
 
 
 class ProjectStoreTest(unittest.TestCase):
@@ -45,6 +45,40 @@ class ProjectStoreTest(unittest.TestCase):
 
             self.assertEqual(project.work_dir.name, project.id)
             self.assertTrue(project.id.startswith("lesson-"))
+
+    def test_create_project_rejects_path_traversal_id(self):
+        """ID проекта не должен позволять выходить из корня runs."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+
+            with self.assertRaises(ValueError):
+                store.create_project("lesson.mp4", project_id="../evil")
+
+    def test_attach_input_video_copies_source_into_project(self):
+        """Исходное видео должно копироваться в рабочую папку проекта."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "upload.mp4"
+            source.write_bytes(b"video")
+            store = ProjectStore(root / "runs")
+            project = store.create_project(source, project_id="lesson")
+
+            copied = store.attach_input_video(project, source)
+            restored = store.load_project(project.work_dir)
+
+            self.assertEqual(copied, project.work_dir / "input.mp4")
+            self.assertEqual(copied.read_bytes(), b"video")
+            self.assertEqual(restored.input_video, copied)
+
+    def test_sanitize_helpers_block_unsafe_values(self):
+        """Нормализация имен должна запрещать небезопасные пути."""
+
+        self.assertEqual(sanitize_project_id("Мой проект!"), "Мой-проект")
+        self.assertEqual(sanitize_filename("../video.mp4"), "video.mp4")
+        with self.assertRaises(ValueError):
+            sanitize_project_id("bad/project")
 
     def test_save_segments_updates_project_artifacts(self):
         """Сохранение сегментов должно обновлять артефакты проекта."""

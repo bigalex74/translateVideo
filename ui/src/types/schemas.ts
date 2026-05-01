@@ -17,6 +17,8 @@ export interface PipelineConfig {
     do_not_translate: string[];
 }
 
+export type PipelineConfigDraft = Partial<PipelineConfig>;
+
 export interface Segment {
     id: string;
     start: number;
@@ -48,7 +50,7 @@ export interface ArtifactRecord {
     stage: Stage;
     content_type: string;
     created_at: string;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     checksum?: string;
 }
 
