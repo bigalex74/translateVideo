@@ -16,8 +16,11 @@ from typing import Any
 
 from translate_video.core.config import PipelineConfig
 from translate_video.core.env import load_env_file
+from translate_video.core.log import Timer, get_logger
 from translate_video.timing.base import TimingRewriter
 from translate_video.timing.natural import RuleBasedTimingRewriter
+
+_log = get_logger(__name__)
 
 
 class RewriteProviderError(RuntimeError):
@@ -77,26 +80,74 @@ class CloudFallbackTimingRewriter:
         """Вернуть лучший короткий вариант, используя fallback-цепочку."""
 
         self._events = []
+        prev_provider: str | None = None
+
         for provider in self.providers:
             name = getattr(provider, "name", provider.__class__.__name__)
             try:
-                candidate = _clean_candidate(provider.rewrite(
-                    text,
-                    source_text=source_text,
+                _log.debug(
+                    "rewriter.request",
+                    provider=name,
                     max_chars=max_chars,
                     attempt=attempt,
-                ))
-            except RewriteProviderError:
+                    in_chars=len(text),
+                )
+                with Timer() as t:
+                    candidate = _clean_candidate(provider.rewrite(
+                        text,
+                        source_text=source_text,
+                        max_chars=max_chars,
+                        attempt=attempt,
+                    ))
+            except RewriteProviderError as exc:
+                _log.warning(
+                    "rewriter.provider_fail",
+                    provider=name,
+                    reason=str(exc)[:120],
+                )
                 self._events.extend(["rewrite_provider_failed", "rewrite_fallback_used"])
+                prev_provider = name
                 continue
+
+            _log.info(
+                "rewriter.response",
+                provider=name,
+                elapsed_s=t.elapsed,
+                in_chars=len(text),
+                out_chars=len(candidate),
+                max_chars=max_chars,
+                fits=len(candidate) <= max_chars,
+            )
+
             if _is_useful_candidate(candidate, original=text, max_chars=max_chars):
+                if prev_provider is not None:
+                    _log.warning(
+                        "rewriter.fallback",
+                        from_provider=prev_provider,
+                        to_provider=name,
+                    )
                 self._events.append("rewrite_provider_used")
                 if name != "gemini":
                     self._events.append("rewrite_fallback_used")
                 self._events.append(f"rewrite_provider_{name}")
                 return candidate
-            self._events.extend(["rewrite_provider_failed", "rewrite_fallback_used"])
 
+            _log.warning(
+                "rewriter.candidate_rejected",
+                provider=name,
+                out_chars=len(candidate),
+                max_chars=max_chars,
+            )
+            self._events.extend(["rewrite_provider_failed", "rewrite_fallback_used"])
+            prev_provider = name
+
+        _log.warning(
+            "rewriter.all_failed",
+            providers=[getattr(p, "name", p.__class__.__name__) for p in self.providers],
+            fallback="rule_based",
+            in_chars=len(text),
+            max_chars=max_chars,
+        )
         candidate = self.fallback.rewrite(
             text,
             source_text=source_text,
