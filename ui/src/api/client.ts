@@ -1,5 +1,6 @@
 import type {
     ArtifactsResponse,
+    PipelineConfig,
     PipelineConfigDraft,
     PreflightReport,
     Segment,
@@ -79,6 +80,19 @@ export async function saveProjectSegments(project_id: string, segments: Segment[
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ translated: true, segments })
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export async function patchProjectConfig(
+    project_id: string,
+    config: Partial<PipelineConfig>,
+): Promise<{ ok: boolean; config: PipelineConfig }> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config }),
     });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();

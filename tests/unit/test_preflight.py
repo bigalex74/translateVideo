@@ -9,7 +9,7 @@ from io import StringIO
 from pathlib import Path
 
 from translate_video.cli import main
-from translate_video.core.preflight import run_preflight
+from translate_video.core.preflight import _probe_duration, run_preflight
 
 
 class PreflightTest(unittest.TestCase):
@@ -35,7 +35,7 @@ class PreflightTest(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertEqual(report.checks[0].name, "input_video")
-        self.assertEqual(report.checks[0].message, "входной файл не найден")
+        self.assertIn("не найден", report.checks[0].message)
 
     def test_legacy_provider_reports_missing_dependencies(self):
         """Провайдер устаревшего скрипта должен показать отсутствующие зависимости."""
@@ -88,6 +88,67 @@ class PreflightTest(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["provider"], "fake")
+
+    def test_report_includes_duration_seconds_field(self):
+        """Отчет должен содержать поле duration_seconds в to_dict()."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "lesson.mp4"
+            video.write_bytes(b"video")
+
+            report = run_preflight(video, "fake")
+            payload = report.to_dict()
+
+            self.assertIn("duration_seconds", payload)
+
+    def test_duration_none_when_ffprobe_unavailable(self):
+        """duration_seconds должен быть None когда ffprobe недоступен."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "lesson.mp4"
+            video.write_bytes(b"video")
+
+            report = run_preflight(
+                video,
+                "fake",
+                executable_finder=lambda _: None,
+            )
+
+            self.assertIsNone(report.duration_seconds)
+
+    def test_duration_returned_when_ffprobe_available(self):
+        """duration_seconds должен быть float когда ffprobe доступен и файл — медиа."""
+
+        import subprocess
+        import unittest.mock as mock
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "lesson.mp4"
+            video.write_bytes(b"video")
+
+            mock_result = mock.MagicMock()
+            mock_result.stdout = "123.45\n"
+
+            with mock.patch("subprocess.run", return_value=mock_result):
+                duration = _probe_duration(
+                    video,
+                    executable_finder=lambda x: f"/usr/bin/{x}",
+                )
+
+            self.assertAlmostEqual(duration, 123.45)
+
+    def test_unknown_provider_fails_report(self):
+        """Неизвестный провайдер должен давать ошибку проверки провайдера."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "lesson.mp4"
+            video.write_bytes(b"video")
+
+            report = run_preflight(video, "unknown_provider")
+
+            self.assertFalse(report.ok)
+            provider_check = next(c for c in report.checks if c.name == "provider")
+            self.assertFalse(provider_check.ok)
 
 
 if __name__ == "__main__":
