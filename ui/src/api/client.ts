@@ -66,7 +66,7 @@ export async function runPipeline(
     webhookUrl?: string,
 ): Promise<{status: string, message: string}> {
     // Читаем сохранённые настройки если не переданы явно
-    const effectiveProvider = provider ?? localStorage.getItem('tv_default_provider') ?? 'fake';
+    const effectiveProvider = provider ?? localStorage.getItem('tv_default_provider') ?? 'legacy';
     const effectiveWebhook  = webhookUrl ?? localStorage.getItem('tv_webhook_url') ?? undefined;
 
     const body: Record<string, unknown> = { force, provider: effectiveProvider };
