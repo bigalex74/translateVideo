@@ -38,10 +38,11 @@ class TestComputeTtsText(unittest.TestCase):
         self.assertEqual(result, text)
 
     def test_long_text_gets_trimmed(self):
-        """Текст намного длиннее слота → укорачивается."""
-        # 2 секунды * 14 = 28 chars, threshold 1.15 → 32 chars max
-        text = "Это очень длинный текст который явно не уложится в два секунды никак."
-        result = _compute_tts_text(text, slot_duration=2.0)
+        """Текст в 3+ раза длиннее слота → укорачивается (threshold=2.0)."""
+        # 1 секунда * 20 cps = 20 chars, threshold 2.0 → trim если > 40 chars
+        # Генерируем текст явно длиннее 40 символов в 1-секундном слоте
+        text = "Это очень длинный текст который явно не уложится в один секунду вообще никак по-русски."
+        result = _compute_tts_text(text, slot_duration=1.0)
         self.assertLess(len(result), len(text))
 
     def test_zero_slot_returns_text_unchanged(self):
