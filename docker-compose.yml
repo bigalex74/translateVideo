@@ -5,13 +5,10 @@ services:
     build: .
     container_name: video-translator
     restart: unless-stopped
-    ports:
-      - "8002:8002"
+    network_mode: host        # прямой доступ к хост-сервисам (мост :5000, прокси :10808)
     volumes:
       - ./runs:/app/runs
     env_file:
       - .env            # ключи облачных rewriter-провайдеров (Gemini, OR, AIHubMix...)
     environment:
       - WORK_ROOT=/app/runs
-    extra_hosts:
-      - "host.docker.internal:host-gateway"   # Linux: хост доступен как host.docker.internal
