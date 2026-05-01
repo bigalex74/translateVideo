@@ -1,5 +1,21 @@
 # Журнал Изменений
 
+## 1.12.6 - 2026-05-01 - FIX - TVIDEO-050
+
+### Кнопки Запустить/Продолжить не работали: системный прокси ломал Docker
+- HTTP_PROXY / HTTPS_PROXY попали в контейнер через env_file.
+  Весь трафик (Whisper, HuggingFace, внутренние соединения) шёл через
+  127.0.0.1:10808 — внутри контейнера это loopback самого контейнера,
+  а не хоста → ConnectError → transcribe failed → кнопки висли.
+- Заменили HTTP_PROXY/HTTPS_PROXY на кастомный REWRITER_PROXY,
+  который читает только _post_json в timing/cloud.py.
+- В .env REWRITER_PROXY=пусто (прокси хоста недоступен из Docker).
+  В контейнере: OpenRouter и AIHubMix работают напрямую без прокси.
+  Gemini в контейнере падает на fallback → OR/AIHubMix.
+- docker-compose.yml: extra_hosts для host.docker.internal (на будущее).
+- Для локального теста Gemini через прокси:
+    REWRITER_PROXY=http://127.0.0.1:10808 python3 scripts/test_cloud_providers.py
+
 ## 1.12.5 - 2026-05-01 - FIX - TVIDEO-049
 
 ### Корневая причина наложения аудио: .env не попадал в Docker

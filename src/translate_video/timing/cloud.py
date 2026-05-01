@@ -331,8 +331,10 @@ def _post_json(
         method="POST",
     )
 
-    # Прокси: HTTPS_PROXY → HTTP_PROXY → нет
-    proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy")
+    # Прокси: REWRITER_PROXY (кастомный, только для cloud rewriter).
+    # НЕ используем системные HTTPS_PROXY/HTTP_PROXY — они ломают Docker
+    # (Whisper, HuggingFace и другие соединения тоже пойдут через прокси).
+    proxy_url = os.getenv("REWRITER_PROXY")
     if proxy_url:
         opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
