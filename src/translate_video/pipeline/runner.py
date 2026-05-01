@@ -54,9 +54,14 @@ class PipelineRunner:
 
     @staticmethod
     def _already_completed(context: StageContext, stage: Stage) -> bool:
-        """Проверить наличие завершённого запуска данного этапа в проекте."""
+        """Проверить что последний запуск данного этапа завершился успешно.
 
-        return any(
-            run.stage == stage and run.status == JobStatus.COMPLETED
-            for run in context.project.stage_runs
+        Используем ПОСЛЕДНЮЮ запись для этапа, а не любую из всех.
+        Это исправляет баг resume: старые COMPLETED-записи из прошлых
+        запусков не должны блокировать повторное выполнение этапа.
+        """
+        last = next(
+            (r for r in reversed(context.project.stage_runs) if r.stage == stage),
+            None,
         )
+        return last is not None and last.status == JobStatus.COMPLETED
