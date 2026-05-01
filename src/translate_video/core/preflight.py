@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import asdict, dataclass, field
 from importlib.util import find_spec
 from pathlib import Path
@@ -46,6 +47,7 @@ class PreflightReport:
     provider: str
     ok: bool
     checks: list[PreflightCheck]
+    duration_seconds: float | None = None
 
     def to_dict(self) -> dict:
         """Вернуть JSON-совместимый отчет."""
@@ -54,8 +56,42 @@ class PreflightReport:
             "input_video": self.input_video,
             "provider": self.provider,
             "ok": self.ok,
+            "duration_seconds": self.duration_seconds,
             "checks": [check.to_dict() for check in self.checks],
         }
+
+
+def _probe_duration(
+    input_path: Path,
+    executable_finder: Callable[[str], str | None] = which,
+) -> float | None:
+    """Определить длительность видеофайла через ffprobe.
+
+    Возвращает длительность в секундах или None, если ffprobe недоступен
+    или файл не является медиафайлом.
+    """
+
+    if executable_finder("ffprobe") is None:
+        return None
+    if not input_path.is_file():
+        return None
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(input_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        raw = result.stdout.strip()
+        return float(raw) if raw else None
+    except (ValueError, subprocess.SubprocessError, OSError):
+        return None
 
 
 def run_preflight(
@@ -85,26 +121,29 @@ def run_preflight(
             PreflightCheck(
                 name="provider",
                 ok=False,
-                message=f"неподдерживаемый провайдер: {provider}",
+                message=f"неизвестный провайдер: {provider!r}",
                 details={"provider": provider},
             )
         )
+    overall_ok = all(c.ok for c in checks)
+    duration = _probe_duration(input_path, executable_finder)
     return PreflightReport(
-        input_video=input_path.as_posix(),
+        input_video=str(input_path),
         provider=provider,
-        ok=all(check.ok for check in checks),
+        ok=overall_ok,
         checks=checks,
+        duration_seconds=duration,
     )
 
 
 def _check_input_video(input_path: Path) -> PreflightCheck:
-    """Проверить существование и базовую пригодность входного видео."""
+    """Проверить доступность и непустоту входного файла."""
 
     if not input_path.exists():
         return PreflightCheck(
             name="input_video",
             ok=False,
-            message="входной файл не найден",
+            message="файл не найден",
             details={"path": input_path.as_posix()},
         )
     if not input_path.is_file():

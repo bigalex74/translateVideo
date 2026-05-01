@@ -215,3 +215,36 @@ def save_project_segments(
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+class PatchConfigRequest(BaseModel):
+    """Схема запроса на обновление конфигурации пайплайна."""
+
+    config: dict[str, Any]
+
+
+@router.put("/{project_id}/config")
+def patch_project_config(
+    project_id: str,
+    req: PatchConfigRequest,
+    store: ProjectStore = Depends(get_store),
+):
+    """Обновить настройки пайплайна проекта (translation_style, voice_strategy и др.)."""
+
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+        # Сливаем текущую конфигурацию с присланными полями
+        current = project.config.to_dict()
+        current.update(req.config)
+        new_config = PipelineConfig.from_dict(current)
+        project.config = new_config
+        store.save_project(project)
+        return {"ok": True, "config": new_config.to_dict()}
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    except Exception:
+        logger.exception("Неожиданная ошибка при обновлении конфигурации")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")

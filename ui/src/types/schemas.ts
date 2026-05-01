@@ -13,6 +13,13 @@ export interface PipelineConfig {
     quality_gate: string;
     terminology_domain: string;
     target_audience: string;
+    profanity_policy: string;
+    units_policy: string;
+    preserve_names: boolean;
+    preserve_brand_names: boolean;
+    original_audio_volume: number;
+    background_ducking: boolean;
+    subtitle_formats: string[];
     glossary_path?: string;
     do_not_translate: string[];
 }
@@ -87,5 +94,6 @@ export interface PreflightReport {
     input_video: string;
     provider: string;
     ok: boolean;
+    duration_seconds?: number | null;
     checks: PreflightCheck[];
 }

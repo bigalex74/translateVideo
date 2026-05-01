@@ -1,5 +1,10 @@
 # Журнал Изменений
 
+## 0.9.1 - 2026-05-01 - TYPE - TVIDEO-XXX-name
+
+- Описание изменений...
+
+
 ## 0.8.1 - 2026-05-01 - PATCH - TVIDEO-014-ux-language-and-safe-run
 
 - Удалены технические термины (moviepy, faster-whisper, edge-tts, ffmpeg)
