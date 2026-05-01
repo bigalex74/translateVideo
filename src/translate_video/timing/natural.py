@@ -12,7 +12,7 @@ class NaturalVoiceTimingFitter:
     """Сокращает перевод до TTS, не меняя скорость будущей озвучки."""
 
     def __init__(self, rewriter: TimingRewriter | None = None) -> None:
-        self.rewriter = rewriter or RuleBasedTimingRewriter()
+        self.rewriter = rewriter
 
     def fit(self, project: VideoProject, segments: list[Segment]) -> list[Segment]:
         """Подготовить `tts_text` и при необходимости сократить `translated_text`.
@@ -23,6 +23,7 @@ class NaturalVoiceTimingFitter:
         """
 
         cfg = project.config
+        rewriter = self.rewriter or _build_default_rewriter(cfg)
         target_cps = max(1.0, float(cfg.target_chars_per_second))
         max_attempts = max(0, int(cfg.timing_fit_max_rewrites))
 
@@ -41,12 +42,13 @@ class NaturalVoiceTimingFitter:
 
             candidate = text
             for attempt in range(1, max_attempts + 1):
-                rewritten = self.rewriter.rewrite(
+                rewritten = rewriter.rewrite(
                     candidate,
                     source_text=segment.source_text,
                     max_chars=max_chars,
                     attempt=attempt,
                 ).strip()
+                _apply_rewriter_events(segment, rewriter)
                 if not rewritten or rewritten == candidate:
                     break
                 candidate = rewritten
@@ -146,3 +148,24 @@ def _add_qa_flag(segment: Segment, flag: str) -> None:
 
     if flag not in segment.qa_flags:
         segment.qa_flags.append(flag)
+
+
+def _apply_rewriter_events(segment: Segment, rewriter: TimingRewriter) -> None:
+    """Перенести QA-события rewriter-а в сегмент, если он их поддерживает."""
+
+    consume = getattr(rewriter, "consume_events", None)
+    if consume is None:
+        return
+    for flag in consume():
+        _add_qa_flag(segment, flag)
+
+
+def _build_default_rewriter(config) -> TimingRewriter:
+    """Собрать дефолтный rewriter с облачным роутером или rule-based fallback."""
+
+    if getattr(config, "use_cloud_timing_rewriter", True):
+        # Ленивая загрузка избегает циклического импорта с timing.cloud.
+        from translate_video.timing.cloud import CloudFallbackTimingRewriter
+
+        return CloudFallbackTimingRewriter.from_config(config)
+    return RuleBasedTimingRewriter()
