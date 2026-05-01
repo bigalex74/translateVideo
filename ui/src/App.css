@@ -312,6 +312,20 @@ button {
   background: var(--border-color);
 }
 
+.btn-success {
+  background: #166534;
+  color: #bbf7d0;
+  border: 1px solid #15803d;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.btn-success:hover {
+  background: #15803d;
+  color: #dcfce7;
+}
+
 /* Badges */
 .badge {
   display: inline-flex;
