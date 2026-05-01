@@ -58,8 +58,8 @@ PYTHONPATH=src python3 -m unittest discover -s tests/integration
 Область:
 
 - полная CLI-задача на маленькой медиа-фикстуре;
-- будущий дымовой поток UI;
-- будущий поток жизненного цикла API-задачи.
+- browser E2E-потоки UI через Playwright;
+- будущий полный поток жизненного цикла API-задачи без моков.
 
 Правила:
 
@@ -72,6 +72,13 @@ PYTHONPATH=src python3 -m unittest discover -s tests/integration
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests/e2e
+```
+
+Browser E2E:
+
+```bash
+cd ui
+npm run test:e2e
 ```
 
 ### Нагрузочные Тесты
@@ -102,6 +109,8 @@ PYTHONPATH=src python3 -m unittest discover -s tests/load
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
 python3 -m compileall -q src tests
+(cd ui && npm run build)
+(cd ui && npm run lint)
 git diff --check
 ```
 
@@ -121,8 +130,10 @@ PYTHONPATH=src python3 -m unittest discover -s tests/unit
 PYTHONPATH=src python3 -m unittest discover -s tests/integration
 PYTHONPATH=src python3 -m unittest discover -s tests/e2e
 PYTHONPATH=src python3 -m unittest discover -s tests/load
+(cd ui && npm run build)
+(cd ui && npm run lint)
+(cd ui && npm run test:e2e)
 ```
 
-Пока E2E и нагрузочные тесты не содержат полноценные сценарии, их директории
-остаются исполняемыми и содержат дымовые тесты проверок. Они все равно являются
-частью проверки перед слиянием `develop -> master`.
+CLI E2E, нагрузочные тесты и browser E2E являются обязательной частью проверки
+перед слиянием `develop -> master`.

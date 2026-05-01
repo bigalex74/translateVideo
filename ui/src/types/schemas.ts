@@ -65,3 +65,27 @@ export interface VideoProject {
     stage_runs?: StageRun[];
     config?: PipelineConfig;
 }
+
+export interface ProjectListResponse {
+    projects: VideoProject[];
+}
+
+export interface ArtifactsResponse {
+    project_id: string;
+    work_dir: string;
+    artifacts: ArtifactRecord[];
+}
+
+export interface PreflightCheck {
+    name: string;
+    ok: boolean;
+    message: string;
+    details: Record<string, string>;
+}
+
+export interface PreflightReport {
+    input_video: string;
+    provider: string;
+    ok: boolean;
+    checks: PreflightCheck[];
+}

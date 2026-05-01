@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { createProject, uploadProject } from '../api/client';
-import { Play, UploadCloud, Link as LinkIcon, FileVideo, Loader2 } from 'lucide-react';
+import { createProject, preflightVideo, uploadProject } from '../api/client';
+import type { PreflightReport } from '../types/schemas';
+import { Play, UploadCloud, Link as LinkIcon, FileVideo, Loader2, ShieldCheck } from 'lucide-react';
 import './NewProject.css';
 
 interface NewProjectProps {
@@ -16,7 +17,9 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
     const [targetLang, setTargetLang] = useState('ru');
     const [mode, setMode] = useState('voiceover');
     const [loading, setLoading] = useState(false);
+    const [checking, setChecking] = useState(false);
     const [error, setError] = useState('');
+    const [preflight, setPreflight] = useState<PreflightReport | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -84,6 +87,24 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
         }
     };
 
+    const handlePreflight = async () => {
+        if (!videoUrl) {
+            setError('Для предварительной проверки укажите URL или путь на сервере.');
+            return;
+        }
+        setChecking(true);
+        setError('');
+        setPreflight(null);
+        try {
+            const report = await preflightVideo(videoUrl, 'fake');
+            setPreflight(report);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Ошибка предварительной проверки');
+        } finally {
+            setChecking(false);
+        }
+    };
+
     return (
         <div className="new-project page-container fade-in">
             <header className="page-header">
@@ -147,6 +168,24 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
                             onChange={e => setVideoUrl(e.target.value)}
                             placeholder="https://example.com/video.mp4 или /app/data/video.mp4"
                         />
+                        <button type="button" className="btn-secondary preflight-button" onClick={handlePreflight} disabled={checking}>
+                            {checking ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                            Проверить файл
+                        </button>
+                    </div>
+                )}
+
+                {preflight && (
+                    <div className={`preflight-report ${preflight.ok ? 'ok' : 'failed'}`}>
+                        <strong>{preflight.ok ? 'Предварительная проверка пройдена' : 'Есть проблемы перед запуском'}</strong>
+                        <ul>
+                            {preflight.checks.map(check => (
+                                <li key={check.name} className={check.ok ? 'ok' : 'failed'}>
+                                    <span>{check.ok ? 'OK' : 'FAIL'}</span>
+                                    {check.message}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
 

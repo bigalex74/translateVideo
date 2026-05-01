@@ -1,9 +1,25 @@
-import type { PipelineConfigDraft, VideoProject } from "../types/schemas";
+import type {
+    ArtifactsResponse,
+    PipelineConfigDraft,
+    PreflightReport,
+    Segment,
+    VideoProject,
+} from "../types/schemas";
 
 // Если приложение запущено на домене, используем относительный путь, 
 // иначе fallback на localhost (для локальной разработки)
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE = isLocalhost ? "http://localhost:8002/api/v1" : "/api/v1";
+
+async function readError(res: Response): Promise<string> {
+    const text = await res.text();
+    try {
+        const payload = JSON.parse(text) as { detail?: string };
+        return payload.detail || text;
+    } catch {
+        return text;
+    }
+}
 
 export async function createProject(input_video: string, project_id?: string, config?: PipelineConfigDraft): Promise<VideoProject> {
     const res = await fetch(`${API_BASE}/projects`, {
@@ -11,7 +27,7 @@ export async function createProject(input_video: string, project_id?: string, co
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input_video, project_id, config })
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }
 
@@ -25,13 +41,20 @@ export async function uploadProject(file: File, project_id?: string, config?: Pi
         method: "POST",
         body: formData
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(await readError(res));
     return res.json();
+}
+
+export async function listProjects(): Promise<VideoProject[]> {
+    const res = await fetch(`${API_BASE}/projects`);
+    if (!res.ok) throw new Error(await readError(res));
+    const data = await res.json() as { projects: VideoProject[] };
+    return data.projects;
 }
 
 export async function getProjectStatus(project_id: string): Promise<VideoProject> {
     const res = await fetch(`${API_BASE}/projects/${project_id}`);
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }
 
@@ -41,6 +64,36 @@ export async function runPipeline(project_id: string, force: boolean = false, pr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ force, provider })
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(await readError(res));
     return res.json();
+}
+
+export async function getProjectArtifacts(project_id: string): Promise<ArtifactsResponse> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/artifacts`);
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export async function saveProjectSegments(project_id: string, segments: Segment[]): Promise<VideoProject> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/segments`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ translated: true, segments })
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export async function preflightVideo(input_video: string, provider: string = "fake"): Promise<PreflightReport> {
+    const res = await fetch(`${API_BASE}/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input_video, provider })
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export function artifactDownloadUrl(project_id: string, kind: string): string {
+    return `${API_BASE}/projects/${encodeURIComponent(project_id)}/artifacts/${encodeURIComponent(kind)}`;
 }
