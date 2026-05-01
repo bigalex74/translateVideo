@@ -108,6 +108,7 @@ class LegacyAdaptersTest(unittest.TestCase):
                 audio_clip_factory=lambda path: _FakeAudio(path=path),
                 composite_audio_factory=lambda clips: _FakeCompositeAudio(clips),
                 volume_filter=lambda clip, volume: _FakeAudio(path=f"ducked:{volume}"),
+                speed_effect_factory=lambda clip, factor: clip,  # identity — нет реального ffmpeg
             )
 
             output = renderer.render(project, [segment])
@@ -151,8 +152,9 @@ def _run_coroutine(coroutine):
 class _FakeAudio:
     """Минимальный аудио-клип для тестов MoviePy-адаптеров."""
 
-    def __init__(self, path: str | None = None) -> None:
+    def __init__(self, path: str | None = None, duration: float = 0.5) -> None:
         self.path = path
+        self.duration = duration          # нужно для overlap-check в рендерере
         self.written_to: str | None = None
         self.started_at: float | None = None
         self.closed = False
@@ -164,6 +166,10 @@ class _FakeAudio:
     def set_start(self, start: float):
         self.started_at = start
         return self
+
+    def subclip(self, start, end):
+        clipped = _FakeAudio(path=self.path, duration=end - start)
+        return clipped
 
     def close(self) -> None:
         self.closed = True
