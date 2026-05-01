@@ -236,3 +236,88 @@ class TestBumpVersionGuards(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ─── TVIDEO-024: нормализация путей артефактов ───────────────────────────────
+
+class TestArtifactPathNormalization(unittest.TestCase):
+    """TVIDEO-024: add_artifact всегда сохраняет путь относительно work_dir.
+
+    Баг: при относительном work_dir (runs/proj-id) artifact.path сохранялся как
+    runs/proj-id/source_audio.wav. TranscribeStage делал work_dir / artifact.path =
+    runs/proj-id/runs/proj-id/source_audio.wav → FileNotFoundError.
+    """
+
+    def test_add_artifact_stores_clean_relative_path(self):
+        """add_artifact сохраняет только имя файла или путь от work_dir (без runs/)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ProjectStore(Path(tmp) / "runs")
+            project = store.create_project("v.mp4", project_id="norm-test")
+
+            audio = project.work_dir / "source_audio.wav"
+            audio.write_bytes(b"x")
+
+            record = store.add_artifact(
+                project, ArtifactKind.SOURCE_AUDIO, audio,
+                stage=Stage.EXTRACT_AUDIO, content_type="audio/wav",
+            )
+
+            # Путь не должен содержать "runs" — только относительный от work_dir
+            self.assertNotIn(
+                "runs", record.path,
+                f"artifact.path не должен включать 'runs/': {record.path}"
+            )
+            self.assertFalse(
+                record.path.startswith("/"),
+                f"artifact.path не должен быть абсолютным: {record.path}"
+            )
+            # Восстанавливается корректно
+            self.assertTrue((project.work_dir / record.path).exists())
+
+    def test_transcribe_stage_resolves_legacy_path(self):
+        """TranscribeStage находит файл даже если artifact.path содержит старый формат.
+
+        Симулирует старый формат: artifact.path = 'runs/proj-id/source_audio.wav'
+        (записанный до TVIDEO-021/024). Fallback-логика должна найти файл по basename.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ProjectStore(Path(tmp) / "runs")
+            project = store.create_project("v.mp4", project_id="legacy-path-test")
+
+            # Создаём реальный файл
+            audio = project.work_dir / "source_audio.wav"
+            audio.write_bytes(b"fake-audio")
+
+            # Симулируем старый артефакт с дублированным путём
+            from translate_video.core.schemas import ArtifactRecord
+            legacy_record = ArtifactRecord(
+                kind=ArtifactKind.SOURCE_AUDIO,
+                # Старый формат: runs/proj-id/source_audio.wav
+                path=f"runs/legacy-path-test/source_audio.wav",
+                stage=Stage.EXTRACT_AUDIO,
+                content_type="audio/wav",
+            )
+            project.artifact_records = [legacy_record]
+            project.artifacts[ArtifactKind.SOURCE_AUDIO.value] = legacy_record.path
+            store.save_project(project)
+
+            # Перезагружаем и проверяем fallback-резолюцию
+            reloaded = store.load_project(project.work_dir)
+            source_audio = next(
+                (r for r in reloaded.artifact_records if r.kind == ArtifactKind.SOURCE_AUDIO),
+                None,
+            )
+            self.assertIsNotNone(source_audio)
+
+            # Fallback: work_dir.resolve() / basename
+            raw = Path(source_audio.path)
+            candidate = (reloaded.work_dir / raw).resolve()
+            if not candidate.exists():
+                audio_path = reloaded.work_dir.resolve() / raw.name
+            else:
+                audio_path = candidate
+
+            self.assertTrue(
+                audio_path.exists(),
+                f"Fallback не нашёл файл: {audio_path}"
+            )

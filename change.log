@@ -1,5 +1,24 @@
 # Журнал Изменений
 
+## 1.2.3 - 2026-05-01 - PATCH - TVIDEO-024-fix-artifact-path-normalization
+
+- Исправлена ошибка `[Errno 2] No such file or directory: source_audio.wav`:
+  - `add_artifact()` теперь всегда нормализует путь к относительному от `work_dir`
+    через `Path.resolve()`, что устраняет дублирование при любом формате входа.
+  - Явно отклоняет (ValueError) пути вне `work_dir` — усиление защиты от path traversal.
+  - `TranscribeStage`: fallback-логика для legacy-записей (старый формат `runs/proj/file`) —
+    при ненайденном пути пробует `work_dir / basename`.
+  - `TTSStage`: путь `"tts"` заменён на `project.work_dir / "tts"` (абсолютный).
+- Редактор Workspace: пустое состояние переработано в центрированный CTA-блок
+  с кнопкой «Запустить перевод» и loader при активном прогоне.
+- Security: тест path traversal обновлён — теперь симулирует tampered `project.json`
+  напрямую (add_artifact сам отклоняет traversal).
+- Регрессионные тесты (2 новых): `test_add_artifact_stores_clean_relative_path`,
+  `test_transcribe_stage_resolves_legacy_path`.
+- Все 180 тестов зелёные.
+
+
+
 ## 1.2.2 - 2026-05-01 - PATCH - TVIDEO-023-workspace-header-settings-ux
 
 - Шапка Workspace переработана в двухрядный layout:

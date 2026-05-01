@@ -126,18 +126,27 @@ class APIProjectsTest(TestCase):
         self.assertEqual(response.json(), {"ok": True})
 
     def test_download_artifact_rejects_unsafe_record_path(self):
-        """Скачивание не должно отдавать файлы вне папки проекта."""
+        """Скачивание не должно отдавать файлы вне папки проекта.
 
+        Симулирует tampered project.json: небезопасный путь инжектируется
+        напрямую в artifact_records (add_artifact теперь сам отклоняет traversal).
+        Endpoint должен вернуть 400.
+        """
+        from translate_video.core.schemas import ArtifactRecord
         project = self.store.create_project("dummy.mp4", project_id="unsafe_artifact")
         outside = self.work_root / "secret.json"
         outside.write_text("{}", encoding="utf-8")
-        self.store.add_artifact(
-            project,
+
+        # Имитируем tampered/corrupted project.json с небезопасным путём
+        unsafe_record = ArtifactRecord(
             kind=ArtifactKind.QA_REPORT,
             path="../secret.json",
             stage=Stage.QA,
             content_type="application/json",
         )
+        project.artifact_records = [unsafe_record]
+        project.artifacts[ArtifactKind.QA_REPORT.value] = "../secret.json"
+        self.store.save_project(project)
 
         response = self.client.get("/api/v1/projects/unsafe_artifact/artifacts/qa_report")
 

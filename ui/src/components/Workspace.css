@@ -629,3 +629,37 @@
     border-color: rgba(239, 68, 68, 0.4);
     background: rgba(239, 68, 68, 0.08);
 }
+
+/* ─── Пустое состояние редактора ──────────────────────────────────────────── */
+.editor-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    flex: 1;
+    min-height: 200px;
+}
+
+.editor-empty-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+    opacity: 0.6;
+}
+
+.editor-empty-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.editor-empty-hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    max-width: 280px;
+    line-height: 1.5;
+}

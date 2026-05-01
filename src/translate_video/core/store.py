@@ -150,11 +150,15 @@ class ProjectStore:
     ) -> ArtifactRecord:
         """Зарегистрировать путь артефакта относительно папки проекта."""
 
-        absolute_path = Path(path)
-        if absolute_path.is_absolute():
-            relative_path = absolute_path.relative_to(project.work_dir).as_posix()
-        else:
-            relative_path = absolute_path.as_posix()
+        absolute_path = Path(path).resolve()
+        work_dir_abs = project.work_dir.resolve()
+        try:
+            relative_path = absolute_path.relative_to(work_dir_abs).as_posix()
+        except ValueError:
+            raise ValueError(
+                f"Путь артефакта выходит за пределы рабочей директории проекта: "
+                f"{absolute_path} not under {work_dir_abs}"
+            )
         record = ArtifactRecord(
             kind=kind,
             path=relative_path,
