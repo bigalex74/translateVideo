@@ -288,3 +288,46 @@
 .text-success { color: var(--success); }
 .text-warning { color: var(--warning); }
 .text-danger { color: var(--danger); }
+
+/* Undo/redo group */
+.undo-redo-group {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Dirty state indicator */
+.dirty-indicator {
+  color: var(--warning);
+  font-weight: 500;
+}
+
+/* Segment empty state */
+.seg-empty {
+  border-color: rgba(251, 191, 36, 0.4) !important;
+  background: rgba(251, 191, 36, 0.04) !important;
+}
+
+/* Segment duration badge */
+.seg-duration {
+  margin-left: 6px;
+  opacity: 0.6;
+  font-size: 0.75rem;
+}
+
+/* QA section in right panel */
+.qa-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Capitalize stage labels (already includes emoji so no text-transform) */
+.timeline-content strong {
+  font-size: 0.9rem;
+  text-transform: none;
+}
+
