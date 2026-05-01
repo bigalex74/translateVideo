@@ -1,14 +1,15 @@
 import tempfile
-import time
 from pathlib import Path
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
 from translate_video.api.main import app
+from translate_video.api.routes.pipeline import _running_projects
 from translate_video.core.store import ProjectStore
 from translate_video.api.routes.projects import get_store
+
 
 class APIPipelineTest(TestCase):
     """Тесты API маршрутов запуска пайплайна."""
@@ -19,17 +20,24 @@ class APIPipelineTest(TestCase):
         self.store = ProjectStore(self.work_root)
         app.dependency_overrides[get_store] = lambda: self.store
         self.client = TestClient(app)
+        # Очищаем реестр запущенных проектов между тестами
+        _running_projects.clear()
 
     def tearDown(self):
         self.temp_dir.cleanup()
         app.dependency_overrides.clear()
+        _running_projects.clear()
 
-    def test_run_pipeline_background(self):
+    @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
+    def test_run_pipeline_background(self, mock_thread):
         """Запуск пайплайна должен возвращать 200 сразу (background task)."""
-        project = self.store.create_project("dummy.mp4", project_id="run_test")
+        self.store.create_project("dummy.mp4", project_id="run_test")
+        # TestClient выполняет background tasks синхронно
         response = self.client.post("/api/v1/projects/run_test/run", json={"provider": "fake"})
         self.assertEqual(response.status_code, 200)
-        time.sleep(0.5)
+        data = response.json()
+        self.assertEqual(data["status"], "accepted")
+        self.assertEqual(data["project_id"], "run_test")
 
     def test_run_pipeline_not_found(self):
         """Запуск несуществующего проекта возвращает 404."""
@@ -38,31 +46,69 @@ class APIPipelineTest(TestCase):
 
     def test_run_pipeline_rejects_path_traversal_id(self):
         """Запуск пайплайна не должен принимать небезопасный ID."""
-
         response = self.client.post("/api/v1/projects/%2E%2E/run", json={"provider": "fake"})
-
         self.assertEqual(response.status_code, 400)
 
-    @patch("translate_video.api.routes.pipeline.notify_webhook")
-    def test_run_pipeline_with_webhook(self, mock_notify):
-        project = self.store.create_project("dummy.mp4", project_id="webhook_test")
-        self.client.post(
-            "/api/v1/projects/webhook_test/run", 
-            json={"provider": "fake"},
-            headers={"X-Webhook-Url": "http://example.com/webhook"}
-        )
-        time.sleep(0.5)
-        mock_notify.assert_called_once()
+    @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
+    def test_run_pipeline_with_webhook(self, mock_thread):
+        """Запуск с webhook-заголовком должен вызвать notify_webhook после завершения."""
+        self.store.create_project("dummy.mp4", project_id="webhook_test")
+        with patch("translate_video.api.routes.pipeline.notify_webhook", new_callable=AsyncMock) as mock_notify:
+            self.client.post(
+                "/api/v1/projects/webhook_test/run",
+                json={"provider": "fake"},
+                headers={"X-Webhook-Url": "http://example.com/webhook"},
+            )
+            mock_notify.assert_called_once()
 
-    @patch("translate_video.api.routes.pipeline.PipelineRunner.run")
-    @patch("translate_video.api.routes.pipeline.notify_webhook")
-    def test_run_pipeline_webhook_on_error(self, mock_notify, mock_run):
-        mock_run.side_effect = Exception("Pipeline failed")
-        project = self.store.create_project("dummy.mp4", project_id="webhook_err_test")
-        self.client.post(
-            "/api/v1/projects/webhook_err_test/run", 
+    @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
+    def test_run_pipeline_webhook_on_error(self, mock_thread):
+        """Webhook должен вызываться при ошибке пайплайна."""
+        mock_thread.side_effect = Exception("Pipeline failed")
+        self.store.create_project("dummy.mp4", project_id="webhook_err_test")
+        with patch("translate_video.api.routes.pipeline.notify_webhook", new_callable=AsyncMock) as mock_notify:
+            self.client.post(
+                "/api/v1/projects/webhook_err_test/run",
+                json={"provider": "fake"},
+                headers={"X-Webhook-Url": "http://example.com/webhook"},
+            )
+            mock_notify.assert_called_once()
+            call_args = mock_notify.call_args[0][1]
+            self.assertEqual(call_args["status"], "failed")
+
+    @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
+    def test_run_pipeline_returns_409_if_already_running(self, mock_thread):
+        """Повторный запуск уже работающего проекта возвращает 409."""
+        self.store.create_project("dummy.mp4", project_id="busy_test")
+        # Имитируем уже запущенный проект
+        _running_projects.add("busy_test")
+        response = self.client.post("/api/v1/projects/busy_test/run", json={"provider": "fake"})
+        self.assertEqual(response.status_code, 409)
+
+    def test_run_rejects_ssrf_private_ip_webhook(self):
+        """Webhook на приватный IP должен возвращать 400."""
+        self.store.create_project("dummy.mp4", project_id="ssrf_test")
+        response = self.client.post(
+            "/api/v1/projects/ssrf_test/run",
             json={"provider": "fake"},
-            headers={"X-Webhook-Url": "http://example.com/webhook"}
+            headers={"X-Webhook-Url": "http://127.0.0.1/steal"},
         )
-        time.sleep(0.5)
-        mock_notify.assert_called_once()
+        self.assertEqual(response.status_code, 400)
+
+    def test_run_rejects_non_http_webhook(self):
+        """Webhook с file:// схемой должен возвращать 400."""
+        self.store.create_project("dummy.mp4", project_id="scheme_test")
+        response = self.client.post(
+            "/api/v1/projects/scheme_test/run",
+            json={"provider": "fake"},
+            headers={"X-Webhook-Url": "file:///etc/passwd"},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
+    def test_running_project_removed_from_registry_after_completion(self, mock_thread):
+        """После завершения задачи проект удаляется из реестра запущенных."""
+        self.store.create_project("dummy.mp4", project_id="cleanup_test")
+        self.client.post("/api/v1/projects/cleanup_test/run", json={"provider": "fake"})
+        # TestClient выполняет background tasks синхронно
+        self.assertNotIn("cleanup_test", _running_projects)
