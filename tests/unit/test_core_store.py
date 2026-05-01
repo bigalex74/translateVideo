@@ -159,6 +159,28 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertEqual(len(restored.stage_runs), 1)
             self.assertEqual(restored.stage_runs[0].status, JobStatus.COMPLETED)
 
+    def test_update_stage_progress_updates_existing_run(self):
+        """Детальный прогресс этапа должен сохраняться в project.json."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+            project = store.create_project("clip.mp4", project_id="clip")
+            run = StageRun(id="stage_1", stage=Stage.TIMING_FIT, status=JobStatus.RUNNING)
+
+            store.record_stage_run(project, run)
+            store.update_stage_progress(
+                project,
+                "stage_1",
+                current=7,
+                total=10,
+                message="Сегмент 8/10",
+            )
+
+            restored = store.load_project(project.work_dir)
+            self.assertEqual(restored.stage_runs[0].progress_current, 7)
+            self.assertEqual(restored.stage_runs[0].progress_total, 10)
+            self.assertEqual(restored.stage_runs[0].progress_message, "Сегмент 8/10")
+
     def test_repeated_save_segments_replaces_artifact(self):
         """Повторное сохранение сегментов заменяет существующий артефакт того же типа."""
 

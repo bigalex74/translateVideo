@@ -69,10 +69,16 @@ class FakeTTSProvider:
 class FakeTimingFitter:
     """Имитационная подгонка таймингов без изменения текста."""
 
-    def fit(self, project: VideoProject, segments):
+    def fit(self, project: VideoProject, segments, progress_callback=None):
         """Заполнить tts_text для smoke-тестов."""
+
+        total = len(segments)
+        if progress_callback is not None:
+            progress_callback(0, total, "Подготовка сегментов")
         for segment in segments:
             segment.tts_text = segment.translated_text
+        if progress_callback is not None:
+            progress_callback(total, total, f"Готово {total}/{total}")
         return segments
 
 

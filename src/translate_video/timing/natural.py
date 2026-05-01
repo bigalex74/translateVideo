@@ -6,7 +6,7 @@ import re
 
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import Segment, VideoProject
-from translate_video.timing.base import TimingRewriter
+from translate_video.timing.base import TimingProgressCallback, TimingRewriter
 
 _log = get_logger(__name__)
 
@@ -17,12 +17,19 @@ class NaturalVoiceTimingFitter:
     def __init__(self, rewriter: TimingRewriter | None = None) -> None:
         self.rewriter = rewriter
 
-    def fit(self, project: VideoProject, segments: list[Segment]) -> list[Segment]:
+    def fit(
+        self,
+        project: VideoProject,
+        segments: list[Segment],
+        progress_callback: TimingProgressCallback | None = None,
+    ) -> list[Segment]:
         """Подготовить `tts_text` и при необходимости сократить `translated_text`.
 
         Реальный облачный rewriter будет подключён тем же контрактом. Сейчас
         используется безопасный rule-based слой: он удаляет очевидные вводные
         слова и заменяет длинные обороты, но не делает жёсткую обрезку.
+        `progress_callback` вызывается после каждого сегмента, чтобы UI мог
+        показывать прогресс долгой облачной подгонки.
         """
 
         cfg = project.config
@@ -42,9 +49,16 @@ class NaturalVoiceTimingFitter:
             max_attempts=max_attempts,
             cloud_enabled=bool(getattr(cfg, "use_cloud_timing_rewriter", True)),
         )
+        _emit_progress(progress_callback, 0, total_segments, "Подготовка сегментов")
 
         with Timer() as timer:
             for index, segment in enumerate(segments, start=1):
+                _emit_progress(
+                    progress_callback,
+                    index - 1,
+                    total_segments,
+                    f"Сегмент {index}/{total_segments}",
+                )
                 was_rewritten, failed = self._fit_segment(
                     segment,
                     rewriter=rewriter,
@@ -60,6 +74,12 @@ class NaturalVoiceTimingFitter:
                     rewritten_count += 1
                 if failed:
                     failed_count += 1
+                _emit_progress(
+                    progress_callback,
+                    index,
+                    total_segments,
+                    f"Готово {index}/{total_segments}",
+                )
 
         _log.info(
             "timing_fit.done",
@@ -245,6 +265,22 @@ def _apply_rewriter_events(segment: Segment, rewriter: TimingRewriter) -> None:
         return
     for flag in consume():
         _add_qa_flag(segment, flag)
+
+
+def _emit_progress(
+    callback: TimingProgressCallback | None,
+    current: int,
+    total: int,
+    message: str,
+) -> None:
+    """Безопасно отправить прогресс этапа без остановки пайплайна."""
+
+    if callback is None:
+        return
+    try:
+        callback(current, total, message)
+    except Exception as exc:  # noqa: BLE001 - прогресс не должен валить перевод.
+        _log.warning("timing_fit.progress_failed", error=str(exc))
 
 
 def _build_default_rewriter(config) -> TimingRewriter:

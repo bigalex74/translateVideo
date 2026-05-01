@@ -119,6 +119,9 @@ class StageRun:
     outputs: list[str] = field(default_factory=list)
     error: str | None = None
     attempt: int = 1
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Вернуть JSON-совместимую запись запуска этапа."""
@@ -139,6 +142,9 @@ class StageRun:
             outputs=list(payload.get("outputs", [])),
             error=payload.get("error"),
             attempt=payload.get("attempt", 1),
+            progress_current=payload.get("progress_current"),
+            progress_total=payload.get("progress_total"),
+            progress_message=payload.get("progress_message"),
         )
 
 
