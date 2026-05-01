@@ -9,7 +9,7 @@ import { ArtifactCard } from './ArtifactCard';
 import { getPersistedProvider } from './Settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
-  Loader2, AlertCircle, Undo2, Redo2, Settings,
+  Loader2, AlertCircle, Undo2, Redo2, Settings, X,
   Film, AlignLeft, Activity,
 } from 'lucide-react';
 import './Workspace.css';
@@ -220,47 +220,49 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
 
       {/* ═══ Header ═══ */}
       <header className="workspace-header">
-        <div className="header-left">
+        {/* Строка 1: название + статус */}
+        <div className="header-row header-row-title">
           <button onClick={onBack} className="btn-icon" title="Назад к списку проектов">
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} />
           </button>
           <h2 title={projectId}>{projectId}</h2>
           <span className={`badge ${project.status}`}>{statusLabel(project.status)}</span>
         </div>
-        <div className="header-right">
+        {/* Строка 2: кнопки действий */}
+        <div className="header-row header-row-actions">
           <div className="undo-redo-group">
             <button className="btn-icon" onClick={undo} disabled={!canUndo || isRunning} title="Отменить" aria-label="Отменить последнее изменение">
-              <Undo2 size={16} />
+              <Undo2 size={15} />
             </button>
             <button className="btn-icon" onClick={redo} disabled={!canRedo || isRunning} title="Повторить" aria-label="Повторить отменённое изменение">
-              <Redo2 size={16} />
+              <Redo2 size={15} />
             </button>
           </div>
           {!isRunning && (
-            <button className="btn-secondary" onClick={() => setConfirm({ force: false })}>
-              <RefreshCw size={16} /> Запустить
+            <button className="btn-secondary btn-sm" onClick={() => setConfirm({ force: false })}>
+              <RefreshCw size={14} /> Запустить
             </button>
           )}
           {!isRunning && (
-            <button className="btn-secondary" onClick={() => setConfirm({ force: true })}>
-              <RefreshCw size={16} /> Перезапустить
+            <button className="btn-secondary btn-sm" onClick={() => setConfirm({ force: true })}>
+              <RefreshCw size={14} /> Перезапустить
             </button>
           )}
           <button
             className="btn-icon"
-            title="Настройки перевода"
+            title={showConfig ? 'Скрыть настройки' : 'Настройки перевода'}
             aria-label="Настройки перевода"
             onClick={() => setShowConfig(prev => !prev)}
           >
-            <Settings size={16} />
+            <Settings size={15} />
           </button>
           <button
-            className="btn-primary"
+            className="btn-primary btn-sm"
             onClick={handleSave}
             disabled={!dirty || saving || isRunning}
             title={dirty ? 'Сохранить правки сегментов' : 'Нет несохранённых изменений'}
           >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             Сохранить{dirty ? ' *' : ''}
           </button>
         </div>
@@ -276,28 +278,39 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
         <div className="workspace-config-panel glass-panel">
           <div className="config-panel-header">
             <h4>Настройки перевода</h4>
-            <button
-              className="btn-primary"
-              disabled={savingConfig || Object.keys(configPatch).length === 0}
-              onClick={async () => {
-                if (!project || Object.keys(configPatch).length === 0) return;
-                setSavingConfig(true);
-                try {
-                  const result = await patchProjectConfig(projectId, configPatch);
-                  setProject(prev => prev ? { ...prev, config: result.config } : prev);
-                  setConfigPatch({});
-                  setMessage('✓ Настройки сохранены');
-                  setTimeout(() => setMessage(''), 3000);
-                } catch (e) {
-                  setMessage(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
-                } finally {
-                  setSavingConfig(false);
-                }
-              }}
-            >
-              {savingConfig ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Сохранить настройки
-            </button>
+            <div className="config-panel-actions">
+              <button
+                className="btn-primary btn-sm"
+                disabled={savingConfig || Object.keys(configPatch).length === 0}
+                onClick={async () => {
+                  if (!project || Object.keys(configPatch).length === 0) return;
+                  setSavingConfig(true);
+                  try {
+                    const result = await patchProjectConfig(projectId, configPatch);
+                    setProject(prev => prev ? { ...prev, config: result.config } : prev);
+                    setConfigPatch({});
+                    setMessage('✓ Настройки сохранены');
+                    setTimeout(() => setMessage(''), 3000);
+                    setShowConfig(false);  // закрываем панель после сохранения
+                  } catch (e) {
+                    setMessage(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
+                  } finally {
+                    setSavingConfig(false);
+                  }
+                }}
+              >
+                {savingConfig ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Сохранить
+              </button>
+              <button
+                className="btn-icon config-close-btn"
+                title="Закрыть настройки"
+                aria-label="Закрыть панель настроек"
+                onClick={() => setShowConfig(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
           <AdvancedSettings
             config={{ ...(project.config ?? {}), ...configPatch }}
