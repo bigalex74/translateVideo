@@ -20,7 +20,7 @@ class NaturalVoiceTimingFitterTest(unittest.TestCase):
     def test_short_text_is_unchanged(self):
         """Короткий текст не переписывается и попадает в tts_text."""
 
-        project = _project(PipelineConfig(target_chars_per_second=14.0))
+        project = _project(PipelineConfig(target_chars_per_second=14.0, use_cloud_timing_rewriter=False))
         segment = Segment(
             id="seg_1",
             start=0.0,
@@ -38,7 +38,7 @@ class NaturalVoiceTimingFitterTest(unittest.TestCase):
     def test_rewriter_compacts_text_when_possible(self):
         """Очевидно длинные обороты заменяются короткими эквивалентами."""
 
-        project = _project(PipelineConfig(target_chars_per_second=14.0))
+        project = _project(PipelineConfig(target_chars_per_second=14.0, use_cloud_timing_rewriter=False))
         segment = Segment(
             id="seg_1",
             start=0.0,
@@ -58,7 +58,7 @@ class NaturalVoiceTimingFitterTest(unittest.TestCase):
         """Если безопасно сократить нельзя, текст сохраняется и помечается QA-флагом."""
 
         original = "Очень длинный технический текст без очевидных вводных слов и сокращаемых оборотов."
-        project = _project(PipelineConfig(target_chars_per_second=6.0))
+        project = _project(PipelineConfig(target_chars_per_second=6.0, use_cloud_timing_rewriter=False))
         segment = Segment(
             id="seg_1",
             start=0.0,
@@ -76,7 +76,7 @@ class NaturalVoiceTimingFitterTest(unittest.TestCase):
     def test_invalid_slot_is_reported(self):
         """Нулевая длительность сегмента не ломает подгонку."""
 
-        project = _project(PipelineConfig())
+        project = _project(PipelineConfig(use_cloud_timing_rewriter=False))
         segment = Segment(
             id="seg_1",
             start=1.0,
@@ -117,7 +117,7 @@ class TimingFitStageTest(unittest.TestCase):
             store = ProjectStore(Path(temp_dir) / "runs")
             project = store.create_project(
                 "lesson.mp4",
-                config=PipelineConfig(target_chars_per_second=14.0),
+                config=PipelineConfig(target_chars_per_second=14.0, use_cloud_timing_rewriter=False),
                 project_id="lesson",
             )
             project.segments = [

@@ -52,6 +52,11 @@ class PipelineConfigTest(unittest.TestCase):
 
         self.assertEqual(restored.tts_base_rate, 0)
         self.assertEqual(restored.tts_max_rate, 0)
+        self.assertTrue(restored.use_cloud_timing_rewriter)
+        self.assertEqual(
+            restored.rewrite_provider_order,
+            ["gemini", "openrouter", "aihubmix", "polza", "rule_based"],
+        )
         self.assertFalse(restored.allow_tts_rate_adaptation)
         self.assertEqual(restored.render_max_speed, 1.0)
         self.assertEqual(restored.render_gap, 0.05)

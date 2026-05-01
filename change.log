@@ -1,5 +1,26 @@
 # Журнал Изменений
 
+## 1.12.0 - 2026-05-01 - MINOR - TVIDEO-043
+
+### Роутер бесплатных облачных моделей для timing_fit
+- Добавлен `CloudFallbackTimingRewriter` для сокращения перевода под тайминг
+  через облачные модели.
+- Рейтинг провайдеров по умолчанию:
+  `gemini -> openrouter -> aihubmix -> polza -> rule_based`.
+- `Polza.ai` стоит последним, потому что это платный агрегатор.
+- Поддержаны Gemini generateContent и OpenAI-compatible API для OpenRouter,
+  AIHubMix и Polza.ai.
+- Ключи читаются из окружения или локального `.env`; реальные ключи не хранятся
+  в репозитории.
+- Добавлен `.env.example` и `.gitignore` для защиты реальных `.env`.
+- Preflight показывает наличие ключей rewriter-провайдеров, но не блокирует
+  запуск, потому что `rule_based` fallback всегда доступен.
+- QA-флаги фиксируют использование облака и fallback:
+  `rewrite_provider_used`, `rewrite_fallback_used`,
+  `rewrite_provider_failed`, `rewrite_provider_gemini`,
+  `rewrite_provider_openrouter`, `rewrite_provider_aihubmix`,
+  `rewrite_provider_polza`, `rewrite_provider_rule_based`.
+
 ## 1.11.0 - 2026-05-01 - MINOR - TVIDEO-042
 
 ### Естественная озвучка без ускорения
