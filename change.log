@@ -1,5 +1,11 @@
 # Журнал Изменений
 
+## 1.1.2 - 2026-05-01 - PATCH
+
+- TODO: заполнить перед мержем в master.
+
+
+
 ## 1.1.1 - 2026-05-01 - PATCH - TVIDEO-018-ux-loader-video-tabs
 
 - **Backend**: новый роут `GET /api/v1/video/{project_id}/{filename}` со стримингом

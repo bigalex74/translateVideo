@@ -393,10 +393,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                   />
                 </div>
               ))}
-              {segments.length === 0 && (
-                <div className="empty-text">
-                  <p>Транскрипт пока недоступен.</p>
-                  <small>Дождитесь завершения этапа «Распознавание речи».</small>
+              {segments.length === 0 && !isRunning && (
+                <div className="segments-empty-cta">
+                  <div className="segments-empty-icon">🎬</div>
+                  <p className="segments-empty-title">Перевод ещё не запускался</p>
+                  <p className="segments-empty-hint">
+                    Нажмите кнопку ниже, чтобы начать. Распознавание речи и перевод
+                    выполнятся автоматически.
+                  </p>
+                  <button
+                    className="btn-primary segments-empty-run"
+                    onClick={() => setConfirm({ force: false })}
+                  >
+                    <RefreshCw size={16} /> Запустить перевод
+                  </button>
                 </div>
               )}
             </div>
