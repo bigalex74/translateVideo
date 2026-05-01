@@ -123,7 +123,7 @@ class GeminiRewriteProvider:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-3-flash-preview",
+        model: str = "gemini-2.5-flash-lite",
         timeout: float = 20.0,
         http_post=None,
     ) -> None:
@@ -273,11 +273,10 @@ class OpenAICompatibleRewriteProvider:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": "Ты редактор дубляжа. Отвечай только готовой фразой."},
                 {"role": "user", "content": build_rewrite_prompt(text, source_text, max_chars)},
             ],
-            "temperature": 0.2,
-            "max_tokens": max(32, min(256, max_chars * 2)),
+            "temperature": 0.1,
+            "max_tokens": max(64, min(512, max_chars * 3)),
         }
         data = self.http_post(
             f"{self.base_url}/chat/completions",
@@ -292,16 +291,22 @@ class OpenAICompatibleRewriteProvider:
 
 
 def build_rewrite_prompt(text: str, source_text: str, max_chars: int) -> str:
-    """Сформировать строгий промпт для сокращения под тайминг."""
+    """Сформировать промпт для сокращения текста под тайминг дубляжа."""
 
+    # Целевой диапазон — использовать лимит по максимуму, не обрезать лишнего.
+    target_min = max(1, int(max_chars * 0.75))
     return (
-        "Сократи русский перевод для естественной озвучки.\n"
-        f"Лимит: не больше {max_chars} символов.\n"
-        "Сохрани смысл, факты, имена, термины и тон. Не добавляй пояснения.\n"
-        "Если смысл нельзя сохранить в лимите, верни максимально короткую естественную фразу.\n\n"
-        f"Оригинал:\n{source_text}\n\n"
-        f"Перевод:\n{text}\n\n"
-        "Ответ: только новая фраза без кавычек."
+        f"Ты редактор русского дубляжа. Перепиши перевод так, чтобы он умещался "
+        f"в {max_chars} символов, сохраняя смысл максимально полно.\n\n"
+        f"ПРАВИЛА:\n"
+        f"- Длина результата: от {target_min} до {max_chars} символов (стремись к максимуму).\n"
+        f"- Сохраняй смысл, факты, имена, термины, метафоры и тон оригинала.\n"
+        f"- Сокращай длинные обороты, убирай вводные слова, используй синонимы.\n"
+        f"- НЕ обрезай текст на полуслове и НЕ выбрасывай ключевые идеи.\n"
+        f"- Ответ — только готовая фраза, без кавычек, пояснений и комментариев.\n\n"
+        f"Оригинал (EN):\n{source_text}\n\n"
+        f"Перевод (RU, {len(text)} симв.):\n{text}\n\n"
+        f"Перепиши (≤{max_chars} симв.):"
     )
 
 
