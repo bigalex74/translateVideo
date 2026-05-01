@@ -1,8 +1,9 @@
 """MoviePy-рендерер закадровой озвучки.
 
 Безопасная подгонка TTS:
-- если TTS-клип длиннее временного слота — ускоряем до render_max_speed;
-- если всё ещё длиннее — по умолчанию НЕ обрезаем, а ставим QA-флаг;
+- по умолчанию не ускоряем и не обрезаем TTS;
+- если TTS длиннее слота — ставим QA-флаг и мягко сдвигаем следующие реплики;
+- ускорение доступно только через allow_render_audio_speedup=True;
 - обрезка доступна только через allow_render_audio_trim=True для явного режима.
 """
 
@@ -41,6 +42,7 @@ class MoviePyVoiceoverRenderer:
             if video.audio is not None:
                 clips.append(self.volume_filter(video.audio, project.config.original_audio_volume))
 
+            previous_speech_end: float | None = None
             for segment in segments:
                 if not segment.tts_path:
                     continue
@@ -52,11 +54,17 @@ class MoviePyVoiceoverRenderer:
                 slot = segment.end - segment.start
                 gap = getattr(project.config, "render_gap", _DEFAULT_GAP)
                 max_speed = getattr(project.config, "render_max_speed", _DEFAULT_MAX_SPEED)
+                allow_speedup = getattr(project.config, "allow_render_audio_speedup", False)
                 allow_trim = getattr(project.config, "allow_render_audio_trim", False)
+                allow_shift = getattr(project.config, "allow_timeline_shift", True)
+                max_shift = getattr(project.config, "max_timeline_shift", 1.5)
                 max_duration = max(0.1, slot - gap)
 
-                if speech.duration > max_duration:
-                    # Пытаемся ускорить без изменения тона.
+                if speech.duration > max_duration and not allow_trim:
+                    _add_qa_flag(segment, "render_audio_overflow")
+
+                if allow_speedup and speech.duration > max_duration and max_speed > 1.0:
+                    # Явный fast-режим: пытаемся ускорить без изменения тона.
                     speed = speech.duration / max_duration
                     if speed <= max_speed:
                         sped = self.speed_effect_factory(speech, speed)
@@ -83,8 +91,28 @@ class MoviePyVoiceoverRenderer:
 
                     if speech.duration > max_duration and not allow_trim:
                         _add_qa_flag(segment, "render_audio_overflow")
+                elif allow_trim and speech.duration > max_duration:
+                    speech = speech.subclip(0, max_duration)
+                    _add_qa_flag(segment, "render_audio_trimmed")
 
-                clips.append(speech.set_start(segment.start))
+                start = segment.start
+                if allow_shift and previous_speech_end is not None:
+                    shifted_start = max(start, previous_speech_end + gap)
+                    if shifted_start > start:
+                        allowed_start = start + max_shift
+                        if shifted_start > allowed_start:
+                            shifted_start = allowed_start
+                            _add_qa_flag(segment, "timeline_shift_limit_reached")
+                        if shifted_start > start:
+                            start = shifted_start
+                            _add_qa_flag(segment, "timeline_shifted")
+
+                previous_speech_end = start + speech.duration
+                video_duration = getattr(video, "duration", None)
+                if video_duration is not None and previous_speech_end > video_duration:
+                    _add_qa_flag(segment, "timeline_audio_extends_video")
+
+                clips.append(speech.set_start(start))
 
             if not clips:
                 raise ValueError("нет аудиоклипов для рендера")

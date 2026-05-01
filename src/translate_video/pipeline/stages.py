@@ -20,6 +20,7 @@ from translate_video.render.base import Renderer
 from translate_video.speech.base import Transcriber
 from translate_video.translation.base import Translator
 from translate_video.tts.base import TTSProvider
+from translate_video.timing.base import TimingFitter
 
 
 class BaseStage:
@@ -144,7 +145,10 @@ class RegroupStage(BaseStage):
 
             # Перезаписываем source transcript с перегруппированными сегментами
             output_path = context.store.save_segments(
-                context.project, context.project.segments, translated=False
+                context.project,
+                context.project.segments,
+                translated=False,
+                stage=self.stage,
             )
             output = output_path.relative_to(context.project.work_dir).as_posix()
 
@@ -181,9 +185,40 @@ class TranslateStage(BaseStage):
                 context.project,
                 translated_segments,
                 translated=True,
+                stage=self.stage,
             )
             output = output_path.relative_to(context.project.work_dir).as_posix()
             return [source_transcript.path], [output]
+
+        return self._record(context, action)
+
+
+class TimingFitStage(BaseStage):
+    """Адаптирует перевод под естественную озвучку до TTS."""
+
+    stage = Stage.TIMING_FIT
+
+    def __init__(self, timing_fitter: TimingFitter) -> None:
+        self.timing_fitter = timing_fitter
+
+    def run(self, context: StageContext) -> StageRun:
+        def action() -> tuple[list[str], list[str]]:
+            translated_transcript = _required_artifact(
+                context,
+                ArtifactKind.TRANSLATED_TRANSCRIPT,
+            )
+            if not context.project.segments:
+                raise ValueError("переведенный transcript не содержит сегментов")
+            segments = self.timing_fitter.fit(context.project, context.project.segments)
+            context.project.segments = segments
+            output_path = context.store.save_segments(
+                context.project,
+                segments,
+                translated=True,
+                stage=self.stage,
+            )
+            output = output_path.relative_to(context.project.work_dir).as_posix()
+            return [translated_transcript.path], [output]
 
         return self._record(context, action)
 

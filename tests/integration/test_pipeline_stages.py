@@ -12,6 +12,7 @@ from translate_video.pipeline import (
     PipelineRunner,
     RenderStage,
     StageContext,
+    TimingFitStage,
     TTSStage,
     TranscribeStage,
     TranslateStage,
@@ -69,6 +70,17 @@ class FakeTTSProvider:
         return segments
 
 
+class FakeTimingFitter:
+    """Имитационная подгонка таймингов, сохраняющая перевод без изменений."""
+
+    def fit(self, project, segments):
+        """Заполнить tts_text перед TTS."""
+
+        for segment in segments:
+            segment.tts_text = segment.translated_text
+        return segments
+
+
 class FakeRenderer:
     """Имитационный рендерер, создающий минимальный итоговый видеофайл."""
 
@@ -99,6 +111,7 @@ class PipelineStagesIntegrationTest(unittest.TestCase):
                     ExtractAudioStage(FakeMediaProvider()),
                     TranscribeStage(FakeTranscriber()),
                     TranslateStage(FakeTranslator()),
+                    TimingFitStage(FakeTimingFitter()),
                     TTSStage(FakeTTSProvider()),
                     RenderStage(FakeRenderer()),
                 ]
@@ -107,11 +120,12 @@ class PipelineStagesIntegrationTest(unittest.TestCase):
             runs = runner.run(context)
             restored = store.load_project(project.work_dir)
 
-            self.assertEqual([run.status for run in runs], [JobStatus.COMPLETED] * 5)
+            self.assertEqual([run.status for run in runs], [JobStatus.COMPLETED] * 6)
             self.assertEqual([run.stage for run in runs], [
                 Stage.EXTRACT_AUDIO,
                 Stage.TRANSCRIBE,
                 Stage.TRANSLATE,
+                Stage.TIMING_FIT,
                 Stage.TTS,
                 Stage.RENDER,
             ])
@@ -121,7 +135,7 @@ class PipelineStagesIntegrationTest(unittest.TestCase):
             self.assertEqual(restored.artifacts["output_video"], "output/translated.mp4")
             self.assertEqual(restored.segments[0].translated_text, "ru: Привет")
             self.assertEqual(restored.segments[0].tts_path, "tts/seg_1.wav")
-            self.assertEqual(len(restored.stage_runs), 5)
+            self.assertEqual(len(restored.stage_runs), 6)
             self.assertEqual(restored.status, ProjectStatus.COMPLETED)
             self.assertTrue(all(run.started_at for run in restored.stage_runs))
             self.assertTrue(all(run.finished_at for run in restored.stage_runs))

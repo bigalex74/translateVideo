@@ -121,7 +121,10 @@ class LegacyAdaptersTest(unittest.TestCase):
         """Если ускорение вернуло исходный клип, сегмент получает QA-флаг."""
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            project = _project(temp_dir)
+            project = _project(
+                temp_dir,
+                PipelineConfig(allow_render_audio_speedup=True, render_max_speed=1.3),
+            )
             tts_path = project.work_dir / "tts" / "seg_1.mp3"
             tts_path.write_bytes(b"speech")
             segment = Segment(
@@ -178,7 +181,14 @@ class LegacyAdaptersTest(unittest.TestCase):
         """Обрезка доступна только в явном destructive-режиме конфигурации."""
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            project = _project(temp_dir, PipelineConfig(allow_render_audio_trim=True))
+            project = _project(
+                temp_dir,
+                PipelineConfig(
+                    allow_render_audio_speedup=True,
+                    allow_render_audio_trim=True,
+                    render_max_speed=1.3,
+                ),
+            )
             tts_path = project.work_dir / "tts" / "seg_1.mp3"
             tts_path.write_bytes(b"speech")
             segment = Segment(
@@ -203,12 +213,92 @@ class LegacyAdaptersTest(unittest.TestCase):
             self.assertIn("render_audio_trimmed", segment.qa_flags)
             self.assertNotIn("render_audio_overflow", segment.qa_flags)
 
+    def test_renderer_can_trim_without_speedup_when_explicitly_allowed(self):
+        """Destructive-режим может обрезать без предварительного ускорения."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = _project(temp_dir, PipelineConfig(allow_render_audio_trim=True))
+            tts_path = project.work_dir / "tts" / "seg_1.mp3"
+            tts_path.write_bytes(b"speech")
+            segment = Segment(
+                id="seg_1",
+                start=0.0,
+                end=1.0,
+                source_text="Hello",
+                translated_text="Очень длинный перевод.",
+                tts_path="tts/seg_1.mp3",
+            )
+            video = _FakeVideo(audio=None)
+            renderer = MoviePyVoiceoverRenderer(
+                video_clip_factory=lambda _path: video,
+                audio_clip_factory=lambda path: _FakeAudio(path=path, duration=3.0),
+                composite_audio_factory=lambda clips: _FakeCompositeAudio(clips),
+                volume_filter=lambda clip, volume: clip,
+                speed_effect_factory=lambda clip, factor: clip,
+            )
+
+            renderer.render(project, [segment])
+
+            self.assertIn("render_audio_trimmed", segment.qa_flags)
+            self.assertNotIn("render_audio_speedup", segment.qa_flags)
+
+    def test_renderer_shifts_following_segment_without_speedup(self):
+        """Длинная первая фраза мягко сдвигает следующую без ускорения."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = _project(
+                temp_dir,
+                PipelineConfig(allow_timeline_shift=True, max_timeline_shift=1.5),
+            )
+            first_path = project.work_dir / "tts" / "seg_1.mp3"
+            second_path = project.work_dir / "tts" / "seg_2.mp3"
+            first_path.write_bytes(b"speech-1")
+            second_path.write_bytes(b"speech-2")
+            first = Segment(
+                id="seg_1",
+                start=0.0,
+                end=1.0,
+                source_text="Hello",
+                translated_text="Длинная первая фраза.",
+                tts_path="tts/seg_1.mp3",
+            )
+            second = Segment(
+                id="seg_2",
+                start=1.0,
+                end=2.0,
+                source_text="World",
+                translated_text="Вторая фраза.",
+                tts_path="tts/seg_2.mp3",
+            )
+            created: list[_FakeAudio] = []
+
+            def audio_factory(path):
+                duration = 1.4 if path.endswith("seg_1.mp3") else 0.4
+                clip = _FakeAudio(path=path, duration=duration)
+                created.append(clip)
+                return clip
+
+            video = _FakeVideo(audio=None)
+            renderer = MoviePyVoiceoverRenderer(
+                video_clip_factory=lambda _path: video,
+                audio_clip_factory=audio_factory,
+                composite_audio_factory=lambda clips: _FakeCompositeAudio(clips),
+                volume_filter=lambda clip, volume: clip,
+                speed_effect_factory=lambda clip, factor: clip,
+            )
+
+            renderer.render(project, [first, second])
+
+            self.assertEqual(created[0].started_at, 0.0)
+            self.assertAlmostEqual(created[1].started_at, 1.45)
+            self.assertIn("timeline_shifted", second.qa_flags)
+
     def test_cli_builds_legacy_stage_chain(self):
         """CLI должен уметь собрать цепочку провайдеров устаревшего скрипта."""
 
         stages = _build_stages("legacy")
 
-        self.assertEqual(len(stages), 6)  # +RegroupStage (TVIDEO-039)
+        self.assertEqual(len(stages), 7)  # +RegroupStage + TimingFitStage
 
 
 def _project(temp_dir: str, config: PipelineConfig | None = None) -> VideoProject:

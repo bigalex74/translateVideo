@@ -21,6 +21,13 @@ export interface PipelineConfig {
     background_ducking: boolean;
     subtitle_formats: string[];
     glossary_path?: string;
+    timing_policy: string;
+    target_chars_per_second: number;
+    timing_fit_max_rewrites: number;
+    allow_tts_rate_adaptation: boolean;
+    allow_render_audio_speedup: boolean;
+    allow_timeline_shift: boolean;
+    max_timeline_shift: number;
     tts_base_rate: number;
     tts_max_rate: number;
     tts_rate_slack: number;

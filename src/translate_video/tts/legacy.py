@@ -1,16 +1,8 @@
-"""edge-tts адаптер синтеза речи с адаптивным rate (TVIDEO-040b).
+"""edge-tts адаптер синтеза речи.
 
-Если синтезированная озвучка не укладывается в временной слот:
-1. Измеряем длительность через ffprobe
-2. Вычисляем нужный rate: base_rate + (duration/slot - 1) * 100
-3. Ограничиваем до tts_max_rate (по умолчанию 40%)
-4. Если нужный rate > базового — переозвучиваем один раз
-
-Преимущества перед Ollama-сжатием:
-- Мгновенно (< 0.1с вычисление)
-- Не зависит от внешних сервисов
-- Сохраняет 100% смысла перевода
-- Тон голоса не изменяется (edge-tts rate ≠ pitch)
+Дефолтная политика TVIDEO-042 — естественная скорость речи без ускорения.
+Адаптивный rate оставлен только как явный fast-режим через
+``allow_tts_rate_adaptation=True``.
 """
 
 from __future__ import annotations
@@ -42,8 +34,10 @@ class EdgeTTSProvider:
     def synthesize(self, project, segments):
         """Синтезировать каждый переведённый сегмент.
 
-        Если аудио длиннее слота > tts_rate_slack — ускоряем rate и
-        переозвучиваем один раз. Текст не изменяется.
+        По умолчанию синтез идет с `+0%`, чтобы сохранить естественное
+        восприятие. Если пользователь явно разрешил fast-режим, то при
+        переполнении слота выполняется одна повторная генерация с повышенным
+        rate.
         """
         cfg = project.config
         voice = self.DEFAULT_VOICES.get(
@@ -60,8 +54,9 @@ class EdgeTTSProvider:
             output = project.work_dir / "tts" / f"{segment.id or index}.mp3"
             segment.tts_text = text
 
-            # Первичный синтез с базовым rate
-            rate = _fmt_rate(cfg.tts_base_rate)
+            # Первичный синтез на естественной скорости, если fast-режим не включён.
+            base_rate = cfg.tts_base_rate if cfg.allow_tts_rate_adaptation else 0
+            rate = _fmt_rate(base_rate)
             self._synth(text, voice, rate, output)
 
             if slot <= 0:
@@ -72,14 +67,19 @@ class EdgeTTSProvider:
 
             # Адаптивное ускорение при переполнении
             dur = get_audio_duration(output)
-            if dur is not None and dur > slot * cfg.tts_rate_slack:
+            if (
+                cfg.allow_tts_rate_adaptation
+                and cfg.tts_max_rate > base_rate
+                and dur is not None
+                and dur > slot * cfg.tts_rate_slack
+            ):
                 needed = _compute_rate(
                     duration=dur,
                     slot=slot,
-                    base_rate=cfg.tts_base_rate,
+                    base_rate=base_rate,
                     max_rate=cfg.tts_max_rate,
                 )
-                if needed > cfg.tts_base_rate:
+                if needed > base_rate:
                     logger.info(
                         "Сегмент %s: %.2fс > слот %.2fс → rate +%d%%",
                         segment.id, dur, slot, needed,
@@ -90,8 +90,13 @@ class EdgeTTSProvider:
                     _add_qa_flag(segment, "tts_rate_adapted")
                     dur = get_audio_duration(output)
 
-                if dur is not None and dur > slot * cfg.tts_rate_slack:
-                    _add_qa_flag(segment, "tts_overflow_after_rate")
+            if dur is not None and dur > slot * cfg.tts_rate_slack:
+                flag = (
+                    "tts_overflow_after_rate"
+                    if cfg.allow_tts_rate_adaptation
+                    else "tts_overflow_natural_rate"
+                )
+                _add_qa_flag(segment, flag)
 
             segment.tts_path = output.relative_to(project.work_dir).as_posix()
             segment.voice = voice

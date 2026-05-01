@@ -1,6 +1,6 @@
 """Схемы ядра и вспомогательные средства сохранения состояния."""
 
-from translate_video.core.config import PipelineConfig
+from translate_video.core.config import PipelineConfig, TimingPolicy
 from translate_video.core.schemas import (
     ArtifactKind,
     ArtifactRecord,
@@ -26,6 +26,7 @@ __all__ = [
     "SegmentStatus",
     "Stage",
     "StageRun",
+    "TimingPolicy",
     "VideoProject",
     "WebhookEvent",
 ]
