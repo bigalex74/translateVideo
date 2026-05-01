@@ -1,0 +1,84 @@
+.qa-summary {
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 0.875rem;
+}
+
+.qa-ok   { border-color: rgba(34, 197, 94, 0.3);  background: rgba(34, 197, 94, 0.05); }
+.qa-warn { border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.05); }
+.qa-fail { border-color: rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.05); }
+
+.qa-verdict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.qa-ok   .qa-verdict { color: #4ade80; }
+.qa-warn .qa-verdict { color: #fbbf24; }
+.qa-fail .qa-verdict { color: #f87171; }
+
+.qa-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+
+.qa-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.qa-metric-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.qa-metric-value.qa-metric--warn { color: #fbbf24; }
+.qa-metric-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+
+.qa-issues {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qa-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+.qa-issue--warn {
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+}
+
+.qa-issue--info {
+  background: rgba(59, 130, 246, 0.08);
+  color: #93c5fd;
+}
