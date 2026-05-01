@@ -59,7 +59,7 @@ def _validate_webhook_url(url: str | None) -> None:
 class RunPipelineRequest(BaseModel):
     """Схема запроса на запуск пайплайна."""
     force: bool = False
-    provider: str = "fake"
+    provider: str = "legacy"
 
 
 async def run_pipeline_task(
