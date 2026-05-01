@@ -59,18 +59,18 @@ class APIProjectsTest(TestCase):
 
     @patch.object(ProjectStore, "create_project")
     def test_create_project_exception(self, mock_create):
-        """Проверка 400 при ошибке создания."""
+        """Проверка 500 при неожиданной ошибке создания."""
         mock_create.side_effect = Exception("Test Error")
         response = self.client.post("/api/v1/projects", json={"input_video": "dummy.mp4"})
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 500)
 
     @patch.object(ProjectStore, "create_project")
     def test_upload_project_exception(self, mock_create):
-        """Проверка 400 при ошибке загрузки файла."""
+        """Проверка 500 при неожиданной ошибке загрузки файла."""
         mock_create.side_effect = Exception("Upload Error")
         files = {"file": ("test.mp4", b"data", "video/mp4")}
         response = self.client.post("/api/v1/projects/upload", files=files)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 500)
 
     def test_get_project_status(self):
         """Проверка получения статуса."""
