@@ -59,11 +59,23 @@ export async function getProjectStatus(project_id: string): Promise<VideoProject
     return res.json();
 }
 
-export async function runPipeline(project_id: string, force: boolean = false, provider: string = "fake"): Promise<{status: string, message: string}> {
+export async function runPipeline(
+    project_id: string,
+    force: boolean = false,
+    provider?: string,
+    webhookUrl?: string,
+): Promise<{status: string, message: string}> {
+    // Читаем сохранённые настройки если не переданы явно
+    const effectiveProvider = provider ?? localStorage.getItem('tv_default_provider') ?? 'fake';
+    const effectiveWebhook  = webhookUrl ?? localStorage.getItem('tv_webhook_url') ?? undefined;
+
+    const body: Record<string, unknown> = { force, provider: effectiveProvider };
+    if (effectiveWebhook) body['webhook_url'] = effectiveWebhook;
+
     const res = await fetch(`${API_BASE}/projects/${project_id}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force, provider })
+        body: JSON.stringify(body)
     });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
