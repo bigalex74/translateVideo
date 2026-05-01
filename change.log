@@ -1,5 +1,14 @@
 # Журнал Изменений
 
+## 1.12.7 - 2026-05-01 - FEAT - TVIDEO-051
+
+### Поддержка OpenAI-совместимого моста для Gemini
+- GeminiRewriteProvider.from_env(): если задан GEMINI_BRIDGE_URL,
+  использует OpenAICompatibleRewriteProvider вместо нативного Gemini API.
+  Мост на 127.0.0.1:5000 авторизуется сам — системный прокси не нужен.
+- .env / .env.example: GEMINI_BRIDGE_URL=http://host.docker.internal:5000/v1
+- Тест: gemini-3-flash-preview через мост ответил за ~1с без прокси.
+
 ## 1.12.6 - 2026-05-01 - FIX - TVIDEO-050
 
 ### Кнопки Запустить/Продолжить не работали: системный прокси ломал Docker
