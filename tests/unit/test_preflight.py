@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from translate_video.cli import main
 from translate_video.core.preflight import _probe_duration, run_preflight
@@ -57,6 +58,8 @@ class PreflightTest(unittest.TestCase):
             self.assertIn("python_module:faster_whisper", names)
             self.assertIn("executable:ffmpeg", names)
             self.assertIn("executable:ffprobe", names)
+            self.assertIn("timing_rewriter:gemini", names)
+            self.assertIn("timing_rewriter:polza", names)
 
     def test_legacy_provider_passes_when_dependencies_are_available(self):
         """Провайдер устаревшего скрипта должен пройти при доступных зависимостях."""
@@ -73,6 +76,28 @@ class PreflightTest(unittest.TestCase):
             )
 
             self.assertTrue(report.ok)
+
+    def test_legacy_preflight_reports_optional_rewriter_keys(self):
+        """Preflight показывает ключи rewriter-провайдеров, но не валит запуск без них."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "lesson.mp4"
+            video.write_bytes(b"video")
+
+            with patch("translate_video.core.preflight.load_env_file", lambda: None), \
+                    patch.dict("os.environ", {"GEMINI_API_KEY": "secret"}, clear=True):
+                report = run_preflight(
+                    video,
+                    "legacy",
+                    module_finder=lambda module: object(),
+                    executable_finder=lambda executable: f"/usr/bin/{executable}",
+                )
+
+            gemini = next(c for c in report.checks if c.name == "timing_rewriter:gemini")
+            polza = next(c for c in report.checks if c.name == "timing_rewriter:polza")
+            self.assertTrue(report.ok)
+            self.assertEqual(gemini.message, "ключ найден")
+            self.assertIn("будет пропущен", polza.message)
 
     def test_cli_preflight_outputs_json_report(self):
         """CLI-команда preflight должна вернуть JSON-отчет."""

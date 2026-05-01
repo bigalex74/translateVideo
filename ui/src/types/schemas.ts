@@ -24,6 +24,8 @@ export interface PipelineConfig {
     timing_policy: string;
     target_chars_per_second: number;
     timing_fit_max_rewrites: number;
+    use_cloud_timing_rewriter: boolean;
+    rewrite_provider_order: string[];
     allow_tts_rate_adaptation: boolean;
     allow_render_audio_speedup: boolean;
     allow_timeline_shift: boolean;

@@ -91,6 +91,10 @@ class PipelineConfig:
     timing_policy: TimingPolicy = TimingPolicy.NATURAL_VOICE
     target_chars_per_second: float = 14.0
     timing_fit_max_rewrites: int = 3
+    use_cloud_timing_rewriter: bool = True
+    rewrite_provider_order: list[str] = field(
+        default_factory=lambda: ["gemini", "openrouter", "aihubmix", "polza", "rule_based"]
+    )
     allow_tts_rate_adaptation: bool = False
     allow_render_audio_speedup: bool = False
     allow_timeline_shift: bool = True
@@ -145,6 +149,13 @@ class PipelineConfig:
                 "timing_policy": TimingPolicy(data.get("timing_policy", "natural_voice")),
                 "target_chars_per_second": float(data.get("target_chars_per_second", 14.0)),
                 "timing_fit_max_rewrites": int(data.get("timing_fit_max_rewrites", 3)),
+                "use_cloud_timing_rewriter": bool(data.get("use_cloud_timing_rewriter", True)),
+                "rewrite_provider_order": list(
+                    data.get(
+                        "rewrite_provider_order",
+                        ["gemini", "openrouter", "aihubmix", "polza", "rule_based"],
+                    )
+                ),
                 "allow_tts_rate_adaptation": bool(data.get("allow_tts_rate_adaptation", False)),
                 "allow_render_audio_speedup": bool(data.get("allow_render_audio_speedup", False)),
                 "allow_timeline_shift": bool(data.get("allow_timeline_shift", True)),

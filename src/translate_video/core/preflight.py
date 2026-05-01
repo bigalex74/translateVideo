@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import subprocess
+import os
 from dataclasses import asdict, dataclass, field
 from importlib.util import find_spec
 from pathlib import Path
 from shutil import which
 from typing import Callable
+
+from translate_video.core.env import load_env_file
 
 
 LEGACY_MODULES = {
@@ -21,6 +24,13 @@ LEGACY_MODULES = {
 LEGACY_EXECUTABLES = {
     "ffmpeg": "FFmpeg для обработки медиа",
     "ffprobe": "FFprobe для анализа медиа",
+}
+
+TIMING_REWRITE_ENV = {
+    "gemini": "GEMINI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "aihubmix": "AIHUBMIX_API_KEY",
+    "polza": "POLZA_API_KEY",
 }
 
 
@@ -102,11 +112,13 @@ def run_preflight(
 ) -> PreflightReport:
     """Проверить готовность файла и окружения к запуску выбранного провайдера."""
 
+    load_env_file()
     input_path = Path(input_video)
     checks = [_check_input_video(input_path)]
     if provider == "legacy":
         checks.extend(_check_modules(module_finder))
         checks.extend(_check_executables(executable_finder))
+        checks.extend(_check_timing_rewrite_env())
     elif provider == "fake":
         checks.append(
             PreflightCheck(
@@ -204,4 +216,37 @@ def _check_executables(executable_finder: Callable[[str], str | None]) -> list[P
                 },
             )
         )
+    return checks
+
+
+def _check_timing_rewrite_env() -> list[PreflightCheck]:
+    """Показать доступность облачных rewrite-провайдеров для timing_fit."""
+
+    checks: list[PreflightCheck] = []
+    for provider, env_name in TIMING_REWRITE_ENV.items():
+        present = bool(os.getenv(env_name))
+        checks.append(
+            PreflightCheck(
+                name=f"timing_rewriter:{provider}",
+                ok=True,
+                message=(
+                    "ключ найден"
+                    if present
+                    else "ключ не задан, провайдер будет пропущен"
+                ),
+                details={
+                    "provider": provider,
+                    "env": env_name,
+                    "required": "false",
+                },
+            )
+        )
+    checks.append(
+        PreflightCheck(
+            name="timing_rewriter:rule_based",
+            ok=True,
+            message="локальный безопасный fallback всегда доступен",
+            details={"provider": "rule_based"},
+        )
+    )
     return checks
