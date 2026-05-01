@@ -85,6 +85,11 @@ class PipelineConfig:
     compress_slack: float = 1.05                       # 5% запас, иначе compress
     compress_max_retries: int = 2                      # макс итераций сжатия
 
+    # ── Перегруппировка по предложениям (TVIDEO-039) ─────────────────────────
+    # Максимальная длительность слота после слияния фрагментов Whisper.
+    # Если предложение длиннее — сбрасываем буфер принудительно.
+    regroup_max_slot: float = 8.0
+
     do_not_translate: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -114,5 +119,7 @@ class PipelineConfig:
                 "compress_llm_model": data.get("compress_llm_model", "qwen3.5:9b"),
                 "compress_slack": float(data.get("compress_slack", 1.05)),
                 "compress_max_retries": int(data.get("compress_max_retries", 2)),
+                # Regroup — новое поле с дефолтом для совместимости
+                "regroup_max_slot": float(data.get("regroup_max_slot", 8.0)),
             }
         )
