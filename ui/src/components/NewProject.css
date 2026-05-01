@@ -113,3 +113,51 @@
     padding-top: 20px;
     border-top: 1px solid var(--border-color);
 }
+
+.preflight-button {
+    margin-top: 12px;
+}
+
+.preflight-report {
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+}
+
+.preflight-report.ok {
+    border-color: rgba(16, 185, 129, 0.35);
+}
+
+.preflight-report.failed {
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.preflight-report ul {
+    margin-top: 10px;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.preflight-report li {
+    display: flex;
+    gap: 8px;
+    color: var(--text-secondary);
+}
+
+.preflight-report li span {
+    min-width: 42px;
+    font-family: monospace;
+    color: var(--text-muted);
+}
+
+.preflight-report li.ok span {
+    color: var(--success);
+}
+
+.preflight-report li.failed span {
+    color: var(--danger);
+}

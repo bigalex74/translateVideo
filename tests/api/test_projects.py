@@ -1,4 +1,3 @@
-import json
 import tempfile
 from pathlib import Path
 from unittest import TestCase
@@ -7,6 +6,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from translate_video.api.main import app
+from translate_video.core.schemas import ArtifactKind, Segment, Stage
 from translate_video.core.store import ProjectStore
 from translate_video.api.routes.projects import get_store
 
@@ -41,6 +41,21 @@ class APIProjectsTest(TestCase):
         data = response.json()
         self.assertEqual(data["project_id"], "api_test")
         self.assertEqual(data["status"], "created")
+        self.assertEqual(data["config"]["source_language"], "en")
+        self.assertEqual(data["segments"], [])
+
+    def test_list_projects(self):
+        """Список проектов должен возвращать краткие карточки."""
+
+        self.store.create_project("first.mp4", project_id="first")
+        self.store.create_project("second.mp4", project_id="second")
+
+        response = self.client.get("/api/v1/projects")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual([project["project_id"] for project in data["projects"]], ["second", "first"])
+        self.assertEqual(data["projects"][0]["segments"], 0)
 
     @patch.object(ProjectStore, "create_project")
     def test_create_project_exception(self, mock_create):
@@ -59,9 +74,17 @@ class APIProjectsTest(TestCase):
 
     def test_get_project_status(self):
         """Проверка получения статуса."""
-        self.store.create_project("dummy.mp4", project_id="status_test")
+        project = self.store.create_project("dummy.mp4", project_id="status_test")
+        self.store.save_segments(
+            project,
+            [Segment(id="seg_1", start=0, end=1, source_text="Hello", translated_text="Привет")],
+            translated=True,
+        )
         response = self.client.get("/api/v1/projects/status_test")
         self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["segments"][0]["translated_text"], "Привет")
+        self.assertEqual(data["artifact_records"][0]["kind"], "translated_transcript")
 
     def test_get_project_not_found(self):
         """Проверка 404 для несуществующего проекта."""
@@ -77,9 +100,48 @@ class APIProjectsTest(TestCase):
 
     def test_get_artifacts(self):
         """Проверка получения артефактов."""
-        self.store.create_project("dummy.mp4", project_id="artifacts_test")
+        project = self.store.create_project("dummy.mp4", project_id="artifacts_test")
+        self.store.save_segments(project, [Segment(start=0, end=1, source_text="Hello")])
         response = self.client.get("/api/v1/projects/artifacts_test/artifacts")
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["artifacts"][0]["kind"], "source_transcript")
+
+    def test_download_artifact(self):
+        """Артефакт должен скачиваться по его типу."""
+
+        project = self.store.create_project("dummy.mp4", project_id="download_test")
+        report = project.work_dir / "qa_report.json"
+        report.write_text('{"ok": true}', encoding="utf-8")
+        self.store.add_artifact(
+            project,
+            kind=ArtifactKind.QA_REPORT,
+            path=report,
+            stage=Stage.QA,
+            content_type="application/json",
+        )
+
+        response = self.client.get("/api/v1/projects/download_test/artifacts/qa_report")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True})
+
+    def test_download_artifact_rejects_unsafe_record_path(self):
+        """Скачивание не должно отдавать файлы вне папки проекта."""
+
+        project = self.store.create_project("dummy.mp4", project_id="unsafe_artifact")
+        outside = self.work_root / "secret.json"
+        outside.write_text("{}", encoding="utf-8")
+        self.store.add_artifact(
+            project,
+            kind=ArtifactKind.QA_REPORT,
+            path="../secret.json",
+            stage=Stage.QA,
+            content_type="application/json",
+        )
+
+        response = self.client.get("/api/v1/projects/unsafe_artifact/artifacts/qa_report")
+
+        self.assertEqual(response.status_code, 400)
 
     def test_get_artifacts_rejects_path_traversal_id(self):
         """Получение артефактов не должно принимать небезопасный ID."""
@@ -122,3 +184,34 @@ class APIProjectsTest(TestCase):
         data = response.json()
         self.assertEqual(data["project_id"], "test")
         self.assertTrue((self.work_root / "test" / "input.mp4").exists())
+
+    def test_save_project_segments(self):
+        """API должен сохранять отредактированные сегменты перевода."""
+
+        project = self.store.create_project("dummy.mp4", project_id="segments_test")
+        self.store.save_segments(
+            project,
+            [Segment(id="seg_1", start=0, end=1, source_text="Hello")],
+        )
+
+        response = self.client.put(
+            "/api/v1/projects/segments_test/segments",
+            json={
+                "translated": True,
+                "segments": [
+                    {
+                        "id": "seg_1",
+                        "start": 0,
+                        "end": 1,
+                        "source_text": "Hello",
+                        "translated_text": "Привет",
+                        "status": "translated",
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["segments"][0]["translated_text"], "Привет")
+        self.assertTrue((self.work_root / "segments_test" / "transcript.translated.json").exists())

@@ -46,6 +46,20 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertEqual(project.work_dir.name, project.id)
             self.assertTrue(project.id.startswith("lesson-"))
 
+    def test_list_projects_skips_internal_uploads_and_sorts_by_update_time(self):
+        """Список проектов не должен включать служебные папки."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+            old_project = store.create_project("old.mp4", project_id="old")
+            new_project = store.create_project("new.mp4", project_id="new")
+            (store.root / "_uploads").mkdir(parents=True)
+            (store.root / "_uploads" / "project.json").write_text("{}", encoding="utf-8")
+
+            projects = store.list_projects()
+
+            self.assertEqual([project.id for project in projects], [new_project.id, old_project.id])
+
     def test_create_project_rejects_path_traversal_id(self):
         """ID проекта не должен позволять выходить из корня runs."""
 
@@ -71,6 +85,16 @@ class ProjectStoreTest(unittest.TestCase):
             self.assertEqual(copied, project.work_dir / "input.mp4")
             self.assertEqual(copied.read_bytes(), b"video")
             self.assertEqual(restored.input_video, copied)
+
+    def test_resolve_project_file_rejects_escape_from_work_dir(self):
+        """Путь артефакта не должен выходить за пределы проекта."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+            project = store.create_project("lesson.mp4", project_id="lesson")
+
+            with self.assertRaises(ValueError):
+                store.resolve_project_file(project, "../secret.txt")
 
     def test_sanitize_helpers_block_unsafe_values(self):
         """Нормализация имен должна запрещать небезопасные пути."""

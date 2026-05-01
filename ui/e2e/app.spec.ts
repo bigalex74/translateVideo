@@ -19,6 +19,24 @@ const demoProject = {
     output_video: 'output/translated.mp4',
     subtitles: 'subtitles/translated.vtt',
   },
+  artifact_records: [
+    {
+      kind: 'subtitles',
+      path: 'subtitles/translated.vtt',
+      stage: 'export',
+      content_type: 'text/vtt',
+      created_at: '2026-05-01T00:00:00Z',
+      metadata: {},
+    },
+    {
+      kind: 'translated_transcript',
+      path: 'transcript.translated.json',
+      stage: 'translate',
+      content_type: 'application/json',
+      created_at: '2026-05-01T00:00:00Z',
+      metadata: {},
+    },
+  ],
   stage_runs: [
     {
       id: 'stage_1',
@@ -43,7 +61,18 @@ const demoProject = {
   },
 };
 
+async function mockProjectList(page: import('@playwright/test').Page) {
+  await page.route('**/api/v1/projects', async route => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects: [{ ...demoProject, segments: 1 }] } });
+      return;
+    }
+    await route.fallback();
+  });
+}
+
 test('дашборд загружает проект по ID и открывает рабочую область', async ({ page }) => {
+  await mockProjectList(page);
   await page.route('**/api/v1/projects/demo', async route => {
     await route.fulfill({ json: demoProject });
   });
@@ -60,9 +89,11 @@ test('дашборд загружает проект по ID и открывае
   await expect(page.getByRole('heading', { name: 'demo' })).toBeVisible();
   await expect(page.getByText('Интерактивный транскрипт')).toBeVisible();
   await expect(page.locator('textarea')).toHaveValue('Привет');
+  await expect(page.getByRole('link', { name: /Субтитры/ })).toBeVisible();
 });
 
 test('создание проекта через upload переводит пользователя в workspace', async ({ page }) => {
+  await mockProjectList(page);
   await page.route('**/api/v1/projects/upload', async route => {
     await route.fulfill({ json: { ...demoProject, project_id: 'upload_demo' } });
   });
@@ -83,4 +114,32 @@ test('создание проекта через upload переводит по�
 
   await expect(page.getByRole('heading', { name: 'upload_demo' })).toBeVisible();
   await expect(page.getByText('Сегментов: 1')).toBeVisible();
+});
+
+test('workspace сохраняет правку перевода через API', async ({ page }) => {
+  await mockProjectList(page);
+  let savedText = '';
+  await page.route('**/api/v1/projects/demo', async route => {
+    await route.fulfill({ json: demoProject });
+  });
+  await page.route('**/api/v1/projects/demo/segments', async route => {
+    const body = route.request().postDataJSON() as { segments: typeof demoProject.segments };
+    savedText = body.segments[0].translated_text;
+    await route.fulfill({
+      json: {
+        ...demoProject,
+        segments: [{ ...demoProject.segments[0], translated_text: savedText }],
+      },
+    });
+  });
+
+  await page.goto('/');
+  await page.getByPlaceholder(/Введите ID проекта/).fill('demo');
+  await page.getByRole('button', { name: /Загрузить проект/ }).click();
+  await page.getByRole('button', { name: /Открыть Воркспейс/ }).click();
+  await page.locator('textarea').fill('Добрый день');
+  await page.getByRole('button', { name: /Сохранить изменения/ }).click();
+
+  await expect(page.getByText('Изменения сегментов сохранены.')).toBeVisible();
+  expect(savedText).toBe('Добрый день');
 });

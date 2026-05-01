@@ -28,6 +28,15 @@
     border: 1px solid var(--border-color);
 }
 
+.workspace-message {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: var(--text-secondary);
+}
+
 .header-left, .header-right {
     display: flex;
     align-items: center;
@@ -180,6 +189,36 @@
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+}
+
+.artifact-downloads {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.artifact-downloads h4 {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.artifact-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+}
+
+.artifact-link:hover {
+    border-color: var(--accent-primary);
 }
 
 .timeline {

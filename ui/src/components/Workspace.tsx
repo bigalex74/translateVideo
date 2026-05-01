@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getProjectStatus } from '../api/client';
-import type { VideoProject, Segment } from '../types/schemas';
-import { ArrowLeft, Settings, Save, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments } from '../api/client';
+import type { ArtifactRecord, VideoProject, Segment } from '../types/schemas';
+import { ArrowLeft, Download, RefreshCw, Save, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import './Workspace.css';
 
 interface WorkspaceProps {
@@ -12,9 +12,13 @@ interface WorkspaceProps {
 export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
     const [project, setProject] = useState<VideoProject | null>(null);
     const [activeTab, setActiveTab] = useState<'source' | 'translated' | 'subtitles'>('source');
+    const [dirty, setDirty] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState('');
 
     useEffect(() => {
         const loadProject = async () => {
+            if (dirty) return;
             try {
                 const data = await getProjectStatus(projectId);
                 setProject(data);
@@ -28,7 +32,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
             clearTimeout(initialLoad);
             clearInterval(interval);
         };
-    }, [projectId]);
+    }, [projectId, dirty]);
 
     if (!project) return (
         <div className="workspace-loading">
@@ -47,6 +51,37 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
             );
             return { ...prev, segments: newSegments };
         });
+        setDirty(true);
+    };
+
+    const handleSave = async () => {
+        if (!project || !Array.isArray(project.segments)) return;
+        setSaving(true);
+        setMessage('');
+        try {
+            const saved = await saveProjectSegments(projectId, project.segments);
+            setProject(saved);
+            setDirty(false);
+            setMessage('Изменения сегментов сохранены.');
+        } catch (e) {
+            console.error(e);
+            setMessage(e instanceof Error ? e.message : 'Не удалось сохранить сегменты');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleForceRun = async () => {
+        setMessage('');
+        try {
+            await runPipeline(projectId, true, 'fake');
+            const updated = await getProjectStatus(projectId);
+            setProject(updated);
+            setMessage('Пайплайн отправлен на принудительный перезапуск.');
+        } catch (e) {
+            console.error(e);
+            setMessage(e instanceof Error ? e.message : 'Не удалось перезапустить пайплайн');
+        }
     };
 
     const getVideoUrl = () => {
@@ -66,6 +101,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
         }
     };
 
+    const findArtifact = (kind: string): ArtifactRecord | undefined => {
+        return project.artifact_records?.find(record => record.kind === kind);
+    };
+
+    const downloadableArtifacts = [
+        { kind: 'subtitles', label: 'Субтитры' },
+        { kind: 'output_video', label: 'Видео' },
+        { kind: 'qa_report', label: 'QA-отчет' },
+        { kind: 'translated_transcript', label: 'Перевод JSON' },
+    ].filter(item => findArtifact(item.kind));
+
     return (
         <div className="workspace fade-in">
             <header className="workspace-header">
@@ -77,10 +123,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                     <span className={`badge ${project.status}`}>{project.status}</span>
                 </div>
                 <div className="header-right">
-                    <button className="btn-secondary"><Settings size={16} /> Настройки</button>
-                    <button className="btn-primary"><Save size={16} /> Сохранить изменения</button>
+                    <button className="btn-secondary" onClick={handleForceRun}>
+                        <RefreshCw size={16} /> Перезапустить
+                    </button>
+                    <button className="btn-primary" onClick={handleSave} disabled={!dirty || saving}>
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                        Сохранить изменения
+                    </button>
                 </div>
             </header>
+            {message && <div className="workspace-message">{message}</div>}
 
             <div className="workspace-grid">
                 {/* Left: Player */}
@@ -141,6 +193,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
                 <div className="panel progress-panel glass-panel">
                     <div className="panel-header">
                         <h3>Статус выполнения</h3>
+                    </div>
+                    <div className="artifact-downloads">
+                        <h4>Артефакты</h4>
+                        {downloadableArtifacts.map(item => (
+                            <a
+                                key={item.kind}
+                                className="artifact-link"
+                                href={artifactDownloadUrl(projectId, item.kind)}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <Download size={14} /> {item.label}
+                            </a>
+                        ))}
+                        {downloadableArtifacts.length === 0 && (
+                            <p className="empty-text">Артефакты пока не готовы.</p>
+                        )}
                     </div>
                     <div className="timeline-container">
                         <ul className="timeline">
