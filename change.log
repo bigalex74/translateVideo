@@ -1,5 +1,20 @@
 # Журнал Изменений
 
+## 0.8.1 - 2026-05-01 - PATCH - TVIDEO-014-ux-language-and-safe-run
+
+- Удалены технические термины (moviepy, faster-whisper, edge-tts, ffmpeg)
+  из пользовательских строк `PROVIDER_LABELS` и `PROVIDER_WARNINGS`.
+- `ConfirmRunModal`: убрана строка «Режим обработки» (внутренняя деталь),
+  предупреждение провайдера теперь с иконкой Info вместо AlertTriangle.
+- `NewProject`: блок подсказки провайдера переключён с жёлтого предупреждения
+  на синий информационный стиль (`provider-info`).
+- Добавлены unit-тесты `i18n.test.ts` (16 тестов): проверка отсутствия
+  технических терминов, корректность `stageLabel`, `statusLabel`,
+  `needsReviewCount`.
+- Добавлен `npm test` скрипт (vitest) и `vitest.config.ts`.
+
+
+
 ## 0.8.0 - 2026-05-01 - MINOR - TVIDEO-012-api-contract-and-artifacts
 
 - Расширен REST API: список проектов, полный payload проекта, сохранение
