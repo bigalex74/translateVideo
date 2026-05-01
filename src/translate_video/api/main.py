@@ -25,7 +25,7 @@ def _get_allowed_origins() -> list[str]:
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     """Инициализировать ресурсы приложения при старте."""
-    work_root = Path(os.getenv("WORK_ROOT", "runs"))
+    work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
     work_root.mkdir(parents=True, exist_ok=True)
     application.mount("/runs", StaticFiles(directory=str(work_root)), name="runs")
     yield
