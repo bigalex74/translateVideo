@@ -3,7 +3,16 @@ import { Dashboard } from './components/Dashboard';
 import { Workspace } from './components/Workspace';
 import { NewProject } from './components/NewProject';
 import { Settings as SettingsPage } from './components/Settings';
-import { applyTheme, getPersistedTheme, getPersistedLargeText } from './store/settings';
+import { t } from './i18n';
+import {
+  applyLocale,
+  applyTheme,
+  getPersistedLargeText,
+  getPersistedLocale,
+  getPersistedTheme,
+  persistLocale,
+  type AppLocale,
+} from './store/settings';
 import { LayoutList, PlusCircle, Settings, Video, Sun, Moon } from 'lucide-react';
 import './App.css';
 
@@ -11,12 +20,17 @@ function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'new_project' | 'workspace' | 'settings'>('dashboard');
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [theme, setTheme] = useState(getPersistedTheme);
+  const [locale, setLocale] = useState<AppLocale>(getPersistedLocale);
   const largeText = getPersistedLargeText();
 
   // Применяем тему при монтировании и при изменении
   useEffect(() => {
     applyTheme(theme, largeText);
   }, [theme, largeText]);
+
+  useEffect(() => {
+    applyLocale(locale);
+  }, [locale]);
 
   // Миграция: если пользователь ранее сохранил 'fake' как провайдер — переключаем на 'legacy'
   useEffect(() => {
@@ -36,17 +50,22 @@ function App() {
     localStorage.setItem('tv_theme', next);
   };
 
+  const handleLocaleChange = (next: AppLocale) => {
+    persistLocale(next);
+    setLocale(next);
+  };
+
   return (
     <div className="app-container">
       <aside className="sidebar">
         <div className="sidebar-header">
           <Video className="text-accent" size={24} />
-          <h1>ИИ Переводчик</h1>
+          <h1>{t('app.title', locale)}</h1>
           <button
             className="theme-toggle"
             onClick={toggleTheme}
-            title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-            aria-label="Переключить тему"
+            title={theme === 'dark' ? t('app.themeLight', locale) : t('app.themeDark', locale)}
+            aria-label={t('app.themeToggle', locale)}
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -59,7 +78,7 @@ function App() {
               onClick={() => setCurrentView('dashboard')}
             >
               <LayoutList size={18} />
-              Мои переводы
+              {t('nav.dashboard', locale)}
             </li>
             <li
               id="nav-new-project"
@@ -67,7 +86,7 @@ function App() {
               onClick={() => setCurrentView('new_project')}
             >
               <PlusCircle size={18} />
-              Новый перевод
+              {t('nav.newProject', locale)}
             </li>
             <li
               id="nav-settings"
@@ -76,17 +95,17 @@ function App() {
               onClick={() => setCurrentView('settings')}
             >
               <Settings size={18} />
-              Настройки
+              {t('nav.settings', locale)}
             </li>
           </ul>
         </nav>
       </aside>
       <div className="main-content">
-        {currentView === 'dashboard'    && <Dashboard onOpenProject={openWorkspace} />}
-        {currentView === 'new_project'  && <NewProject onProjectCreated={openWorkspace} />}
-        {currentView === 'settings'     && <SettingsPage />}
+        {currentView === 'dashboard'    && <Dashboard onOpenProject={openWorkspace} locale={locale} />}
+        {currentView === 'new_project'  && <NewProject onProjectCreated={openWorkspace} locale={locale} />}
+        {currentView === 'settings'     && <SettingsPage locale={locale} onLocaleChange={handleLocaleChange} />}
         {currentView === 'workspace' && activeProject && (
-          <Workspace projectId={activeProject} onBack={() => setCurrentView('dashboard')} />
+          <Workspace projectId={activeProject} onBack={() => setCurrentView('dashboard')} locale={locale} />
         )}
       </div>
     </div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getProjectStatus, listProjects, runPipeline } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
-import { stageLabel, statusLabel, STATUS_EMOJI } from '../i18n';
+import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
+import type { AppLocale } from '../store/settings';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { getPersistedProvider } from '../store/settings';
 import {
@@ -12,9 +13,10 @@ import './Dashboard.css';
 
 interface DashboardProps {
   onOpenProject: (id: string) => void;
+  locale: AppLocale;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) => {
   const [project, setProject] = useState<VideoProject | null>(null);
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [searchInput, setSearchInput] = useState('');
@@ -41,11 +43,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
       refreshProjects();
     } catch (e) {
       setProject(null);
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить проект');
+      setError(e instanceof Error ? e.message : t('dashboard.loadError', locale));
     } finally {
       setLoading(false);
     }
-  }, [refreshProjects]);
+  }, [locale, refreshProjects]);
 
   const handleRunConfirmed = async (id: string, force: boolean) => {
     setConfirm(null);
@@ -53,7 +55,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
       await runPipeline(id, force, getPersistedProvider());
       await loadStatus(id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось запустить перевод');
+      setError(e instanceof Error ? e.message : t('dashboard.runError', locale));
     }
   };
 
@@ -90,8 +92,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
   return (
     <div className="dashboard page-container fade-in">
       <header className="page-header">
-        <h2>Мои переводы</h2>
-        <p className="subtitle">Загрузите проект по имени или выберите из списка ниже.</p>
+        <h2>{t('dashboard.title', locale)}</h2>
+        <p className="subtitle">{t('dashboard.subtitle', locale)}</p>
       </header>
 
       <form
@@ -103,13 +105,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
           className="text-input"
           value={searchInput}
           onChange={e => setSearchInput(e.target.value)}
-          placeholder="Имя проекта (например: my-video-en-ru)…"
+          placeholder={t('dashboard.searchPlaceholder', locale)}
         />
         <button type="submit" className="btn-secondary" disabled={loading}>
           {loading ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />}
-          Найти
+          {t('dashboard.find', locale)}
         </button>
-        <button type="button" className="btn-secondary" onClick={refreshProjects} title="Обновить список">
+        <button type="button" className="btn-secondary" onClick={refreshProjects} title={t('dashboard.refreshList', locale)}>
           <RefreshCw size={16} />
         </button>
       </form>
@@ -124,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                 <h3>{project.project_id}</h3>
                 <span className={`badge ${project.status}`}>
                   {getStatusIcon(project.status)}
-                  {statusLabel(project.status)}
+                    {statusLabel(project.status, locale)}
                 </span>
               </div>
               <div className="card-actions">
@@ -134,7 +136,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                     onClick={() => setConfirm({ id: project.project_id, force: false })}
                     className="btn-secondary"
                   >
-                    <Play size={16} /> Запустить перевод
+                    <Play size={16} /> {t('dashboard.run', locale)}
                   </button>
                 )}
                 {project.status !== 'running' && (
@@ -143,7 +145,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                     onClick={() => setConfirm({ id: project.project_id, force: true })}
                     className="btn-secondary"
                   >
-                    <RefreshCw size={16} /> Перезапустить всё
+                    <RefreshCw size={16} /> {t('dashboard.restart', locale)}
                   </button>
                 )}
                 <button
@@ -151,7 +153,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                   onClick={() => onOpenProject(project.project_id)}
                   className="btn-primary"
                 >
-                  <FolderOpen size={16} /> Открыть редактор
+                  <FolderOpen size={16} /> {t('dashboard.openEditor', locale)}
                 </button>
               </div>
             </div>
@@ -159,7 +161,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
             <div className="card-body">
               <div className="meta-info">
                 <div className="meta-item">
-                  <span className="meta-label">Направление перевода</span>
+                  <span className="meta-label">{t('dashboard.translationDirection', locale)}</span>
                   <span className="meta-value">
                     {project.config?.source_language ?? 'Auto'}
                     <ArrowRight size={14} className="inline-icon" />
@@ -167,7 +169,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                   </span>
                 </div>
                 <div className="meta-item">
-                  <span className="meta-label">Сегментов распознано</span>
+                  <span className="meta-label">{t('dashboard.segmentsRecognized', locale)}</span>
                   <span className="meta-value">
                     {Array.isArray(project.segments) ? project.segments.length : project.segments}
                   </span>
@@ -175,19 +177,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
               </div>
 
               <div className="stages">
-                <h4>Прогресс обработки</h4>
+                <h4>{t('dashboard.progress', locale)}</h4>
                 <div className="stages-grid">
                   {project.stage_runs?.map(run => (
                     <div key={run.id} className={`stage-pill ${run.status}`}>
                       <div className="stage-header">
-                        <strong>{stageLabel(run.stage)}</strong>
+                        <strong>{stageLabel(run.stage, locale)}</strong>
                         {getStatusIcon(run.status)}
                       </div>
                       {run.error && <div className="stage-error">{run.error}</div>}
                     </div>
                   ))}
                   {(!project.stage_runs || project.stage_runs.length === 0) && (
-                    <p className="text-muted">Обработка ещё не запускалась.</p>
+                    <p className="text-muted">{t('dashboard.notStarted', locale)}</p>
                   )}
                 </div>
               </div>
@@ -198,9 +200,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
         {!project && (
           <div className="empty-state glass-panel">
             <FolderOpen size={48} className="text-muted mb-4" />
-            <h3>Проект не выбран</h3>
+            <h3>{t('dashboard.noProjectTitle', locale)}</h3>
             <p className="text-muted">
-              Введите имя проекта в строку поиска или выберите из списка ниже.
+              {t('dashboard.noProjectText', locale)}
             </p>
           </div>
         )}
@@ -208,10 +210,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
         <section className="projects-section glass-panel">
           <div className="section-header">
             <div>
-              <h3>Все проекты</h3>
-              <p className="text-muted">Отсортированы по времени последнего изменения.</p>
+              <h3>{t('dashboard.allProjects', locale)}</h3>
+              <p className="text-muted">{t('dashboard.sortedByUpdate', locale)}</p>
             </div>
-            <span className="text-sm text-muted">Найдено: {projects.length}</span>
+            <span className="text-sm text-muted">{t('dashboard.found', locale)}: {projects.length}</span>
           </div>
           <div className="projects-grid" data-testid="project-list">
             {projects.map(item => (
@@ -219,7 +221,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                 <div className="mini-card-title">
                   <strong>{item.project_id}</strong>
                   <span className={`badge ${item.status}`}>
-                    {STATUS_EMOJI[item.status] ?? ''} {statusLabel(item.status)}
+                    {STATUS_EMOJI[item.status] ?? ''} {statusLabel(item.status, locale)}
                   </span>
                 </div>
                 <div className="mini-card-meta">
@@ -227,28 +229,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
                   <ArrowRight size={12} />
                   <span>{item.config?.target_language ?? 'ru'}</span>
                   <Clock size={12} />
-                  <span>{Array.isArray(item.segments) ? item.segments.length : item.segments} сегм.</span>
+                  <span>{Array.isArray(item.segments) ? item.segments.length : item.segments} {t('dashboard.segmentShort', locale)}</span>
                 </div>
                 <div className="mini-card-actions">
                   <button
                     className="btn-secondary"
                     onClick={() => loadStatus(item.project_id)}
-                    aria-label={`Загрузить статус проекта ${item.project_id}`}
+                    aria-label={`${t('dashboard.status', locale)} ${item.project_id}`}
                   >
-                    <Search size={14} /> Статус
+                    <Search size={14} /> {t('dashboard.status', locale)}
                   </button>
                   <button
                     className="btn-primary"
                     onClick={() => onOpenProject(item.project_id)}
-                    aria-label={`Открыть редактор проекта ${item.project_id}`}
+                    aria-label={`${t('dashboard.openEditor', locale)} ${item.project_id}`}
                   >
-                    <FolderOpen size={14} /> Редактор
+                    <FolderOpen size={14} /> {t('dashboard.editor', locale)}
                   </button>
                 </div>
               </article>
             ))}
             {projects.length === 0 && (
-              <p className="empty-text">Проекты пока не найдены. Создайте первый перевод!</p>
+              <p className="empty-text">{t('dashboard.empty', locale)}</p>
             )}
           </div>
         </section>
@@ -260,6 +262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject }) => {
           provider={getPersistedProvider()}
           isForce={confirm.force}
           segments={segments}
+          locale={locale}
           onConfirm={() => handleRunConfirmed(confirm.id, confirm.force)}
           onCancel={() => setConfirm(null)}
         />
