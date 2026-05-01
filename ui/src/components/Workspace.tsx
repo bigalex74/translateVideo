@@ -37,10 +37,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
   const [savingConfig, setSavingConfig] = useState(false);
   const [activeSegId, setActiveSegId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Ссылки на DOM-узлы карточек сегментов для авто-скролла
+  const segRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Undo/redo история
   const [history, setHistory] = useState<Segment[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Авто-скролл к активному сегменту при воспроизведении
+  useEffect(() => {
+    if (!activeSegId) return;
+    const node = segRefs.current.get(activeSegId);
+    if (node) {
+      node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeSegId]);
 
   const loadProject = useCallback(async (skipIfDirty = true) => {
     if (skipIfDirty && dirty) return;
@@ -380,7 +391,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack }) => {
             </div>
             <div className="segments-list">
               {segments.map((seg) => (
-                <div key={seg.id} className={`segment-item ${seg.status}${activeSegId === seg.id ? ' segment-active' : ''}`}>
+                <div
+                  key={seg.id}
+                  ref={(el) => {
+                    if (el) segRefs.current.set(seg.id, el);
+                    else segRefs.current.delete(seg.id);
+                  }}
+                  className={`segment-item ${seg.status}${activeSegId === seg.id ? ' segment-active' : ''}`}
+                >
                   <div className="seg-header">
                     <span
                       className="seg-timing seg-timing--clickable"

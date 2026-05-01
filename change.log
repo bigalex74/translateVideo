@@ -1,5 +1,19 @@
 # Журнал Изменений
 
+## 1.2.5 - 2026-05-01 - PATCH - TVIDEO-026-autoscroll-active-segment
+
+- Редактор перевода: активная карточка сегмента автоматически прокручивается
+  в видимую область при воспроизведении переведённого видео.
+  Используется `scrollIntoView({behavior: 'smooth', block: 'nearest'})`.
+- Технически: `useRef<Map<string, HTMLDivElement>>` + callback ref на каждой карточке
+  + `useEffect` на изменение `activeSegId`.
+- Добавлен `autoscroll.test.ts` (6 vitest-тестов в jsdom):
+  корректный вызов scrollIntoView, null-guard, изоляция от соседних карточек,
+  переключение между сегментами, lifecycle unmount.
+- 183 Python + 16 vitest, всё зелёное.
+
+
+
 ## 1.2.4 - 2026-05-01 - PATCH - TVIDEO-025-fix-video-route
 
 - Исправлена ошибка «неподдерживаемое видео / MIME не найден» на вкладке «Перевод ИИ».
