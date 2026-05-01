@@ -1,4 +1,4 @@
-.PHONY: help build deploy restart logs status test test\:ui test\:e2e test\:load test\:all test\:release lint ui-build ui-dev
+.PHONY: help build deploy restart logs status test test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:release lint ui-build ui-dev
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -53,6 +53,10 @@ test\:ui:
 test\:e2e:
 	cd ui && npm run test:e2e
 
+## test:e2e-fullstack: Запустить browser E2E против реального FastAPI backend
+test\:e2e-fullstack:
+	cd ui && npm run test:e2e:fullstack
+
 ## test:load: Запустить нагрузочные smoke-тесты
 test\:load:
 	PYTHONPATH=src python3 -m unittest discover -s tests/load
@@ -70,6 +74,7 @@ test\:release:
 	cd ui && npm run test
 	cd ui && npm run build
 	cd ui && npm run test:e2e
+	cd ui && npm run test:e2e:fullstack
 	git diff --check
 
 ## lint: Проверить ESLint, типы TypeScript и синтаксис Python

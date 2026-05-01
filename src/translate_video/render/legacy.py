@@ -55,13 +55,24 @@ class MoviePyVoiceoverRenderer:
                     # Пытаемся ускорить (до MAX_SPEED)
                     speed = speech.duration / max_duration
                     if speed <= _MAX_SPEED:
-                        speech = self.speed_effect_factory(speech, speed)
+                        sped = self.speed_effect_factory(speech, speed)
+                        if sped is speech:
+                            _add_qa_flag(segment, "render_speed_fallback")
+                        else:
+                            _add_qa_flag(segment, "render_audio_speedup")
+                        speech = sped
                     else:
                         # Ускорение не спасает — обрезаем + ускоряем по максимуму
-                        speech = self.speed_effect_factory(speech, _MAX_SPEED)
+                        sped = self.speed_effect_factory(speech, _MAX_SPEED)
+                        if sped is speech:
+                            _add_qa_flag(segment, "render_speed_fallback")
+                        else:
+                            _add_qa_flag(segment, "render_audio_speedup")
+                        speech = sped
                         new_duration = speech.duration
                         if new_duration > max_duration:
                             speech = speech.subclip(0, max_duration)
+                            _add_qa_flag(segment, "render_audio_trimmed")
 
                 clips.append(speech.set_start(segment.start))
 
@@ -83,6 +94,13 @@ class MoviePyVoiceoverRenderer:
                 final_video.close()
             video.close()
         return output
+
+
+def _add_qa_flag(segment, flag: str) -> None:
+    """Добавить QA-флаг сегменту без дублей."""
+
+    if flag not in segment.qa_flags:
+        segment.qa_flags.append(flag)
 
 
 def _moviepy_video_clip(path: str):
@@ -174,4 +192,3 @@ def _moviepy_speedx(clip, factor: float):
     finally:
         if owns_input and os.path.exists(tmp_in):
             os.unlink(tmp_in)
-

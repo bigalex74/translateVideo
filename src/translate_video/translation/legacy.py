@@ -197,6 +197,13 @@ def _apply_translations(segments: list[Segment], texts: list[str]) -> list[Segme
     """Применить переведённые тексты к сегментам."""
     result = []
     for seg, translated_text in zip(segments, texts):
+        qa_flags = list(seg.qa_flags)
+        source = seg.source_text.strip()
+        translated = translated_text.strip()
+        if not translated:
+            qa_flags.append("translation_empty")
+        elif source and translated == source:
+            qa_flags.append("translation_fallback_source")
         result.append(
             Segment(
                 id=seg.id,
@@ -206,6 +213,7 @@ def _apply_translations(segments: list[Segment], texts: list[str]) -> list[Segme
                 translated_text=translated_text,
                 speaker_id=seg.speaker_id,
                 confidence=seg.confidence,
+                qa_flags=qa_flags,
             )
         )
     return result

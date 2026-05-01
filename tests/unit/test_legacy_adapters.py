@@ -117,6 +117,34 @@ class LegacyAdaptersTest(unittest.TestCase):
             self.assertEqual(video.written_to, str(output))
             self.assertTrue(video.closed)
 
+    def test_renderer_marks_speed_fallback(self):
+        """Если ускорение вернуло исходный клип, сегмент получает QA-флаг."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = _project(temp_dir)
+            tts_path = project.work_dir / "tts" / "seg_1.mp3"
+            tts_path.write_bytes(b"speech")
+            segment = Segment(
+                id="seg_1",
+                start=0.0,
+                end=1.0,
+                source_text="Hello",
+                translated_text="Привет",
+                tts_path="tts/seg_1.mp3",
+            )
+            video = _FakeVideo(audio=None)
+            renderer = MoviePyVoiceoverRenderer(
+                video_clip_factory=lambda _path: video,
+                audio_clip_factory=lambda path: _FakeAudio(path=path, duration=1.1),
+                composite_audio_factory=lambda clips: _FakeCompositeAudio(clips),
+                volume_filter=lambda clip, volume: clip,
+                speed_effect_factory=lambda clip, factor: clip,
+            )
+
+            renderer.render(project, [segment])
+
+            self.assertIn("render_speed_fallback", segment.qa_flags)
+
     def test_cli_builds_legacy_stage_chain(self):
         """CLI должен уметь собрать цепочку провайдеров устаревшего скрипта."""
 

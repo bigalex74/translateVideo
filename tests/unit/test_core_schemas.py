@@ -43,6 +43,21 @@ class SegmentTest(unittest.TestCase):
         self.assertEqual(segment.source_text, text)
         self.assertEqual(segment.translated_text, text)
 
+    def test_qa_flags_roundtrip(self):
+        """QA-флаги сегмента должны сохраняться в JSON-представлении."""
+
+        segment = Segment(
+            start=0.0,
+            end=1.0,
+            source_text="Hello",
+            translated_text="Hello",
+            qa_flags=["translation_fallback_source"],
+        )
+
+        restored = Segment.from_dict(segment.to_dict())
+
+        self.assertEqual(restored.qa_flags, ["translation_fallback_source"])
+
 
 class VideoProjectTest(unittest.TestCase):
     """Проверяет сериализацию проекта перевода."""

@@ -30,6 +30,7 @@ def build_review_artifact(
 
     segment_rows = []
     needs_review_count = 0
+    qa_flag_counts: dict[str, int] = {}
 
     for seg in segments:
         translated = seg.translated_text.strip()
@@ -38,6 +39,8 @@ def build_review_artifact(
         needs_review = not translated or translated == source
         if needs_review:
             needs_review_count += 1
+        for flag in seg.qa_flags:
+            qa_flag_counts[flag] = qa_flag_counts.get(flag, 0) + 1
         segment_rows.append(
             {
                 "id": seg.id,
@@ -46,6 +49,7 @@ def build_review_artifact(
                 "source_text": seg.source_text,
                 "translated_text": seg.translated_text,
                 "needs_review": needs_review,
+                "qa_flags": list(seg.qa_flags),
                 "status": seg.status,
             }
         )
@@ -54,6 +58,8 @@ def build_review_artifact(
         "reviewed_at": datetime.now(UTC).isoformat(),
         "total_segments": len(segments),
         "needs_review_count": needs_review_count,
+        "qa_flag_counts": qa_flag_counts,
+        "quality_warnings_count": sum(qa_flag_counts.values()),
         "segments": segment_rows,
     }
     if config_dict is not None:

@@ -1,6 +1,8 @@
 import React from 'react';
 import { artifactDownloadUrl } from '../api/client';
 import type { ArtifactRecord } from '../types/schemas';
+import type { AppLocale } from '../store/settings';
+import { t } from '../i18n';
 import { Download, Copy, CheckCircle2, FileVideo, FileText, FileAudio, FileJson, File } from 'lucide-react';
 import './ArtifactCard.css';
 
@@ -44,9 +46,10 @@ function shortChecksum(checksum?: string): string {
 interface ArtifactCardProps {
   record: ArtifactRecord;
   projectId: string;
+  locale: AppLocale;
 }
 
-export const ArtifactCard: React.FC<ArtifactCardProps> = ({ record, projectId }) => {
+export const ArtifactCard: React.FC<ArtifactCardProps> = ({ record, projectId, locale }) => {
   const [copied, setCopied] = React.useState(false);
 
   const downloadUrl = artifactDownloadUrl(projectId, record.kind);
@@ -56,7 +59,7 @@ export const ArtifactCard: React.FC<ArtifactCardProps> = ({ record, projectId })
   const sizeStr = formatBytes(record.metadata?.size_bytes as number | undefined);
   const checksumStr = shortChecksum(record.metadata?.checksum as string | undefined);
   const date = record.created_at
-    ? new Date(record.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    ? new Date(record.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
     : '';
 
   const handleCopyUrl = async () => {
@@ -84,9 +87,9 @@ export const ArtifactCard: React.FC<ArtifactCardProps> = ({ record, projectId })
         <button
           type="button"
           className="artifact-btn"
-          title="Скопировать URL API"
+          title={t('artifact.copyApiUrl', locale)}
           onClick={handleCopyUrl}
-          aria-label="Скопировать URL для API"
+          aria-label={t('artifact.copyApiUrlAria', locale)}
         >
           {copied ? <CheckCircle2 size={15} /> : <Copy size={15} />}
         </button>
@@ -94,8 +97,8 @@ export const ArtifactCard: React.FC<ArtifactCardProps> = ({ record, projectId })
           href={downloadUrl}
           download
           className="artifact-btn"
-          title="Скачать"
-          aria-label={`Скачать ${label}`}
+          title={t('artifact.download', locale)}
+          aria-label={`${t('artifact.download', locale)} ${label}`}
         >
           <Download size={15} />
         </a>

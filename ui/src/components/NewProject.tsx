@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { createProject, preflightVideo, uploadProject } from '../api/client';
 import type { PipelineConfigDraft, PreflightReport } from '../types/schemas';
-import { PROVIDER_LABELS, PROVIDER_WARNINGS } from '../i18n';
+import { providerLabels, providerWarning, t } from '../i18n';
 import { AdvancedSettings } from './AdvancedSettings';
 import { DEFAULT_CONFIG } from './advancedSettingsConfig';
-import { getPersistedProvider, persistProvider } from '../store/settings';
+import { getPersistedProvider, persistProvider, type AppLocale } from '../store/settings';
 import type { PipelineConfig } from '../types/schemas';
 import {
   Play, UploadCloud, Link as LinkIcon, FileVideo, Loader2, ShieldCheck,
@@ -15,6 +15,7 @@ import './NewProject.css';
 
 interface NewProjectProps {
   onProjectCreated: (id: string) => void;
+  locale: AppLocale;
 }
 
 // ─── Пресеты сценариев ────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ const PRESETS = [
 
 // ─── Компонент ────────────────────────────────────────────────────────────
 
-export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
+export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale }) => {
   // Шаги wizard: 0=Файл, 1=Параметры+Пресет, 2=Расширенные
   const [step, setStep] = useState(0);
 
@@ -93,7 +94,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
 
-  const providerWarning = PROVIDER_WARNINGS[provider];
+  const currentProviderWarning = providerWarning(provider, locale);
 
   /* ─── Helpers ─────────────────────────────────────────────────────────── */
 
@@ -134,14 +135,14 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
   /* ─── Preflight ────────────────────────────────────────────────────────── */
 
   const handlePreflight = async () => {
-    if (!videoUrl) { setError('Введите URL или путь к файлу.'); return; }
+    if (!videoUrl) { setError(t('newProject.needUrl', locale)); return; }
     setChecking(true);
     setError('');
     try {
       const report = await preflightVideo(videoUrl, provider);
       setPreflight(report);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка предварительной проверки');
+      setError(err instanceof Error ? err.message : t('newProject.preflightError', locale));
     } finally {
       setChecking(false);
     }
@@ -164,11 +165,11 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
 
   const handleSubmit = async () => {
     if (inputType === 'upload' && !file) {
-      setError('Пожалуйста, выберите видеофайл.');
+      setError(t('newProject.needFile', locale));
       return;
     }
     if (inputType === 'url' && !videoUrl) {
-      setError('Введите URL или путь к файлу.');
+      setError(t('newProject.needUrl', locale));
       return;
     }
     setLoading(true);
@@ -187,7 +188,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
       persistProvider(provider);
       onProjectCreated(project.project_id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка при создании проекта');
+      setError(err instanceof Error ? err.message : t('newProject.createError', locale));
     } finally {
       setLoading(false);
     }
@@ -197,15 +198,15 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
 
   const canGoStep1 = inputType === 'upload' ? !!file : !!videoUrl;
 
-  const stepTitles = ['Видеофайл', 'Параметры', 'Настройки'];
+  const stepTitles = [t('newProject.stepFile', locale), t('newProject.stepParams', locale), t('newProject.stepSettings', locale)];
 
   /* ─── Render ────────────────────────────────────────────────────────────── */
 
   return (
     <div className="new-project page-container fade-in">
       <header className="page-header">
-        <h2>Новый перевод</h2>
-        <p className="subtitle">Загрузите видео — ИИ-конвейер переведёт всё остальное.</p>
+        <h2>{t('newProject.title', locale)}</h2>
+        <p className="subtitle">{t('newProject.subtitle', locale)}</p>
       </header>
 
       {/* Индикатор шагов */}
@@ -229,10 +230,10 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
           <>
             <div className="input-type-toggle">
               <button type="button" className={inputType === 'upload' ? 'active' : ''} onClick={() => setInputType('upload')}>
-                <UploadCloud size={16} /> Загрузить файл
+                <UploadCloud size={16} /> {t('newProject.uploadFile', locale)}
               </button>
               <button type="button" className={inputType === 'url' ? 'active' : ''} onClick={() => setInputType('url')}>
-                <LinkIcon size={16} /> URL / путь на сервере
+                <LinkIcon size={16} /> {t('newProject.urlPath', locale)}
               </button>
             </div>
 
@@ -249,19 +250,19 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
                     <FileVideo size={48} className="text-accent" />
                     <span className="file-name">{file.name}</span>
                     <span className="file-size">{(file.size / (1024 * 1024)).toFixed(2)} МБ</span>
-                    <span className="change-file">Кликните или перетащите другой файл для замены</span>
+                    <span className="change-file">{t('newProject.changeFile', locale)}</span>
                   </div>
                 ) : (
                   <div className="drop-prompt">
                     <UploadCloud size={48} className="text-muted" />
-                    <span>Перетащите видео сюда</span>
-                    <span className="text-muted text-sm">или кликните для выбора файла</span>
+                    <span>{t('newProject.dropVideo', locale)}</span>
+                    <span className="text-muted text-sm">{t('newProject.clickToChoose', locale)}</span>
                   </div>
                 )}
               </div>
             ) : (
               <div className="form-group">
-                <label>URL видео или путь на сервере</label>
+                <label>{t('newProject.urlPath', locale)}</label>
                 <input
                   className="text-input"
                   value={videoUrl}
@@ -298,13 +299,13 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
             )}
 
             <div className="form-group">
-              <label htmlFor="project-id-input">Имя проекта (необязательно)</label>
+              <label htmlFor="project-id-input">{t('newProject.projectName', locale)}</label>
               <input
                 id="project-id-input"
                 className="text-input"
                 value={projectId}
                 onChange={e => setProjectId(e.target.value)}
-                placeholder="Генерируется автоматически из имени файла"
+                placeholder={t('newProject.projectNamePlaceholder', locale)}
               />
             </div>
           </>
@@ -381,14 +382,14 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
                 value={provider}
                 onChange={e => { setProvider(e.target.value); setPreflight(null); }}
               >
-                {Object.entries(PROVIDER_LABELS).map(([key, label]) => (
+                {Object.entries(providerLabels(locale)).map(([key, label]) => (
                   <option key={key} value={key}>{label}</option>
                 ))}
               </select>
-              {providerWarning && (
+              {currentProviderWarning && (
                 <div className="provider-info">
                   <Info size={14} />
-                  {providerWarning}
+                  {currentProviderWarning}
                 </div>
               )}
             </div>
@@ -409,7 +410,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
         <div className="wizard-nav">
           {step > 0 && (
             <button type="button" className="btn-secondary" onClick={() => setStep(s => s - 1)}>
-              <ArrowLeft size={16} /> Назад
+              <ArrowLeft size={16} /> {t('newProject.back', locale)}
             </button>
           )}
           <div style={{ flex: 1 }} />
@@ -420,7 +421,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
               onClick={() => setStep(s => s + 1)}
               disabled={step === 0 && !canGoStep1}
             >
-              Далее <ArrowRight size={16} />
+              {t('newProject.next', locale)} <ArrowRight size={16} />
             </button>
           )}
           {step === 2 && (
@@ -432,7 +433,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
               disabled={loading || (inputType === 'upload' && !file)}
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-              {loading ? 'Создание проекта…' : 'Создать проект'}
+              {loading ? t('newProject.creatingProject', locale) : t('newProject.createProject', locale)}
             </button>
           )}
           {step < 2 && step > 0 && (
@@ -445,7 +446,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated }) => {
               style={{ marginLeft: 8 }}
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-              {loading ? 'Создание…' : 'Создать'}
+              {loading ? t('newProject.creating', locale) : t('newProject.create', locale)}
             </button>
           )}
         </div>

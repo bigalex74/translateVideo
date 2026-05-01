@@ -1,5 +1,34 @@
 # Журнал Изменений
 
+## 1.6.0 - 2026-05-01 - MINOR - TVIDEO-032..035
+
+### TVIDEO-032: RU/EN локализация UI
+- Русский язык остался языком по умолчанию.
+- Добавлен выбор языка интерфейса `ru/en` в настройках.
+- Основные экраны UI, статусы, этапы, провайдеры и QA-сводка переведены через
+  централизованные словари.
+- Добавлены unit- и browser E2E-проверки переключения языка.
+
+### TVIDEO-033: QA metadata деградаций
+- Сегменты получили машинно-читаемые `qa_flags`.
+- Перевод помечает пустой перевод и fallback на исходный текст.
+- TTS помечает pre-trim текста перед синтезом.
+- Render помечает speed fallback, ускорение и обрезку аудио.
+- `review`-артефакт агрегирует `qa_flag_counts` и `quality_warnings_count`.
+- UI показывает технические предупреждения в QA-сводке.
+
+### TVIDEO-034: Real fullstack browser E2E
+- Добавлен Playwright-конфиг против реального FastAPI backend.
+- Fullstack smoke: UI build -> backend -> upload -> fake run -> artifacts.
+- API client теперь использует относительный `/api/v1`, когда UI отдан FastAPI,
+  и `localhost:8002` только для Vite dev server.
+- `make test:release` включает fullstack browser E2E.
+
+### TVIDEO-035: Синхронизация документации
+- Roadmap, стратегия тестирования и процесс разработки обновлены под текущее
+  состояние проекта.
+- Версия поднята до `1.6.0`.
+
 ## 1.5.1 - 2026-05-01 - PATCH - TVIDEO-031-release-gate
 
 - Исправлен release gate: `npm run lint` и Playwright E2E снова проходят.

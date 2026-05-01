@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, Info, Play, RefreshCw, X } from 'lucide-react';
-import { PROVIDER_WARNINGS, needsReviewCount } from '../i18n';
+import { needsReviewCount, providerWarning, t } from '../i18n';
+import type { AppLocale } from '../store/settings';
 import type { Segment } from '../types/schemas';
 import './ConfirmRunModal.css';
 
@@ -9,6 +10,7 @@ interface ConfirmRunModalProps {
   provider: string;
   isForce: boolean;
   segments: Segment[];
+  locale: AppLocale;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -18,11 +20,12 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
   provider,
   isForce,
   segments,
+  locale,
   onConfirm,
   onCancel,
 }) => {
   const reviewCount = needsReviewCount(segments);
-  const providerNote = PROVIDER_WARNINGS[provider];
+  const providerNote = providerWarning(provider, locale);
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-run-title">
@@ -30,16 +33,16 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
         <div className="modal-header">
           <AlertTriangle size={22} className="text-warning" />
           <h3 id="confirm-run-title">
-            {isForce ? 'Запустить заново?' : 'Продолжить перевод?'}
+            {isForce ? t('modal.runAgain', locale) : t('modal.continueTranslation', locale)}
           </h3>
-          <button className="btn-icon" onClick={onCancel} aria-label="Закрыть">
+          <button className="btn-icon" onClick={onCancel} aria-label={t('modal.close', locale)}>
             <X size={18} />
           </button>
         </div>
 
         <div className="modal-body">
           <div className="modal-project-id">
-            Проект: <strong>{projectId}</strong>
+            {t('modal.project', locale)}: <strong>{projectId}</strong>
           </div>
 
           {/* Информация о провайдере — только если есть что сказать пользователю */}
@@ -54,10 +57,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
           {!isForce && (
             <div className="modal-warning modal-warning--info">
               <Info size={14} />
-              <span>
-                Уже завершённые этапы будут пропущены. Выполнение продолжится
-                с первого незавершённого или упавшего этапа.
-              </span>
+              <span>{t('modal.resumeNote', locale)}</span>
             </div>
           )}
 
@@ -65,10 +65,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
           {isForce && (
             <div className="modal-warning modal-warning--danger">
               <AlertTriangle size={14} />
-              <span>
-                Все этапы обработки будут запущены заново, включая уже завершённые.
-                Готовые файлы будут перезаписаны.
-              </span>
+              <span>{t('modal.forceNote', locale)}</span>
             </div>
           )}
 
@@ -77,8 +74,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
             <div className="modal-warning modal-warning--warn">
               <AlertTriangle size={14} />
               <span>
-                <strong>{reviewCount} из {segments.length} сегментов</strong> не переведены.
-                Рекомендуем заполнить их в редакторе перед запуском озвучки.
+                <strong>{reviewCount} / {segments.length}</strong> {t('modal.reviewPrefix', locale)}
               </span>
             </div>
           )}
@@ -86,12 +82,12 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onCancel}>
-            Отмена
+            {t('modal.cancel', locale)}
           </button>
           <button className="btn-primary" onClick={onConfirm} autoFocus>
             {isForce
-              ? <><RefreshCw size={16} /> Запустить заново</>
-              : <><Play size={16} /> Продолжить</>
+              ? <><RefreshCw size={16} /> {t('modal.runAgainButton', locale)}</>
+              : <><Play size={16} /> {t('modal.continueButton', locale)}</>
             }
           </button>
         </div>
