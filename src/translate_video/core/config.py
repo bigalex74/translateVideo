@@ -56,6 +56,14 @@ class QualityGate(StrEnum):
     STRICT = "strict"
 
 
+class TimingPolicy(StrEnum):
+    """Стратегия сохранения естественности речи при подгонке таймингов."""
+
+    NATURAL_VOICE = "natural_voice"
+    SPEEDUP_ALLOWED = "speedup_allowed"
+    STRICT_SLOT = "strict_slot"
+
+
 @dataclass(slots=True)
 class PipelineConfig:
     """Языконезависимые настройки одного проекта перевода видео."""
@@ -77,17 +85,26 @@ class PipelineConfig:
     background_ducking: bool = True
     subtitle_formats: list[str] = field(default_factory=lambda: ["srt"])
     glossary_path: Path | None = None
-    # ── Адаптивный rate TTS (TVIDEO-040b) ────────────────────────────────────
-    # Если TTS-аудио длиннее слота более чем на tts_rate_slack,
-    # автоматически переозвучиваем с бОльшим rate (без изменения тона).
-    tts_base_rate: int = 5          # базовый rate TTS в % (+5 = чуть быстрее нормы)
-    tts_max_rate: int = 40          # максимальный rate при адаптации
+    # ── Естественный голос и подгонка таймингов (TVIDEO-042) ─────────────────
+    # По умолчанию не ускоряем голос. Сначала пытаемся сделать текст короче,
+    # затем мягко сдвигаем соседние реплики, если TTS всё равно не помещается.
+    timing_policy: TimingPolicy = TimingPolicy.NATURAL_VOICE
+    target_chars_per_second: float = 14.0
+    timing_fit_max_rewrites: int = 3
+    allow_tts_rate_adaptation: bool = False
+    allow_render_audio_speedup: bool = False
+    allow_timeline_shift: bool = True
+    max_timeline_shift: float = 1.5
+
+    # ── Адаптивный rate TTS (явный fast-режим, не дефолт) ────────────────────
+    tts_base_rate: int = 0          # базовый rate TTS в %; 0 = естественная скорость
+    tts_max_rate: int = 0           # 0 = адаптивное ускорение выключено
     tts_rate_slack: float = 1.03    # 3% запас перед решением об ускорении
 
     # ── Безопасный рендер озвучки (TVIDEO-041) ───────────────────────────────
     # По умолчанию запрещаем обрезку TTS-аудио: потеря смысла хуже, чем
     # контролируемое наложение, которое видно в QA-отчёте.
-    render_max_speed: float = 1.3
+    render_max_speed: float = 1.0
     render_gap: float = 0.05
     allow_render_audio_trim: bool = False
 
@@ -125,12 +142,19 @@ class PipelineConfig:
                 "adaptation_level": AdaptationLevel(data.get("adaptation_level", "natural")),
                 "voice_strategy": VoiceStrategy(data.get("voice_strategy", "single")),
                 "quality_gate": QualityGate(data.get("quality_gate", "balanced")),
-                # Адаптивный TTS rate — дефолты для совместимости со старыми project.json
-                "tts_base_rate": int(data.get("tts_base_rate", 5)),
-                "tts_max_rate": int(data.get("tts_max_rate", 40)),
+                "timing_policy": TimingPolicy(data.get("timing_policy", "natural_voice")),
+                "target_chars_per_second": float(data.get("target_chars_per_second", 14.0)),
+                "timing_fit_max_rewrites": int(data.get("timing_fit_max_rewrites", 3)),
+                "allow_tts_rate_adaptation": bool(data.get("allow_tts_rate_adaptation", False)),
+                "allow_render_audio_speedup": bool(data.get("allow_render_audio_speedup", False)),
+                "allow_timeline_shift": bool(data.get("allow_timeline_shift", True)),
+                "max_timeline_shift": float(data.get("max_timeline_shift", 1.5)),
+                # Адаптивный TTS rate — только для явного fast-режима
+                "tts_base_rate": int(data.get("tts_base_rate", 0)),
+                "tts_max_rate": int(data.get("tts_max_rate", 0)),
                 "tts_rate_slack": float(data.get("tts_rate_slack", 1.03)),
                 # Безопасный рендер — дефолты для совместимости
-                "render_max_speed": float(data.get("render_max_speed", 1.3)),
+                "render_max_speed": float(data.get("render_max_speed", 1.0)),
                 "render_gap": float(data.get("render_gap", 0.05)),
                 "allow_render_audio_trim": bool(data.get("allow_render_audio_trim", False)),
                 # Regroup — дефолт для совместимости
