@@ -8,6 +8,7 @@ from translate_video.core.schemas import Segment, VideoProject
 from translate_video.pipeline import (
     ExtractAudioStage,
     PipelineRunner,  # noqa: F401 — переэкспорт для удобства
+    RegroupStage,
     RenderStage,
     TTSStage,
     TranscribeStage,
@@ -85,6 +86,7 @@ def build_stages(provider: str) -> list:
         return [
             ExtractAudioStage(FakeMediaProvider()),
             TranscribeStage(FakeTranscriber()),
+            RegroupStage(),
             TranslateStage(FakeTranslator()),
             TTSStage(FakeTTSProvider()),
             RenderStage(FakeRenderer()),
@@ -99,6 +101,7 @@ def build_stages(provider: str) -> list:
         return [
             ExtractAudioStage(LegacyMoviePyMediaProvider()),
             TranscribeStage(FasterWhisperTranscriber()),
+            RegroupStage(),
             TranslateStage(GoogleSegmentTranslator()),
             TTSStage(EdgeTTSProvider()),
             RenderStage(MoviePyVoiceoverRenderer()),
