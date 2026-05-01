@@ -140,7 +140,7 @@ class ProviderPayloadTest(unittest.TestCase):
         with patch.dict("os.environ", {"AIHUBMIX_API_KEY": "secret"}, clear=True):
             provider = OpenAICompatibleRewriteProvider.aihubmix_from_env()
 
-        self.assertEqual(provider.model, "gemini-3-flash-preview-free")
+        self.assertEqual(provider.model, "gpt-4.1-nano-free")
 
     def test_polza_default_model_is_configured(self):
         """Polza.ai по умолчанию использует выбранную пользователем модель."""
