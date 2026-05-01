@@ -1,30 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Save, CheckCircle2 } from 'lucide-react';
 import { PROVIDER_LABELS } from '../i18n';
-
-// ─── localStorage helpers ──────────────────────────────────────────────────
-
-const LS_WEBHOOK  = 'tv_webhook_url';
-const LS_PROVIDER = 'tv_default_provider';
-const LS_THEME    = 'tv_theme';
-const LS_FONTSIZE = 'tv_large_text';
-
-export function getPersistedWebhook(): string  { return localStorage.getItem(LS_WEBHOOK)  ?? ''; }
-export function getPersistedProvider(): string  { return localStorage.getItem(LS_PROVIDER) ?? 'legacy'; }
-export function getPersistedTheme(): string     { return localStorage.getItem(LS_THEME)    ?? 'dark'; }
-export function getPersistedLargeText(): boolean { return localStorage.getItem(LS_FONTSIZE) === 'true'; }
-
-function persistWebhook(v: string)  { if (v) localStorage.setItem(LS_WEBHOOK, v);  else localStorage.removeItem(LS_WEBHOOK); }
-function persistProvider(v: string) { localStorage.setItem(LS_PROVIDER, v); }
-function persistTheme(v: string)    { localStorage.setItem(LS_THEME, v); }
-function persistLargeText(v: boolean) { localStorage.setItem(LS_FONTSIZE, String(v)); }
-
-// ─── Theme application ─────────────────────────────────────────────────────
-
-export function applyTheme(theme: string, largeText: boolean) {
-  document.documentElement.setAttribute('data-theme', theme);
-  document.documentElement.classList.toggle('large-text', largeText);
-}
+import {
+  applyTheme,
+  getPersistedLargeText,
+  getPersistedProvider,
+  getPersistedTheme,
+  getPersistedWebhook,
+  persistLargeText,
+  persistProvider,
+  persistTheme,
+  persistWebhook,
+} from '../store/settings';
 
 // ─── Component ─────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-.PHONY: help build deploy restart logs test lint ui-build ui-dev
+.PHONY: help build deploy restart logs status test test\:ui test\:e2e test\:load test\:all test\:release lint ui-build ui-dev
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -49,13 +49,32 @@ test:
 test\:ui:
 	cd ui && npm test
 
-## test:all: Запустить все тесты (Python + vitest)
+## test:e2e: Запустить browser E2E через Playwright
+test\:e2e:
+	cd ui && npm run test:e2e
+
+## test:load: Запустить нагрузочные smoke-тесты
+test\:load:
+	PYTHONPATH=src python3 -m unittest discover -s tests/load
+
+## test:all: Запустить unit/integration тесты (Python + vitest)
 test\:all:
 	PYTHONPATH=src python3 -m unittest discover -s tests -q
 	cd ui && npm test
 
-## lint: Проверить типы TypeScript + синтаксис Python
+## test:release: Полный release gate перед merge в master
+test\:release:
+	PYTHONPATH=src python3 -m unittest discover -s tests
+	python3 -m compileall -q src tests
+	cd ui && npm run lint
+	cd ui && npm run test
+	cd ui && npm run build
+	cd ui && npm run test:e2e
+	git diff --check
+
+## lint: Проверить ESLint, типы TypeScript и синтаксис Python
 lint:
+	cd ui && npm run lint
 	cd ui && npx tsc --noEmit
 	python3 -m compileall -q src tests
 
