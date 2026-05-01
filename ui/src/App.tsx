@@ -1,18 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Workspace } from './components/Workspace';
 import { NewProject } from './components/NewProject';
 import { Settings as SettingsPage } from './components/Settings';
-import { LayoutList, PlusCircle, Settings, Video } from 'lucide-react';
+import { applyTheme, getPersistedTheme, getPersistedLargeText } from './components/Settings';
+import { LayoutList, PlusCircle, Settings, Video, Sun, Moon } from 'lucide-react';
 import './App.css';
 
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'new_project' | 'workspace' | 'settings'>('dashboard');
   const [activeProject, setActiveProject] = useState<string | null>(null);
+  const [theme, setTheme] = useState(getPersistedTheme);
+  const largeText = getPersistedLargeText();
+
+  // Применяем тему при монтировании и при изменении
+  useEffect(() => {
+    applyTheme(theme, largeText);
+  }, [theme, largeText]);
 
   const openWorkspace = (id: string) => {
     setActiveProject(id);
     setCurrentView('workspace');
+  };
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('tv_theme', next);
   };
 
   return (
@@ -21,6 +35,14 @@ function App() {
         <div className="sidebar-header">
           <Video className="text-accent" size={24} />
           <h1>ИИ Переводчик</h1>
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            aria-label="Переключить тему"
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
         </div>
         <nav>
           <ul>
