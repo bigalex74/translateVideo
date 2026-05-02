@@ -11,6 +11,9 @@ from translate_video.pipeline.context import StageContext
 
 _log = get_logger(__name__)
 
+# Платные провайдеры, для которых делаем балансовые снапшоты.
+_BILLING_PROVIDERS = ("polza", "neuroapi")
+
 
 class PipelineCancelledError(Exception):
     """Пайплайн прерван по запросу пользователя."""
@@ -54,8 +57,14 @@ class PipelineRunner:
             # При force-запуске чистим историю этапов — чтобы UI показывал
             # только текущий прогон, а не артефакты предыдущих.
             context.project.stage_runs = []
+            context.project.billing_snapshots = {}  # чистим старые снапшоты
             _log.info("pipeline.stage_runs_reset", project=project_id)
         context.store.save_project(context.project)
+
+        # ── Снапшот баланса ДО запуска этапов ──────────────────────────────
+        _snapshot_balances(context, suffix="before")
+        context.store.save_project(context.project)
+
         runs: list[StageRun] = []
 
         with Timer() as total:
@@ -100,6 +109,10 @@ class PipelineRunner:
             else:
                 context.project.status = ProjectStatus.COMPLETED
                 context.store.save_project(context.project)
+
+        # ── Снапшот баланса ПОСЛЕ завершения этапов ────────────────────────
+        _snapshot_balances(context, suffix="after")
+        context.store.save_project(context.project)
 
         total_s = total.elapsed
         _log.info(
@@ -156,3 +169,37 @@ def _elapsed_from_run(run: StageRun) -> float | None:
         return round((end - start).total_seconds(), 2)
     except (ValueError, TypeError):
         return None
+
+
+def _snapshot_balances(context: StageContext, *, suffix: str) -> None:
+    """Записать баланс каждого платного провайдера в context.project.billing_snapshots.
+
+    suffix = "before" | "after"
+    Ошибки сети/API логируются, но не прерывают пайплайн.
+    """
+    from translate_video.core.provider_catalog import get_provider_balance  # lazy
+
+    for provider in _BILLING_PROVIDERS:
+        key = f"{provider}_{suffix}"
+        try:
+            balance = get_provider_balance(provider)
+            # Сохраняем текущий остаток счёта (balance.balance).
+            # Расход = before.balance - after.balance
+            if balance.configured and balance.balance is not None:
+                context.project.billing_snapshots[key] = balance.balance
+                _log.info(
+                    "billing.snapshot",
+                    provider=provider,
+                    suffix=suffix,
+                    balance=balance.balance,
+                    currency=balance.currency,
+                )
+            elif not balance.configured:
+                _log.debug("billing.skip", provider=provider, reason="not_configured")
+        except Exception as exc:  # noqa: BLE001
+            _log.warning(
+                "billing.snapshot_error",
+                provider=provider,
+                suffix=suffix,
+                error=str(exc),
+            )
