@@ -43,6 +43,7 @@ import urllib.request
 
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import Segment
+from translate_video.tts import stress as _stress
 
 _log = get_logger(__name__)
 
@@ -88,6 +89,7 @@ class YandexSpeechKitTTSProvider:
         role_2: str = "neutral",
         speed: float = 1.0,
         timeout: float = 60.0,
+        use_stress: bool = True,
         http_post=None,
     ) -> None:
         self.api_key = api_key
@@ -97,6 +99,7 @@ class YandexSpeechKitTTSProvider:
         self.role_2 = role_2
         self.speed = speed
         self.timeout = timeout
+        self.use_stress = use_stress
         self._http_post = http_post or _post_streaming
 
     def synthesize(self, project, segments: list[Segment]) -> list[Segment]:
@@ -121,6 +124,10 @@ class YandexSpeechKitTTSProvider:
 
             output = output_dir / f"{segment.id or index}.mp3"
             segment.tts_text = text
+
+            # Автоматическая расстановка ударений (ruaccent)
+            if self.use_stress:
+                text = _stress.process(text)
 
             with Timer() as t:
                 try:
@@ -241,6 +248,7 @@ def build_speechkit_tts_provider(config) -> YandexSpeechKitTTSProvider | None:
         role_1=getattr(config, "professional_tts_role", "neutral"),
         role_2=getattr(config, "professional_tts_role_2", "neutral"),
         speed=float(getattr(config, "professional_tts_speed", 1.0)),
+        use_stress=bool(getattr(config, "professional_tts_stress", True)),
     )
 
 

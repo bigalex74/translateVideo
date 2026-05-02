@@ -163,6 +163,7 @@ class PipelineConfig:
     professional_tts_role: str = "neutral"        # роль голоса 1 (Yandex SpeechKit)
     professional_tts_role_2: str = "neutral"      # роль голоса 2 (Yandex SpeechKit)
     professional_tts_speed: float = 1.0           # скорость речи (Yandex: 0.1-10.0)
+    professional_tts_stress: bool = True           # авто-ударения через ruaccent (только Yandex)
 
     # ── Адаптивный rate TTS (явный fast-режим, не дефолт) ────────────────────
     tts_base_rate: int = 0          # базовый rate TTS в %; 0 = естественная скорость
@@ -297,6 +298,7 @@ class PipelineConfig:
                 "professional_tts_role": str(data.get("professional_tts_role", "neutral")),
                 "professional_tts_role_2": str(data.get("professional_tts_role_2", "neutral")),
                 "professional_tts_speed": float(data.get("professional_tts_speed", 1.0)),
+                "professional_tts_stress": bool(data.get("professional_tts_stress", True)),
                 # Адаптивный TTS rate — только для явного fast-режима
                 "tts_base_rate": int(data.get("tts_base_rate", 0)),
                 "tts_max_rate": int(data.get("tts_max_rate", 0)),
