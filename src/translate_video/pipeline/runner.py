@@ -50,6 +50,11 @@ class PipelineRunner:
         )
 
         context.project.status = ProjectStatus.RUNNING
+        if self.force:
+            # При force-запуске чистим историю этапов — чтобы UI показывал
+            # только текущий прогон, а не артефакты предыдущих.
+            context.project.stage_runs = []
+            _log.info("pipeline.stage_runs_reset", project=project_id)
         context.store.save_project(context.project)
         runs: list[StageRun] = []
 

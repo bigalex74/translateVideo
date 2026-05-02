@@ -645,13 +645,25 @@ def _translate_with_optional_progress(
 
 
 def _emit_progress(callback, current: int, total: int, message: str) -> None:
-    """Безопасно отправить прогресс перевода в StageRun."""
+    """Безопасно отправить прогресс перевода в StageRun.
+
+    PipelineCancelledError пробрасывается наверх — это штатный сигнал отмены,
+    а не ошибка прогресса.
+    """
 
     if callback is None:
         return
     try:
         callback(current, total, message)
     except Exception as exc:  # noqa: BLE001 - прогресс не должен валить перевод.
+        # PipelineCancelledError — штатный сигнал отмены, пробрасываем.
+        # Импортируем здесь чтобы избежать циклических зависимостей.
+        try:
+            from translate_video.pipeline.runner import PipelineCancelledError
+            if isinstance(exc, PipelineCancelledError):
+                raise
+        except ImportError:
+            pass
         _log.warning("translation.progress_failed", error=str(exc))
 
 

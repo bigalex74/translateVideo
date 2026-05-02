@@ -1,5 +1,25 @@
 # Журнал Изменений
 
+## 1.22.2 - 2026-05-02 - FIX - TVIDEO-076
+
+### Отмена перевода теперь работает + сброс stage_runs при force restart
+
+**Баг 1: _emit_progress поглощал PipelineCancelledError**
+- cloud.py _emit_progress ловил ВСЕ исключения включая PipelineCancelledError.
+- Логировал как translation.progress_failed и продолжал перевод.
+- Исправление: PipelineCancelledError пробрасывается наверх через isinstance-check.
+- Теперь отмена срабатывает после текущего LLM-вызова (1-15 сек).
+
+**Баг 2: stage_runs накапливались бесконечно (80+ записей)**
+- При каждом запуске добавлялись новые stage_runs, старые не удалялись.
+- При force=True UI показывал данные из СТАРЫХ прогонов.
+- Исправление: runner.py при force=True сбрасывает project.stage_runs = [].
+
+**Тесты (+5 Python)**:
+- EmitProgressCancelPropagation: 3 теста (_emit_progress пробрасывает cancel)
+- ForceRunStageRunsReset: 2 теста (stage_runs сбрасываются при force=True)
+324 Python ✅
+
 ## 1.22.1 - 2026-05-02 - FIX - TVIDEO-074
 
 ### Отмена перевода срабатывает мгновенно — проверка между сегментами
