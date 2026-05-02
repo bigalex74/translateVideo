@@ -10,7 +10,7 @@
 пересчитываются, статус сегментов устаревший и вводит в заблуждение.
 
 Исправление: блок reviewCount показывается только при resume (isForce=False).
-324 Python + 93 Vitest ✅
+324 Python + 101 Vitest ✅ (+8 тестов confirm_run_modal.test.ts)
 
 ## 1.22.2 - 2026-05-02 - FIX - TVIDEO-076
 
