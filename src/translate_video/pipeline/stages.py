@@ -204,12 +204,17 @@ class TranslateStage(BaseStage):
 
     def run(self, context: StageContext) -> StageRun:
         def action(run: StageRun) -> tuple[list[str], list[str]]:
+            from translate_video.pipeline.runner import PipelineCancelledError
             source_transcript = _required_artifact(context, ArtifactKind.SOURCE_TRANSCRIPT)
             if not context.project.segments:
                 raise ValueError("исходный transcript не содержит сегментов")
 
             def on_progress(current: int, total: int, message: str | None) -> None:
-                """Сохранить прогресс перевода для UI и API-поллинга."""
+                """Сохранить прогресс перевода для UI и API-поллинга.
+
+                Проверяем cancel_event после каждого сегмента — отмена
+                срабатывает без ожидания окончания всего этапа.
+                """
 
                 run.progress_current = current
                 run.progress_total = total
@@ -221,6 +226,11 @@ class TranslateStage(BaseStage):
                     total=total,
                     message=message,
                 )
+                # Проверяем флаг отмены после каждого сегмента
+                if context.cancel_event.is_set():
+                    raise PipelineCancelledError(
+                        f"cancel запрошен на сегменте {current}/{total}"
+                    )
 
             translated_segments = _translate_with_progress(
                 self.translator,
@@ -252,6 +262,7 @@ class TimingFitStage(BaseStage):
 
     def run(self, context: StageContext) -> StageRun:
         def action(run: StageRun) -> tuple[list[str], list[str]]:
+            from translate_video.pipeline.runner import PipelineCancelledError
             translated_transcript = _required_artifact(
                 context,
                 ArtifactKind.TRANSLATED_TRANSCRIPT,
@@ -272,6 +283,10 @@ class TimingFitStage(BaseStage):
                     total=total,
                     message=message,
                 )
+                if context.cancel_event.is_set():
+                    raise PipelineCancelledError(
+                        f"cancel запрошен на сегменте {current}/{total}"
+                    )
 
             segments = self.timing_fitter.fit(
                 context.project,

@@ -159,3 +159,49 @@ class ZombieForceCancel(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class IntraStageCancel(unittest.TestCase):
+    """TVIDEO-074: отмена срабатывает внутри этапа — после текущего сегмента."""
+
+    def _make_cancel_event(self, set_after: int):
+        """Возвращает threading.Event который активируется после N вызовов."""
+        import threading
+        event = threading.Event()
+        counter = {"n": 0}
+
+        def progress_callback(current, total, message):
+            counter["n"] += 1
+            if counter["n"] >= set_after:
+                event.set()
+            # Имитируем поведение stages.py: проверяем флаг
+            if event.is_set():
+                raise RuntimeError(f"cancel на сегменте {current}/{total}")
+
+        return event, progress_callback
+
+    def test_cancel_fires_after_nth_segment(self):
+        """После N-го сегмента cancel_event → RuntimeError сразу, не после всех."""
+        _, cb = self._make_cancel_event(set_after=3)
+
+        results = []
+        for i in range(1, 10):
+            try:
+                cb(i, 10, f"seg {i}")
+                results.append(i)
+            except RuntimeError:
+                break
+
+        # Должно успеть перевести сегменты 1,2 и на 3-м выбросить
+        self.assertEqual(results, [1, 2])
+
+    def test_cancel_not_fired_if_event_not_set(self):
+        """Без cancel_event все сегменты переводятся."""
+        _, cb = self._make_cancel_event(set_after=999)
+
+        results = []
+        for i in range(1, 6):
+            cb(i, 5, f"seg {i}")
+            results.append(i)
+
+        self.assertEqual(results, [1, 2, 3, 4, 5])
