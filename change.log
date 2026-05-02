@@ -1,5 +1,25 @@
 # Журнал Изменений
 
+## 1.22.11 - 2026-05-02 - FIX - TVIDEO-084
+
+### StatsPanel: исправлен скролл (flex:1 + min-height:0)
+
+**Баг**: StatsPanel не скроллилась несмотря на overflow-y:auto.
+
+**Причина**: два связанных CSS-просчёта:
+1. overflow:visible на контейнере — контент вытекал, скролла не было
+2. .stats-panel не имел flex:1 + min-height:0 — без этих свойств flex-child
+   растёт в бесконечность и overflow-y:auto никогда не срабатывает
+
+**Исправление**:
+- .right-tab-content--stats: убран overflow:visible (наследует hidden от --flush)
+- .stats-panel: добавлено flex:1 + min-height:0 — критичная пара для
+  скролла внутри flex-контейнера
+
+**Playwright тест** (TVIDEO-084): проверяет scrollHeight > clientHeight и
+что scrollTop меняется после прокрутки. Это ловит именно CSS-скролл баги
+которые нельзя проверить unit-тестами.
+
 ## 1.22.10 - 2026-05-02 - FEAT - TVIDEO-083
 
 ### Биллинг: реальные данные из снапшотов баланса
