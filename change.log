@@ -1,5 +1,27 @@
 # Журнал Изменений
 
+## 1.22.4 - 2026-05-02 - FIX - TVIDEO-078
+
+### Live QA флаги в overlay — появляются в реальном времени
+
+**Проблема**: qa_flags были пустыми во время перевода т.к. save_segments()
+вызывался только ПОСЛЕ перевода всех 47 сегментов. UI polling не видел флаги.
+
+**Исправление**:
+- cloud.py translate(): добавлен segment_callback(segment), вызывается после
+  каждого переведённого сегмента. Exception в callback поглощается.
+- stages.py TranslateStage: on_segment() сохраняет сегмент в project и
+  вызывает save_project() — polling видит qa_flags сразу.
+- stages.py _translate_with_progress: пробрасывает segment_callback в translator.
+
+**Тесты** (+5 Python в test_live_qa_segment_callback.py):
+- segment_callback пробрасывается в translator (1)
+- backward compat без callback (1)
+- CloudFallbackSegmentTranslator вызывает callback для каждого сегмента (1)
+- Exception в callback не прерывает перевод (1)
+- Без callback работает штатно (1)
+329 Python + 101 Vitest ✅
+
 ## 1.22.3 - 2026-05-02 - FIX - TVIDEO-077
 
 ### ConfirmRunModal: убрано предупреждение о сегментах при force-запуске

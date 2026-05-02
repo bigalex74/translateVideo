@@ -158,14 +158,20 @@ class CloudFallbackSegmentTranslator:
         segments: list[Segment],
         config: PipelineConfig,
         progress_callback=None,
+        segment_callback=None,
     ) -> list[Segment]:
-        """Перевести список сегментов через LLM или fallback-переводчик."""
+        """Перевести список сегментов через LLM или fallback-переводчик.
+
+        segment_callback(segment) — вызывается после каждого переведённого сегмента
+        для live-обновления qa_flags в UI.
+        """
 
         if self.providers is None:
             return self.from_config(config, fallback=self.fallback).translate(
                 segments,
                 config,
                 progress_callback=progress_callback,
+                segment_callback=segment_callback,
             )
         if not segments:
             return []
@@ -210,9 +216,16 @@ class CloudFallbackSegmentTranslator:
                         reason="all_providers_exhausted",
                         fallback="google",
                     )
-                    translated.append(self._fallback_one(segment, config))
+                    seg = self._fallback_one(segment, config)
                 else:
-                    translated.append(_apply_translation(segment, result.text, result.provider))
+                    seg = _apply_translation(segment, result.text, result.provider)
+                translated.append(seg)
+                # Вызываем segment_callback сразу после перевода — live QA в UI
+                if segment_callback is not None:
+                    try:
+                        segment_callback(seg)
+                    except Exception:  # noqa: BLE001
+                        pass  # сегмент-коллбэк не должен валить перевод
                 _emit_progress(
                     progress_callback,
                     index + 1,
