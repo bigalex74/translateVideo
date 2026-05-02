@@ -72,6 +72,7 @@ class CloudFallbackSegmentTranslator:
         rate_limits_rpm: dict[str, float] | None = None,
         cooldown_seconds: float = 75.0,
         wait_for_rate_limit: bool = True,
+        allow_fallback: bool = True,
         now_fn=None,
         sleep_fn=None,
     ) -> None:
@@ -81,6 +82,7 @@ class CloudFallbackSegmentTranslator:
         self.rate_limits_rpm = rate_limits_rpm or {}
         self.cooldown_seconds = cooldown_seconds
         self.wait_for_rate_limit = wait_for_rate_limit
+        self.allow_fallback = allow_fallback
         self._now = now_fn or time.monotonic
         self._sleep = sleep_fn or time.sleep
         self._cooldown_until: dict[str, float] = {}
@@ -106,22 +108,33 @@ class CloudFallbackSegmentTranslator:
             "openrouter": OpenAICompatibleTranslationProvider.openrouter_from_env,
             "aihubmix": OpenAICompatibleTranslationProvider.aihubmix_from_env,
             "polza": OpenAICompatibleTranslationProvider.polza_from_env,
+            "neuroapi": OpenAICompatibleTranslationProvider.neuroapi_from_env,
         }
         providers: list[SegmentTranslationProvider] = []
         if config.use_cloud_translation:
-            for raw_name in config.translation_provider_order:
-                name = raw_name.strip().lower()
-                if name == "google":
-                    continue
-                factory = factories.get(name)
-                if factory is None:
-                    continue
-                if name == "polza" and not allow_paid:
-                    _log.info("translation.paid_provider_skip", provider=name)
-                    continue
-                provider = factory(timeout=timeout)
+            if config.translation_quality == "professional":
+                provider = _build_professional_provider(
+                    config.professional_translation_provider,
+                    config.professional_translation_model,
+                    factories=factories,
+                    timeout=timeout,
+                )
                 if provider is not None:
                     providers.append(provider)
+            else:
+                for raw_name in config.translation_provider_order:
+                    name = raw_name.strip().lower()
+                    if name == "google":
+                        continue
+                    factory = factories.get(name)
+                    if factory is None:
+                        continue
+                    if name in {"polza", "neuroapi"} and not allow_paid:
+                        _log.info("translation.paid_provider_skip", provider=name)
+                        continue
+                    provider = factory(timeout=timeout)
+                    if provider is not None:
+                        providers.append(provider)
         return cls(
             providers=providers,
             fallback=fallback,
@@ -129,22 +142,47 @@ class CloudFallbackSegmentTranslator:
             rate_limits_rpm=config.translation_provider_rpm,
             cooldown_seconds=config.translation_provider_cooldown_seconds,
             wait_for_rate_limit=config.translation_provider_wait_for_rate_limit,
+            allow_fallback=config.translation_quality != "professional",
         )
 
-    def translate(self, segments: list[Segment], config: PipelineConfig) -> list[Segment]:
+    def translate(
+        self,
+        segments: list[Segment],
+        config: PipelineConfig,
+        progress_callback=None,
+    ) -> list[Segment]:
         """Перевести список сегментов через LLM или fallback-переводчик."""
 
         if self.providers is None:
-            return self.from_config(config, fallback=self.fallback).translate(segments, config)
+            return self.from_config(config, fallback=self.fallback).translate(
+                segments,
+                config,
+                progress_callback=progress_callback,
+            )
         if not segments:
             return []
         if not self.providers:
+            if not self.allow_fallback:
+                raise ValueError("профессиональный переводчик недоступен: проверьте ключ и модель")
             _log.warning("translation.cloud_unavailable", fallback="google", segments=len(segments))
-            return self.fallback.translate(segments, config)
+            result = _translate_with_optional_progress(
+                self.fallback,
+                segments,
+                config,
+                progress_callback=progress_callback,
+            )
+            return result
 
         translated: list[Segment] = []
+        _emit_progress(progress_callback, 0, len(segments), "Подготовка LLM-перевода")
         with Timer() as timer:
             for index, segment in enumerate(segments):
+                _emit_progress(
+                    progress_callback,
+                    index,
+                    len(segments),
+                    f"Перевод сегмента {index + 1}/{len(segments)}",
+                )
                 before, after = context_window(segments, index, size=2)
                 result = self._translate_one(
                     segment,
@@ -153,9 +191,19 @@ class CloudFallbackSegmentTranslator:
                     context_after=after,
                 )
                 if result is None:
+                    if not self.allow_fallback:
+                        raise ValueError(
+                            f"профессиональный переводчик не вернул результат для сегмента {segment.id}"
+                        )
                     translated.append(self._fallback_one(segment, config))
                 else:
                     translated.append(_apply_translation(segment, result.text, result.provider))
+                _emit_progress(
+                    progress_callback,
+                    index + 1,
+                    len(segments),
+                    f"Готово {index + 1}/{len(segments)}",
+                )
 
         _log.info(
             "translation.cloud_done",
@@ -292,17 +340,22 @@ class GeminiTranslationProvider:
         self.http_post = http_post or _post_json
 
     @classmethod
-    def from_env(cls, *, timeout: float | None = None) -> "GeminiTranslationProvider | None":
+    def from_env(
+        cls,
+        *,
+        timeout: float | None = None,
+        model: str | None = None,
+    ) -> "GeminiTranslationProvider | None":
         """Создать Gemini-провайдер из окружения, если ключ доступен."""
 
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             return None
-        model = os.getenv(
+        selected_model = model or os.getenv(
             "GEMINI_TRANSLATION_MODEL",
             os.getenv("GEMINI_REWRITE_MODEL", "gemini-2.5-flash-lite"),
         )
-        return cls(api_key=api_key, model=model, timeout=timeout or 15.0)
+        return cls(api_key=api_key, model=selected_model, timeout=timeout or 15.0)
 
     def translate_segment(
         self,
@@ -365,6 +418,7 @@ class OpenAICompatibleTranslationProvider:
         cls,
         *,
         timeout: float | None = None,
+        model: str | None = None,
     ) -> "OpenAICompatibleTranslationProvider | None":
         """Создать OpenRouter-провайдер перевода из окружения."""
 
@@ -375,7 +429,7 @@ class OpenAICompatibleTranslationProvider:
             name="openrouter",
             api_key=api_key,
             base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            model=os.getenv(
+            model=model or os.getenv(
                 "OPENROUTER_TRANSLATION_MODEL",
                 os.getenv("OPENROUTER_REWRITE_MODEL", "openai/gpt-oss-20b:free"),
             ),
@@ -391,6 +445,7 @@ class OpenAICompatibleTranslationProvider:
         cls,
         *,
         timeout: float | None = None,
+        model: str | None = None,
     ) -> "OpenAICompatibleTranslationProvider | None":
         """Создать AIHubMix-провайдер перевода из окружения."""
 
@@ -401,7 +456,7 @@ class OpenAICompatibleTranslationProvider:
             name="aihubmix",
             api_key=api_key,
             base_url=os.getenv("AIHUBMIX_BASE_URL", "https://aihubmix.com/v1"),
-            model=os.getenv("AIHUBMIX_TRANSLATION_MODEL", "gemini-3-flash-preview-free"),
+            model=model or os.getenv("AIHUBMIX_TRANSLATION_MODEL", "gemini-3-flash-preview-free"),
             timeout=timeout or 15.0,
         )
 
@@ -410,6 +465,7 @@ class OpenAICompatibleTranslationProvider:
         cls,
         *,
         timeout: float | None = None,
+        model: str | None = None,
     ) -> "OpenAICompatibleTranslationProvider | None":
         """Создать Polza.ai-провайдер перевода из окружения."""
 
@@ -420,10 +476,30 @@ class OpenAICompatibleTranslationProvider:
             name="polza",
             api_key=api_key,
             base_url=os.getenv("POLZA_BASE_URL", "https://api.polza.ai/api/v1"),
-            model=os.getenv(
+            model=model or os.getenv(
                 "POLZA_TRANSLATION_MODEL",
                 os.getenv("POLZA_REWRITE_MODEL", "google/gemini-2.5-flash-lite-preview-09-2025"),
             ),
+            timeout=timeout or 15.0,
+        )
+
+    @classmethod
+    def neuroapi_from_env(
+        cls,
+        *,
+        timeout: float | None = None,
+        model: str | None = None,
+    ) -> "OpenAICompatibleTranslationProvider | None":
+        """Создать NeuroAPI-провайдер перевода из окружения."""
+
+        api_key = os.getenv("NEUROAPI_API_KEY")
+        if not api_key:
+            return None
+        return cls(
+            name="neuroapi",
+            api_key=api_key,
+            base_url=os.getenv("NEUROAPI_BASE_URL", "https://neuroapi.host/v1"),
+            model=model or os.getenv("NEUROAPI_TRANSLATION_MODEL", "gpt-5-mini"),
             timeout=timeout or 15.0,
         )
 
@@ -497,6 +573,52 @@ def build_translation_prompt(
         f"ТЕКУЩИЙ СЕГМЕНТ ДЛЯ ПЕРЕВОДА:\n{segment.source_text.strip()}\n\n"
         f"ОТВЕТ:"
     )
+
+
+def _build_professional_provider(
+    provider_name: str,
+    model: str,
+    *,
+    factories: dict[str, Any],
+    timeout: float,
+) -> SegmentTranslationProvider | None:
+    """Собрать единственный профессиональный провайдер с выбранной моделью."""
+
+    name = provider_name.strip().lower()
+    factory = factories.get(name)
+    if factory is None:
+        _log.warning("translation.professional_provider_unknown", provider=name)
+        return None
+    provider = factory(timeout=timeout, model=model.strip() or None)
+    if provider is None:
+        _log.warning("translation.professional_provider_missing_key", provider=name)
+    return provider
+
+
+def _translate_with_optional_progress(
+    translator: Translator,
+    segments: list[Segment],
+    config: PipelineConfig,
+    *,
+    progress_callback=None,
+) -> list[Segment]:
+    """Вызвать fallback-переводчик и отдать грубый прогресс для UI."""
+
+    _emit_progress(progress_callback, 0, len(segments), "Резервный перевод")
+    result = translator.translate(segments, config)
+    _emit_progress(progress_callback, len(segments), len(segments), "Резервный перевод готов")
+    return result
+
+
+def _emit_progress(callback, current: int, total: int, message: str) -> None:
+    """Безопасно отправить прогресс перевода в StageRun."""
+
+    if callback is None:
+        return
+    try:
+        callback(current, total, message)
+    except Exception as exc:  # noqa: BLE001 - прогресс не должен валить перевод.
+        _log.warning("translation.progress_failed", error=str(exc))
 
 
 def _apply_translation(segment: Segment, translated_text: str, provider: str) -> Segment:

@@ -32,6 +32,30 @@ LLM-переводчик получает 2 предыдущих и 2 следу
 уровень адаптации, аудиторию, предметную область, глоссарий и список
 `do_not_translate`.
 
+## Профили Качества
+
+`translation_quality = amateur` — режим по умолчанию. Он использует бесплатные
+и условно бесплатные модели по рейтингу. Платные агрегаторы `polza` и
+`neuroapi` подключаются только если явно включён соответствующий
+`*_ALLOW_PAID_FALLBACK`.
+
+`translation_quality = professional` — профессиональный режим. Для перевода и
+для сокращения текста используются только выбранные провайдеры и модели:
+
+```json
+{
+  "translation_quality": "professional",
+  "professional_translation_provider": "neuroapi",
+  "professional_translation_model": "gpt-5-mini",
+  "professional_rewrite_provider": "neuroapi",
+  "professional_rewrite_model": "gpt-5-mini"
+}
+```
+
+Профессиональный режим нужен для дорогих топовых моделей: он не ходит по
+цепочке бесплатных fallback-моделей и не подменяет результат Google/rule-based.
+Если ключ, провайдер или модель недоступны, этап падает явно.
+
 ## Рейтинг Rewriter-Провайдеров
 
 Порядок по умолчанию:
@@ -72,6 +96,12 @@ POLZA_API_KEY=...
 POLZA_BASE_URL=https://api.polza.ai/api/v1
 POLZA_TRANSLATION_MODEL=google/gemini-2.5-flash-lite-preview-09-2025
 POLZA_REWRITE_MODEL=google/gemini-2.5-flash-lite-preview-09-2025
+
+NEUROAPI_API_KEY=...
+NEUROAPI_BASE_URL=https://neuroapi.host/v1
+NEUROAPI_TRANSLATION_MODEL=gpt-5-mini
+NEUROAPI_REWRITE_MODEL=gpt-5-mini
+
 TRANSLATION_ALLOW_PAID_FALLBACK=false
 REWRITE_ALLOW_PAID_FALLBACK=false
 
@@ -138,6 +168,7 @@ QA-флаги перевода:
 - `translation_provider_openrouter`: сработал OpenRouter.
 - `translation_provider_aihubmix`: сработал AIHubMix.
 - `translation_provider_polza`: сработал Polza.ai.
+- `translation_provider_neuroapi`: сработал NeuroAPI.
 - `translation_google_fallback`: сегмент переведён резервным Google Translate.
 
 QA-флаги `timing_fit`:
@@ -153,4 +184,5 @@ QA-флаги `timing_fit`:
 - `rewrite_provider_openrouter`: сработал OpenRouter.
 - `rewrite_provider_aihubmix`: сработал AIHubMix.
 - `rewrite_provider_polza`: сработал Polza.ai.
+- `rewrite_provider_neuroapi`: сработал NeuroAPI.
 - `rewrite_provider_rule_based`: сработал локальный fallback.

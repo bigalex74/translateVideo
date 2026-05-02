@@ -37,11 +37,37 @@ export const PROFANITY_LABELS: Record<string, string> = {
   remove: 'Удалить',
 };
 
+export const QUALITY_LABELS: Record<string, string> = {
+  amateur: 'Любительский: бесплатные модели + дешёвый fallback',
+  professional: 'Профессиональный: выбранная платная топ-модель',
+};
+
+export const MODEL_PROVIDER_LABELS: Record<string, string> = {
+  gemini: 'Gemini',
+  aihubmix: 'AIHubMix',
+  openrouter: 'OpenRouter',
+  polza: 'Polza.ai',
+  neuroapi: 'NeuroAPI',
+};
+
+export const PROFESSIONAL_MODEL_OPTIONS: Record<string, string[]> = {
+  neuroapi: ['gpt-5-mini', 'gpt-5', 'gpt-4.1', 'claude-sonnet-4.5'],
+  polza: ['google/gemini-2.5-pro', 'openai/gpt-5-mini', 'anthropic/claude-sonnet-4.5'],
+  openrouter: ['openai/gpt-5-mini', 'anthropic/claude-sonnet-4.5', 'google/gemini-2.5-pro'],
+  aihubmix: ['gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-4.1'],
+  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+};
+
 export const DEFAULT_CONFIG: Partial<PipelineConfig> = {
+  translation_quality: 'amateur',
   translation_style: 'neutral',
   adaptation_level: 'natural',
   voice_strategy: 'single',
   do_not_translate: [],
   profanity_policy: 'keep',
   preserve_names: true,
+  professional_translation_provider: 'neuroapi',
+  professional_translation_model: 'gpt-5-mini',
+  professional_rewrite_provider: 'neuroapi',
+  professional_rewrite_model: 'gpt-5-mini',
 };

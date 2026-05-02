@@ -56,6 +56,13 @@ class QualityGate(StrEnum):
     STRICT = "strict"
 
 
+class TranslationQualityProfile(StrEnum):
+    """Профиль качества и стоимости LLM-перевода."""
+
+    AMATEUR = "amateur"
+    PROFESSIONAL = "professional"
+
+
 class TimingPolicy(StrEnum):
     """Стратегия сохранения естественности речи при подгонке таймингов."""
 
@@ -71,6 +78,7 @@ class PipelineConfig:
     source_language: str = "auto"
     target_language: str = "ru"
     translation_mode: TranslationMode = TranslationMode.VOICEOVER
+    translation_quality: TranslationQualityProfile = TranslationQualityProfile.AMATEUR
     translation_style: TranslationStyle = TranslationStyle.NEUTRAL
     adaptation_level: AdaptationLevel = AdaptationLevel.NATURAL
     voice_strategy: VoiceStrategy = VoiceStrategy.SINGLE
@@ -138,6 +146,10 @@ class PipelineConfig:
     translation_provider_cooldown_seconds: float = 75.0
     translation_provider_wait_for_rate_limit: bool = True
     translation_allow_paid_fallback: bool = False
+    professional_translation_provider: str = "neuroapi"
+    professional_translation_model: str = "gpt-5-mini"
+    professional_rewrite_provider: str = "neuroapi"
+    professional_rewrite_model: str = "gpt-5-mini"
 
     # ── Адаптивный rate TTS (явный fast-режим, не дефолт) ────────────────────
     tts_base_rate: int = 0          # базовый rate TTS в %; 0 = естественная скорость
@@ -181,6 +193,9 @@ class PipelineConfig:
             **{
                 **data,
                 "translation_mode": TranslationMode(data.get("translation_mode", "voiceover")),
+                "translation_quality": TranslationQualityProfile(
+                    data.get("translation_quality", "amateur")
+                ),
                 "translation_style": TranslationStyle(data.get("translation_style", "neutral")),
                 "adaptation_level": AdaptationLevel(data.get("adaptation_level", "natural")),
                 "voice_strategy": VoiceStrategy(data.get("voice_strategy", "single")),
@@ -243,6 +258,18 @@ class PipelineConfig:
                 ),
                 "translation_allow_paid_fallback": bool(
                     data.get("translation_allow_paid_fallback", False)
+                ),
+                "professional_translation_provider": str(
+                    data.get("professional_translation_provider", "neuroapi")
+                ),
+                "professional_translation_model": str(
+                    data.get("professional_translation_model", "gpt-5-mini")
+                ),
+                "professional_rewrite_provider": str(
+                    data.get("professional_rewrite_provider", "neuroapi")
+                ),
+                "professional_rewrite_model": str(
+                    data.get("professional_rewrite_model", "gpt-5-mini")
                 ),
                 # Адаптивный TTS rate — только для явного fast-режима
                 "tts_base_rate": int(data.get("tts_base_rate", 0)),

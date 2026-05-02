@@ -55,6 +55,7 @@ class CloudFallbackTimingRewriter:
         rate_limits_rpm: dict[str, float] | None = None,
         cooldown_seconds: float = 75.0,
         wait_for_rate_limit: bool = True,
+        allow_rule_based_fallback: bool = True,
         now_fn=None,
         sleep_fn=None,
     ) -> None:
@@ -64,6 +65,7 @@ class CloudFallbackTimingRewriter:
         self.rate_limits_rpm = rate_limits_rpm or {}
         self.cooldown_seconds = cooldown_seconds
         self.wait_for_rate_limit = wait_for_rate_limit
+        self.allow_rule_based_fallback = allow_rule_based_fallback
         self._now = now_fn or time.monotonic
         self._sleep = sleep_fn or time.sleep
         self._events: list[str] = []
@@ -85,25 +87,37 @@ class CloudFallbackTimingRewriter:
             "openrouter": OpenAICompatibleRewriteProvider.openrouter_from_env,
             "aihubmix": OpenAICompatibleRewriteProvider.aihubmix_from_env,
             "polza": OpenAICompatibleRewriteProvider.polza_from_env,
+            "neuroapi": OpenAICompatibleRewriteProvider.neuroapi_from_env,
         }
         providers: list[TimingRewriter] = []
-        for raw_name in config.rewrite_provider_order:
-            name = raw_name.strip().lower()
-            factory = factories.get(name)
-            if factory is None:
-                continue
-            if name == "polza" and not allow_paid:
-                _log.info("rewriter.paid_provider_skip", provider=name)
-                continue
-            provider = factory(timeout=timeout)
+        if config.translation_quality == "professional":
+            provider = _build_professional_rewriter(
+                config.professional_rewrite_provider,
+                config.professional_rewrite_model,
+                factories=factories,
+                timeout=timeout,
+            )
             if provider is not None:
                 providers.append(provider)
+        else:
+            for raw_name in config.rewrite_provider_order:
+                name = raw_name.strip().lower()
+                factory = factories.get(name)
+                if factory is None:
+                    continue
+                if name in {"polza", "neuroapi"} and not allow_paid:
+                    _log.info("rewriter.paid_provider_skip", provider=name)
+                    continue
+                provider = factory(timeout=timeout)
+                if provider is not None:
+                    providers.append(provider)
         return cls(
             providers=providers,
             disable_on_quota=config.rewrite_provider_disable_on_quota,
             rate_limits_rpm=config.rewrite_provider_rpm,
             cooldown_seconds=config.rewrite_provider_cooldown_seconds,
             wait_for_rate_limit=config.rewrite_provider_wait_for_rate_limit,
+            allow_rule_based_fallback=config.translation_quality != "professional",
         )
 
     def rewrite(
@@ -220,6 +234,8 @@ class CloudFallbackTimingRewriter:
             in_chars=len(text),
             max_chars=max_chars,
         )
+        if not self.allow_rule_based_fallback:
+            raise RewriteProviderError("профессиональный rewriter не вернул полезный результат")
         candidate = _call_rewriter(
             self.fallback,
             text,
@@ -296,6 +312,7 @@ class GeminiRewriteProvider:
         cls,
         *,
         timeout: float | None = None,
+        model: str | None = None,
     ) -> "GeminiRewriteProvider | OpenAICompatibleRewriteProvider | None":
         """Создать провайдер Gemini из окружения.
 
@@ -306,7 +323,7 @@ class GeminiRewriteProvider:
         Иначе — нативный Gemini generateContent API с GEMINI_API_KEY.
         """
 
-        model = os.getenv("GEMINI_REWRITE_MODEL", "gemini-3-flash-preview")
+        selected_model = model or os.getenv("GEMINI_REWRITE_MODEL", "gemini-3-flash-preview")
         bridge_url = os.getenv("GEMINI_BRIDGE_URL")
 
         if bridge_url:
@@ -315,7 +332,7 @@ class GeminiRewriteProvider:
                 name="gemini",
                 api_key=os.getenv("GEMINI_API_KEY", "bridge"),  # мост авторизуется сам
                 base_url=bridge_url.rstrip("/"),
-                model=model,
+                model=selected_model,
                 timeout=timeout or _env_float("GEMINI_REWRITE_TIMEOUT", 8.0),
             )
 
@@ -324,7 +341,7 @@ class GeminiRewriteProvider:
             return None
         return cls(
             api_key=api_key,
-            model=model,
+            model=selected_model,
             timeout=timeout or _env_float("GEMINI_REWRITE_TIMEOUT", 8.0),
         )
 
@@ -399,6 +416,7 @@ class OpenAICompatibleRewriteProvider:
         cls,
         *,
         timeout: float | None = None,
+        model: str | None = None,
     ) -> "OpenAICompatibleRewriteProvider | None":
         """Создать OpenRouter-провайдер, если ключ есть в окружении."""
 
@@ -409,7 +427,7 @@ class OpenAICompatibleRewriteProvider:
             name="openrouter",
             api_key=api_key,
             base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            model=os.getenv("OPENROUTER_REWRITE_MODEL", "openai/gpt-oss-20b:free"),
+            model=model or os.getenv("OPENROUTER_REWRITE_MODEL", "openai/gpt-oss-20b:free"),
             timeout=timeout or _env_float("OPENROUTER_REWRITE_TIMEOUT", 8.0),
             extra_headers={
                 "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "http://localhost:8002"),
@@ -422,6 +440,7 @@ class OpenAICompatibleRewriteProvider:
         cls,
         *,
         timeout: float | None = None,
+        model: str | None = None,
     ) -> "OpenAICompatibleRewriteProvider | None":
         """Создать AIHubMix-провайдер, если ключ есть в окружении."""
 
@@ -432,7 +451,7 @@ class OpenAICompatibleRewriteProvider:
             name="aihubmix",
             api_key=api_key,
             base_url=os.getenv("AIHUBMIX_BASE_URL", "https://aihubmix.com/v1"),
-            model=os.getenv("AIHUBMIX_REWRITE_MODEL", "gpt-4.1-nano-free"),
+            model=model or os.getenv("AIHUBMIX_REWRITE_MODEL", "gpt-4.1-nano-free"),
             timeout=timeout or _env_float("AIHUBMIX_REWRITE_TIMEOUT", 8.0),
         )
 
@@ -441,6 +460,7 @@ class OpenAICompatibleRewriteProvider:
         cls,
         *,
         timeout: float | None = None,
+        model: str | None = None,
     ) -> "OpenAICompatibleRewriteProvider | None":
         """Создать Polza.ai-провайдер, если ключ есть в окружении."""
 
@@ -451,8 +471,31 @@ class OpenAICompatibleRewriteProvider:
             name="polza",
             api_key=api_key,
             base_url=os.getenv("POLZA_BASE_URL", "https://api.polza.ai/api/v1"),
-            model=os.getenv("POLZA_REWRITE_MODEL", "google/gemini-2.5-flash-lite-preview-09-2025"),
+            model=model or os.getenv(
+                "POLZA_REWRITE_MODEL",
+                "google/gemini-2.5-flash-lite-preview-09-2025",
+            ),
             timeout=timeout or _env_float("POLZA_REWRITE_TIMEOUT", 8.0),
+        )
+
+    @classmethod
+    def neuroapi_from_env(
+        cls,
+        *,
+        timeout: float | None = None,
+        model: str | None = None,
+    ) -> "OpenAICompatibleRewriteProvider | None":
+        """Создать NeuroAPI-провайдер, если ключ есть в окружении."""
+
+        api_key = os.getenv("NEUROAPI_API_KEY")
+        if not api_key:
+            return None
+        return cls(
+            name="neuroapi",
+            api_key=api_key,
+            base_url=os.getenv("NEUROAPI_BASE_URL", "https://neuroapi.host/v1"),
+            model=model or os.getenv("NEUROAPI_REWRITE_MODEL", "gpt-5-mini"),
+            timeout=timeout or _env_float("NEUROAPI_REWRITE_TIMEOUT", 8.0),
         )
 
     def rewrite(
@@ -548,6 +591,26 @@ def build_rewrite_prompt(
         f"ТЕКУЩИЙ ПЕРЕВОД ({len(text)} симв.):\n{text}\n\n"
         f"Перепиши (≤{max_chars} симв.):"
     )
+
+
+def _build_professional_rewriter(
+    provider_name: str,
+    model: str,
+    *,
+    factories: dict[str, Any],
+    timeout: float,
+) -> TimingRewriter | None:
+    """Собрать единственный профессиональный rewriter с выбранной моделью."""
+
+    name = provider_name.strip().lower()
+    factory = factories.get(name)
+    if factory is None:
+        _log.warning("rewriter.professional_provider_unknown", provider=name)
+        return None
+    provider = factory(timeout=timeout, model=model.strip() or None)
+    if provider is None:
+        _log.warning("rewriter.professional_provider_missing_key", provider=name)
+    return provider
 
 
 def _call_rewriter(
