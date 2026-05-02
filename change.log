@@ -1,5 +1,39 @@
 # Журнал Изменений
 
+## 1.22.13 - 2026-05-02 - FEAT - TVIDEO-086
+
+### Yandex SpeechKit TTS v3
+
+**Backend**:
+- speechkit_tts.py: YandexSpeechKitTTSProvider
+  POST https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis
+  Auth: Api-Key (YANDEX_SPEECHKIT_API_KEY).
+  9 голосов RU: alena, jane, omazh, madirus, zahar, ermil, filipp, amira, john.
+  Роли: neutral / good / evil (зависят от голоса).
+  Стратегии: single / two_voices / per_speaker.
+  Ответ: streaming NDJSON → сборка base64-чанков в mp3.
+  Ошибки → QA-флаг tts_speechkit_error без обрыва пайплайна.
+- config.py: +professional_tts_role, +professional_tts_role_2, +professional_tts_speed.
+- pipeline/utils.py: приоритет: Yandex → OpenAI → EdgeTTS.
+- API: GET /api/v1/tts/voices?provider=yandex и ?provider=openai.
+      GET /api/v1/tts/models?provider=yandex.
+
+**UI** (AdvancedSettings.tsx):
+- Провайдер TTS: добавлен «Yandex SpeechKit».
+- При смене провайдера: голос/роль сбрасываются на дефолт.
+- При Yandex: скрывается выбор модели (не нужен).
+- Карточки голосов загружаются из /api/v1/tts/voices?provider=yandex.
+- Роли (Нейтральный / Добродушный / Суровый) появляются под картой голоса
+  если у него >1 роли. Кнопки-таблетки с фиолетовым активным состоянием.
+- SPEECHKIT_VOICES_FALLBACK: 9 голосов с ролями как фолбэк до загрузки API.
+
+**Тесты** (test_speechkit_tts.py):
+- URL, payload (text+hints), сохранение mp3, skip empty, Auth header
+- Стратегии: single, two_voices, per_speaker
+- QA-флаги, error → qa_flag без исключения
+- build_speechkit_tts_provider: нет ключа/провайдера → None
+- 14 новых тестов, 391 Python + 101 Vitest
+
 ## 1.22.12 - 2026-05-02 - FEAT - TVIDEO-085
 
 ### Профессиональная TTS озвучка с выбором голоса и модели

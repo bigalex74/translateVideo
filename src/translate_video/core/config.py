@@ -159,7 +159,10 @@ class PipelineConfig:
     professional_tts_provider: str = ""           # "” = использовать Edge TTS
     professional_tts_model: str = "tts-1"         # tts-1 | tts-1-hd | gpt-4o-mini-tts
     professional_tts_voice: str = "nova"          # голос 1 / единственный
-    professional_tts_voice_2: str = "onyx"        # голос 2 для two_voices / per_speaker
+    professional_tts_voice_2: str = "onyx"        # голос 2 (two_voices/per_speaker)
+    professional_tts_role: str = "neutral"        # роль голоса 1 (Yandex SpeechKit)
+    professional_tts_role_2: str = "neutral"      # роль голоса 2 (Yandex SpeechKit)
+    professional_tts_speed: float = 1.0           # скорость речи (Yandex: 0.1-10.0)
 
     # ── Адаптивный rate TTS (явный fast-режим, не дефолт) ────────────────────
     tts_base_rate: int = 0          # базовый rate TTS в %; 0 = естественная скорость
@@ -286,11 +289,14 @@ class PipelineConfig:
                 "professional_rewrite_model": str(
                     data.get("professional_rewrite_model", "gpt-5-mini")
                 ),
-                # Профессиональный TTS (TVIDEO-085)
+                # Профессиональный TTS (TVIDEO-085, TVIDEO-086)
                 "professional_tts_provider": str(data.get("professional_tts_provider", "")),
                 "professional_tts_model": str(data.get("professional_tts_model", "tts-1")),
                 "professional_tts_voice": str(data.get("professional_tts_voice", "nova")),
                 "professional_tts_voice_2": str(data.get("professional_tts_voice_2", "onyx")),
+                "professional_tts_role": str(data.get("professional_tts_role", "neutral")),
+                "professional_tts_role_2": str(data.get("professional_tts_role_2", "neutral")),
+                "professional_tts_speed": float(data.get("professional_tts_speed", 1.0)),
                 # Адаптивный TTS rate — только для явного fast-режима
                 "tts_base_rate": int(data.get("tts_base_rate", 0)),
                 "tts_max_rate": int(data.get("tts_max_rate", 0)),

@@ -23,6 +23,19 @@ const TTS_VOICES_FALLBACK = [
   { id: 'shimmer', name: 'Shimmer', gender: 'female',  tone: 'Мягкий' },
 ];
 
+// Yandex SpeechKit голоса-фолбэк
+const SPEECHKIT_VOICES_FALLBACK = [
+  { id: 'alena',   name: 'Алёна',   gender: 'female', tone: 'Тёплая',        roles: ['neutral', 'good'] },
+  { id: 'jane',    name: 'Джейн',   gender: 'female', tone: 'Эмоциональная', roles: ['neutral', 'good', 'evil'] },
+  { id: 'omazh',   name: 'Омаж',    gender: 'female', tone: 'Офисная',       roles: ['neutral', 'evil'] },
+  { id: 'madirus', name: 'Мадирус', gender: 'male',   tone: 'Энергичный',    roles: ['neutral'] },
+  { id: 'zahar',   name: 'Захар',   gender: 'male',   tone: 'Солидный',      roles: ['neutral', 'good'] },
+  { id: 'ermil',   name: 'Ермил',   gender: 'male',   tone: 'Дикторский',    roles: ['neutral', 'good'] },
+  { id: 'filipp',  name: 'Филипп',  gender: 'male',   tone: 'Деловой',       roles: ['neutral'] },
+  { id: 'amira',   name: 'Амира',   gender: 'female', tone: 'Мягкая',        roles: ['neutral'] },
+  { id: 'john',    name: 'Джон',    gender: 'male',   tone: 'Универсальный', roles: ['neutral'] },
+];
+
 // ─── Компонент ────────────────────────────────────────────────────────────
 
 interface AdvancedSettingsProps {
@@ -138,23 +151,40 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   );
 
   // ── Профессиональный TTS ─────────────────────────────────────────────
-  const [ttsVoices, setTtsVoices] = React.useState<{id:string;name:string;gender:string;tone:string}[]>([]);
+  const [ttsVoices, setTtsVoices] = React.useState<{id:string;name:string;gender:string;tone:string;roles?:string[]}[]>([]);
   const [ttsModels, setTtsModels] = React.useState<{id:string;name:string;note:string}[]>([]);
-  const ttsVoicesFetched = React.useRef(false);
+  const lastLoadedProvider = React.useRef('');
 
-  React.useEffect(() => {
-    if (!professional || ttsVoicesFetched.current) return;
-    ttsVoicesFetched.current = true;
-    fetch('/api/v1/tts/voices').then(r => r.json()).then(d => setTtsVoices(d.voices ?? []));
-    fetch('/api/v1/tts/models').then(r => r.json()).then(d => setTtsModels(d.models ?? []));
-  }, [professional]);
-
-  const ttsProvider = c.professional_tts_provider ?? '';
-  const ttsModel    = c.professional_tts_model    ?? 'tts-1';
-  const ttsVoice1   = c.professional_tts_voice    ?? 'nova';
-  const ttsVoice2   = c.professional_tts_voice_2  ?? 'onyx';
+  const ttsProvider   = c.professional_tts_provider ?? '';
+  const ttsModel      = c.professional_tts_model    ?? 'tts-1';
+  const ttsVoice1     = c.professional_tts_voice    ?? (ttsProvider === 'yandex' ? 'alena' : 'nova');
+  const ttsVoice2     = c.professional_tts_voice_2  ?? (ttsProvider === 'yandex' ? 'filipp' : 'onyx');
+  const ttsRole1      = c.professional_tts_role     ?? 'neutral';
+  const ttsRole2      = c.professional_tts_role_2   ?? 'neutral';
   const voiceStrategy = c.voice_strategy ?? 'single';
   const needVoice2    = voiceStrategy === 'two_voices' || voiceStrategy === 'per_speaker';
+  const isYandex      = ttsProvider === 'yandex';
+
+  React.useEffect(() => {
+    if (!professional || !ttsProvider) return;
+    const prov = isYandex ? 'yandex' : 'openai';
+    if (lastLoadedProvider.current === prov) return;
+    lastLoadedProvider.current = prov;
+    fetch(`/api/v1/tts/voices?provider=${prov}`).then(r => r.json()).then(d => setTtsVoices(d.voices ?? []));
+    fetch(`/api/v1/tts/models?provider=${prov}`).then(r => r.json()).then(d => setTtsModels(d.models ?? []));
+  }, [professional, ttsProvider, isYandex]);
+
+  // Роли доступные для выбранного голоса (Yandex)
+  const voice1Meta = ttsVoices.find(v => v.id === ttsVoice1);
+  const voice2Meta = ttsVoices.find(v => v.id === ttsVoice2);
+  const roles1 = voice1Meta?.roles ?? ['neutral'];
+  const roles2 = voice2Meta?.roles ?? ['neutral'];
+
+  const ROLE_LABELS: Record<string, string> = {
+    neutral: 'Нейтральный',
+    good:    'Добродушный',
+    evil:    'Суровый / злодей',
+  };
 
   return (
     <div className="adv-settings">
@@ -363,17 +393,28 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                     id="adv-tts-provider"
                     className="adv-select"
                     value={ttsProvider}
-                    onChange={e => onChange({ professional_tts_provider: e.target.value })}
+                    onChange={e => {
+                      const p = e.target.value;
+                      // Сбрасываем голос на дефолт нового провайдера
+                      onChange({
+                        professional_tts_provider: p,
+                        professional_tts_voice:   p === 'yandex' ? 'alena'  : 'nova',
+                        professional_tts_voice_2: p === 'yandex' ? 'filipp' : 'onyx',
+                        professional_tts_role:    'neutral',
+                        professional_tts_role_2:  'neutral',
+                      });
+                    }}
                     disabled={disabled}
                   >
                     <option value="">Edge TTS (бесплатный)</option>
                     <option value="neuroapi">NeuroAPI</option>
                     <option value="polza">Polza</option>
+                    <option value="yandex">Yandex SpeechKit</option>
                   </select>
                 </div>
 
-                {/* Модель TTS (только если выбран платный провайдер) */}
-                {ttsProvider && (
+                {/* Модель TTS — только для OpenAI-совместимых провайдеров */}
+                {ttsProvider && !isYandex && (
                   <div className="adv-field">
                     <label className="adv-label" htmlFor="adv-tts-model">Модель</label>
                     <select
@@ -402,12 +443,18 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                     Голос{needVoice2 ? ' 1 (чётные сегменты)' : ''}
                   </div>
                   <div className="adv-tts-voices-grid">
-                    {(ttsVoices.length ? ttsVoices : TTS_VOICES_FALLBACK).map(v => (
+                    {(ttsVoices.length
+                      ? ttsVoices
+                      : isYandex ? SPEECHKIT_VOICES_FALLBACK : TTS_VOICES_FALLBACK
+                    ).map(v => (
                       <button
                         key={v.id}
                         type="button"
                         className={`adv-tts-voice-card ${ttsVoice1 === v.id ? 'adv-tts-voice-card--selected' : ''}`}
-                        onClick={() => !disabled && onChange({ professional_tts_voice: v.id })}
+                        onClick={() => !disabled && onChange({
+                          professional_tts_voice: v.id,
+                          professional_tts_role: 'neutral',
+                        })}
                         disabled={disabled}
                         title={v.tone}
                       >
@@ -420,16 +467,39 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                     ))}
                   </div>
 
+                  {/* Роль голоса 1 (только Yandex, если у голоса >1 роли) */}
+                  {isYandex && roles1.length > 1 && (
+                    <div className="adv-tts-roles">
+                      {roles1.map(role => (
+                        <button
+                          key={role}
+                          type="button"
+                          className={`adv-tts-role-btn ${ttsRole1 === role ? 'adv-tts-role-btn--active' : ''}`}
+                          onClick={() => !disabled && onChange({ professional_tts_role: role })}
+                          disabled={disabled}
+                        >
+                          {ROLE_LABELS[role] ?? role}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {needVoice2 && (
                     <>
                       <div className="adv-tts-voices-label">Голос 2 (нечётные / другие спикеры)</div>
                       <div className="adv-tts-voices-grid">
-                        {(ttsVoices.length ? ttsVoices : TTS_VOICES_FALLBACK).map(v => (
+                        {(ttsVoices.length
+                          ? ttsVoices
+                          : isYandex ? SPEECHKIT_VOICES_FALLBACK : TTS_VOICES_FALLBACK
+                        ).map(v => (
                           <button
                             key={v.id}
                             type="button"
                             className={`adv-tts-voice-card ${ttsVoice2 === v.id ? 'adv-tts-voice-card--selected' : ''}`}
-                            onClick={() => !disabled && onChange({ professional_tts_voice_2: v.id })}
+                            onClick={() => !disabled && onChange({
+                              professional_tts_voice_2: v.id,
+                              professional_tts_role_2: 'neutral',
+                            })}
                             disabled={disabled}
                             title={v.tone}
                           >
@@ -441,6 +511,23 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                           </button>
                         ))}
                       </div>
+
+                      {/* Роль голоса 2 (только Yandex) */}
+                      {isYandex && roles2.length > 1 && (
+                        <div className="adv-tts-roles">
+                          {roles2.map(role => (
+                            <button
+                              key={role}
+                              type="button"
+                              className={`adv-tts-role-btn ${ttsRole2 === role ? 'adv-tts-role-btn--active' : ''}`}
+                              onClick={() => !disabled && onChange({ professional_tts_role_2: role })}
+                              disabled={disabled}
+                            >
+                              {ROLE_LABELS[role] ?? role}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </>
                   )}
                 </>

@@ -118,14 +118,16 @@ def build_stages(provider: str, project_config=None) -> list:
         from translate_video.speech import FasterWhisperTranscriber
         from translate_video.timing import NaturalVoiceTimingFitter
         from translate_video.translation import CloudFallbackSegmentTranslator, GoogleSegmentTranslator
-        from translate_video.tts import EdgeTTSProvider, build_openai_tts_provider
+        from translate_video.tts import EdgeTTSProvider, build_openai_tts_provider, build_speechkit_tts_provider
 
-        # Профессиональный TTS или Edge TTS (бесплатный)
-        tts_provider = (
-            build_openai_tts_provider(project_config)
-            if project_config is not None
-            else None
-        ) or EdgeTTSProvider()
+        # Профессиональный TTS: Yandex SpeechKit → OpenAI-совместимый → Edge TTS (бесплатный)
+        tts_provider = None
+        if project_config is not None:
+            tts_provider = (
+                build_speechkit_tts_provider(project_config)
+                or build_openai_tts_provider(project_config)
+            )
+        tts_provider = tts_provider or EdgeTTSProvider()
 
         return [
             ExtractAudioStage(LegacyMoviePyMediaProvider()),
