@@ -32,7 +32,7 @@ class CloudFallbackTimingRewriterTest(unittest.TestCase):
             router = CloudFallbackTimingRewriter.from_config(PipelineConfig())
 
         names = [provider.name for provider in router.providers]
-        self.assertEqual(names, ["gemini", "openrouter", "aihubmix"])
+        self.assertEqual(names, ["gemini", "aihubmix", "openrouter"])
 
     def test_from_config_orders_polza_after_free_providers_when_paid_allowed(self):
         """Polza.ai остаётся последним fallback, если платные провайдеры явно разрешены."""
@@ -49,7 +49,7 @@ class CloudFallbackTimingRewriterTest(unittest.TestCase):
             router = CloudFallbackTimingRewriter.from_config(PipelineConfig())
 
         names = [provider.name for provider in router.providers]
-        self.assertEqual(names, ["gemini", "openrouter", "aihubmix", "polza"])
+        self.assertEqual(names, ["gemini", "aihubmix", "openrouter", "polza"])
 
     def test_router_falls_back_after_provider_error(self):
         """Ошибка первого провайдера переключает роутер на следующий."""
@@ -228,7 +228,7 @@ class ProviderPayloadTest(unittest.TestCase):
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "secret"}, clear=True):
             provider = OpenAICompatibleRewriteProvider.openrouter_from_env()
 
-        self.assertEqual(provider.model, "openai/gpt-oss-120b:free")
+        self.assertEqual(provider.model, "openai/gpt-oss-20b:free")
         self.assertEqual(provider.timeout, 8.0)
 
     def test_provider_timeout_can_be_overridden_globally(self):

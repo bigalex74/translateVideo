@@ -11,10 +11,10 @@
 Порядок по умолчанию:
 
 1. `gemini` — основной бесплатный/условно бесплатный провайдер качества.
-2. `openrouter` — агрегатор бесплатных моделей, первый fallback.
-   Дефолтная модель: `openai/gpt-oss-120b:free`.
-3. `aihubmix` — резервный OpenAI-compatible агрегатор.
+2. `aihubmix` — быстрый резервный OpenAI-compatible агрегатор.
    Дефолтная модель: `gpt-4.1-nano-free`.
+3. `openrouter` — агрегатор бесплатных моделей, второй fallback.
+   Дефолтная модель: `openai/gpt-oss-20b:free`.
 4. `polza` — последний fallback, потому что провайдер платный.
    Дефолтная модель: `google/gemini-2.5-flash-lite-preview-09-2025`.
    По умолчанию не включается даже при наличии ключа; нужен явный флаг
@@ -31,7 +31,7 @@ GEMINI_API_KEY=...
 GEMINI_REWRITE_MODEL=gemini-2.5-flash-lite
 
 OPENROUTER_API_KEY=...
-OPENROUTER_REWRITE_MODEL=openai/gpt-oss-120b:free
+OPENROUTER_REWRITE_MODEL=openai/gpt-oss-20b:free
 OPENROUTER_SITE_URL=http://localhost:8002
 OPENROUTER_APP_NAME=translateVideo
 
