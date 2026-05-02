@@ -71,4 +71,7 @@ export const DEFAULT_CONFIG: Partial<PipelineConfig> = {
   professional_tts_role: 'neutral',
   professional_tts_role_2: 'neutral',
   professional_tts_speed: 1.0,
+  professional_tts_speed_2: 1.0,
+  professional_tts_pitch: 0,
+  professional_tts_pitch_2: 0,
 };
