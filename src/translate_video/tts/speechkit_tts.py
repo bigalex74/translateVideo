@@ -49,16 +49,19 @@ _log = get_logger(__name__)
 SPEECHKIT_TTS_URL = "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis"
 
 # Голоса SpeechKit для русского языка с метаданными
+# Голоса поддерживающие role-хинт: alena, jane, omazh, zahar, ermil.
+# Голоса БЕЗ поддержки role (возвращают HTTP 400 при любом role): madirus, filipp, amira, john.
+# roles=[] означает что role-хинт отправлять нельзя.
 SPEECHKIT_VOICES: list[dict] = [
-    {"id": "alena",   "name": "Алёна",   "gender": "female", "tone": "Тёплая, дружелюбная",   "roles": ["neutral", "good"]},
-    {"id": "jane",    "name": "Джейн",   "gender": "female", "tone": "Эмоциональная, живая",   "roles": ["neutral", "good", "evil"]},
-    {"id": "omazh",   "name": "Омаж",    "gender": "female", "tone": "Нейтральная, офисная",   "roles": ["neutral", "evil"]},
-    {"id": "madirus", "name": "Мадирус", "gender": "male",   "tone": "Молодой, энергичный",    "roles": ["neutral"]},
-    {"id": "zahar",   "name": "Захар",   "gender": "male",   "tone": "Авторитетный, солидный", "roles": ["neutral", "good"]},
-    {"id": "ermil",   "name": "Ермил",   "gender": "male",   "tone": "Дикторский, чёткий",     "roles": ["neutral", "good"]},
-    {"id": "filipp",  "name": "Филипп",  "gender": "male",   "tone": "Деловой, уверенный",     "roles": ["neutral"]},
-    {"id": "amira",   "name": "Амира",   "gender": "female", "tone": "Мягкая, приятная",       "roles": ["neutral"]},
-    {"id": "john",    "name": "Джон",    "gender": "male",   "tone": "Нейтральный, универсальный", "roles": ["neutral"]},
+    {"id": "alena",   "name": "Алёна",   "gender": "female", "tone": "Тёплая, дружелюбная",       "roles": ["neutral", "good"]},
+    {"id": "jane",    "name": "Джейн",   "gender": "female", "tone": "Эмоциональная, живая",       "roles": ["neutral", "good", "evil"]},
+    {"id": "omazh",   "name": "Омаж",    "gender": "female", "tone": "Нейтральная, офисная",       "roles": ["neutral", "evil"]},
+    {"id": "madirus", "name": "Мадирус", "gender": "male",   "tone": "Молодой, энергичный",        "roles": []},
+    {"id": "zahar",   "name": "Захар",   "gender": "male",   "tone": "Авторитетный, солидный",     "roles": ["neutral", "good"]},
+    {"id": "ermil",   "name": "Ермил",   "gender": "male",   "tone": "Дикторский, чёткий",         "roles": ["neutral", "good"]},
+    {"id": "filipp",  "name": "Филипп",  "gender": "male",   "tone": "Деловой, уверенный",         "roles": []},
+    {"id": "amira",   "name": "Амира",   "gender": "female", "tone": "Мягкая, приятная",           "roles": []},
+    {"id": "john",    "name": "Джон",    "gender": "male",   "tone": "Нейтральный, универсальный",  "roles": []},
 ]
 
 # Пул голосов для per_speaker (round-robin)
@@ -178,14 +181,22 @@ class YandexSpeechKitTTSProvider:
         return self.voice_1, self.role_1
 
     def _synth(self, text: str, voice: str, role: str, output) -> None:
-        """Вызвать SpeechKit v3 и сохранить mp3."""
+        """Вызвать SpeechKit v3 и сохранить mp3.
+
+        Хинт ``role`` отправляется ТОЛЬКО если голос поддерживает роли
+        (madirus, filipp, amira, john вернут HTTP 400 при любом role).
+        """
+        voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
+        supports_role = bool(voice_meta and voice_meta.get("roles"))
+
+        hints: list[dict] = [{"voice": voice}]
+        if supports_role:
+            hints.append({"role": role})
+        hints.append({"speed": self.speed})
+
         payload = {
             "text": text,
-            "hints": [
-                {"voice": voice},
-                {"role": role},
-                {"speed": self.speed},
-            ],
+            "hints": hints,
             "outputAudioSpec": {
                 "containerAudio": {"containerAudioType": "MP3"},
             },

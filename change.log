@@ -1,5 +1,27 @@
 # Журнал Изменений
 
+## 1.22.14 - 2026-05-02 - FIX - TVIDEO-086
+
+### Bugfix: SpeechKit HTTP 400 для голосов без поддержки role
+
+**Причина**: голоса madirus, filipp, amira, john возвращают HTTP 400
+при любом role-хинте ("Unknown role 'neutral' for 'filipp' voice").
+Все сегменты падали, TTS-стадия завершалась ошибкой.
+
+**Исправление** (speechkit_tts.py):
+- SPEECHKIT_VOICES: roles=[] для madirus, filipp, amira, john.
+- _synth(): role-хинт отправляется ТОЛЬКО если supports_role=True
+  (т.е. SPEECHKIT_VOICES[voice].roles не пустой).
+
+**Тесты** (test_speechkit_tts.py):
+- test_voice_without_role_omits_role_hint: filipp → нет role в hints
+- test_voice_with_role_sends_role_hint: alena/good → role=good в hints
+- Итого: 16 тестов SpeechKit, 393 Python + 101 Vitest
+
+**UI** (AdvancedSettings.tsx):
+- SPEECHKIT_VOICES_FALLBACK: roles=[] для тех же 4 голосов
+  (кнопки ролей не появятся для filipp/madirus/amira/john).
+
 ## 1.22.13 - 2026-05-02 - FEAT - TVIDEO-086
 
 ### Yandex SpeechKit TTS v3

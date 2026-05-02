@@ -126,6 +126,39 @@ class YandexSpeechKitTTSProviderTest(unittest.TestCase):
         self.assertIn("alena", voices_in_hints)
         self.assertIn("good",  roles_in_hints)
 
+    def test_voice_without_role_omits_role_hint(self):
+        """filipp/madirus/amira/john НЕ получают role-хинт → не будет HTTP 400."""
+        calls = []
+        def capture(url, p, **kw):
+            calls.append(p)
+            return b"mp3"
+
+        # filipp — roles=[] по данным SPEECHKIT_VOICES
+        provider, _ = self._make_provider(voice_1="filipp", role_1="neutral", http_post=capture)
+        project = _make_project(self.work_dir, tts_voice="filipp", tts_role="neutral")
+        project.segments = [_make_segment(0, "Тест без роли")]
+        provider.synthesize(project, project.segments)
+
+        hints = calls[0].get("hints", [])
+        role_hints = [h for h in hints if "role" in h]
+        self.assertEqual(role_hints, [], msg=f"filipp не должен иметь role-хинт, получили: {hints}")
+
+    def test_voice_with_role_sends_role_hint(self):
+        """alena/zahar/ermil/jane/omazh получают role-хинт."""
+        calls = []
+        def capture(url, p, **kw):
+            calls.append(p)
+            return b"mp3"
+
+        provider, _ = self._make_provider(voice_1="alena", role_1="good", http_post=capture)
+        project = _make_project(self.work_dir, tts_voice="alena", tts_role="good")
+        project.segments = [_make_segment(0, "Тест с ролью")]
+        provider.synthesize(project, project.segments)
+
+        hints = calls[0].get("hints", [])
+        role_hints = [h["role"] for h in hints if "role" in h]
+        self.assertIn("good", role_hints, msg=f"alena должна иметь role=good в хинтах: {hints}")
+
     def test_synth_creates_mp3_from_base64_chunks(self):
         """Провайдер сохраняет mp3 байты которые вернул http_post (уже собранные)."""
         expected = b"chunk_a" + b"chunk_b" + b"chunk_c"
