@@ -1,7 +1,7 @@
 """Облачный fallback-роутер для сокращения перевода под тайминг.
 
 Роутер идёт от бесплатных/условно бесплатных провайдеров к платным:
-Gemini → OpenRouter → AIHubMix → Polza → rule_based.
+Gemini → AIHubMix → OpenRouter → Polza → rule_based.
 Реальные ключи читаются только из окружения и не должны попадать в репозиторий.
 """
 
@@ -372,7 +372,7 @@ class OpenAICompatibleRewriteProvider:
             name="openrouter",
             api_key=api_key,
             base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            model=os.getenv("OPENROUTER_REWRITE_MODEL", "openai/gpt-oss-120b:free"),
+            model=os.getenv("OPENROUTER_REWRITE_MODEL", "openai/gpt-oss-20b:free"),
             timeout=timeout or _env_float("OPENROUTER_REWRITE_TIMEOUT", 8.0),
             extra_headers={
                 "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "http://localhost:8002"),
