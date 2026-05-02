@@ -36,6 +36,30 @@ async def lifespan(application: FastAPI):
     work_root.mkdir(parents=True, exist_ok=True)
     application.mount("/runs", StaticFiles(directory=str(work_root)), name="runs")
     _log.info("server.start", version=__version__, work_root=str(work_root))
+
+    # ── Cleanup zombie pipelines ──────────────────────────────────────────────
+    # При рестарте контейнера все in-memory _running_projects сбрасываются,
+    # но статус в FS остаётся 'running'. Сбрасываем такие проекты в 'failed'.
+    from translate_video.core.schemas import ProjectStatus
+    from translate_video.core.store import ProjectStore
+    store = ProjectStore(work_root)
+    zombies = 0
+    try:
+        for project in store.list_projects():
+            if project.status == ProjectStatus.RUNNING:
+                project.status = ProjectStatus.FAILED
+                store.save_project(project)
+                zombies += 1
+                _log.warning(
+                    "server.zombie_cleanup",
+                    project=project.id,
+                    reason="running_on_startup",
+                )
+    except Exception as exc:
+        _log.error("server.zombie_cleanup_error", error=str(exc)[:200])
+    if zombies:
+        _log.info("server.zombie_cleanup_done", count=zombies)
+
     yield
     _log.info("server.stop")
 

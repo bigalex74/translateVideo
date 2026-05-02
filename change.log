@@ -1,5 +1,36 @@
 # Журнал Изменений
 
+## 1.22.0 - 2026-05-02 - FEAT - TVIDEO-073
+
+### Zombie Pipeline Protection — защита от зависшего перевода после рестарта
+
+**Проблема**: при пересборке/рестарте Docker-контейнера in-memory реестр сбрасывается,
+но статус проекта в FS остаётся 'running'. Overlay не закрывается, кнопка Отменить не работает.
+
+**Backend**:
+- api/main.py: lifespan startup cleanup — при старте сервера все проекты со статусом
+  RUNNING сбрасываются в FAILED (zombie cleanup). Лог: server.zombie_cleanup_done.
+- api/routes/pipeline.py: POST /cancel — zombie-режим: если проект не в in-memory реестре
+  но имеет статус RUNNING в FS → принудительно переводит в FAILED.
+  Ответ: {status: 'cancelled', zombie: true}. 404 только если статус != running.
+
+**Frontend**:
+- Zombie-timeout: если cancelling=true и через 8с статус не изменился →
+  показывает кнопку «Принудительно остановить» (Force Stop).
+- Force Stop вызывает cancelPipeline() (zombie-mode) + getProjectStatus() → закрывает overlay.
+- Текст меняется: «Останавливаем...» → «Пайплайн не отвечает — контейнер мог перезапуститься».
+
+**Тесты** (+9 Python):
+- test_zombie_cleanup.py: 5 тестов startup cleanup (ZombieStartupCleanupTest)
+- test_zombie_cleanup.py: 4 теста force cancel (ZombieForceCancel)
+317 Python + 93 Vitest ✅
+
+## 1.22.0 - 2026-05-02 - MINOR
+
+- TODO: заполнить описание перед мержем в master.
+
+
+
 ## 1.21.2 - 2026-05-02 - FIX - TVIDEO-072
 
 ### Исправлена отмена перевода: инлайн-подтверждение + ускоренный polling
