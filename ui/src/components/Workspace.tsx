@@ -14,7 +14,7 @@ import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings, X,
-  Film, AlignLeft, Activity, Play,
+  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info,
 } from 'lucide-react';
 import './Workspace.css';
 
@@ -110,6 +110,34 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const totalStages = project.stage_runs?.length ?? 0;
   const progress = totalStages > 0 ? Math.round((completedStages.length / totalStages) * 100) : 0;
   const runningStageProgress = stageProgressInfo(runningStage);
+
+  // ─── Live QA feed ─────────────────────────────────────────────────────────
+  // Severity map (дублируем из QASummary для независимости)
+  const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
+    translation_empty: 'critical', tts_invalid_slot: 'critical',
+    timing_fit_invalid_slot: 'critical', timeline_audio_extends_video: 'critical',
+    translation_fallback_source: 'error', tts_overflow_after_rate: 'error',
+    timing_fit_failed: 'error', render_audio_trimmed: 'error', timeline_shift_limit_reached: 'error',
+    tts_overflow_natural_rate: 'warning', render_audio_overflow: 'warning',
+    tts_rate_adapted: 'warning', translation_rewritten_for_timing: 'warning',
+    rewrite_provider_failed: 'warning', render_speed_fallback: 'warning',
+    tts_pretrim: 'warning', timeline_shifted: 'warning',
+    rewrite_provider_quota_limited: 'warning', rewrite_provider_cooldown: 'warning',
+  };
+  type LiveSev = 'critical' | 'error' | 'warning' | 'info';
+  interface LiveFlag { flag: string; sev: LiveSev; count: number; }
+  const liveFlags: LiveFlag[] = React.useMemo(() => {
+    if (!isRunning) return [];
+    const counts: Record<string, number> = {};
+    segments.forEach(seg =>
+      (seg.qa_flags ?? []).forEach(f => { counts[f] = (counts[f] ?? 0) + 1; })
+    );
+    const SEV_ORDER: LiveSev[] = ['critical', 'error', 'warning', 'info'];
+    return Object.entries(counts)
+      .filter(([f]) => FLAG_SEV[f] !== 'info' && FLAG_SEV[f] !== undefined)
+      .map(([flag, count]) => ({ flag, sev: FLAG_SEV[flag] ?? 'info', count }))
+      .sort((a, b) => SEV_ORDER.indexOf(a.sev) - SEV_ORDER.indexOf(b.sev));
+  }, [segments, isRunning]);
 
   // ─── History ──────────────────────────────────────────────────────────────
 
@@ -248,6 +276,38 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 </div>
               </div>
             )}
+
+            {/* ── Live QA лента ── */}
+            {liveFlags.length > 0 && (
+              <div className="running-qa-feed">
+                <div className="running-qa-feed-title">
+                  <AlertTriangle size={11} />
+                  QA: обнаружено в процессе
+                </div>
+                <ul className="running-qa-list">
+                  {liveFlags.slice(0, 8).map(({ flag, sev, count }) => {
+                    const icon = sev === 'critical' ? <XCircle size={10} />
+                               : sev === 'error'    ? <AlertCircle size={10} />
+                               : sev === 'warning'  ? <AlertTriangle size={10} />
+                               :                      <Info size={10} />;
+                    const label = t(`qa.flag.${flag}`, locale);
+                    return (
+                      <li key={flag} className={`running-qa-item running-qa-item--${sev}`}>
+                        {icon}
+                        <span className="running-qa-label">{label}</span>
+                        <span className="running-qa-count">{count}</span>
+                      </li>
+                    );
+                  })}
+                  {liveFlags.length > 8 && (
+                    <li className="running-qa-more">
+                      … ещё {liveFlags.length - 8} предупреждений
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+
             <p className="running-hint">
               {t('workspace.runningHint', locale)}
             </p>
