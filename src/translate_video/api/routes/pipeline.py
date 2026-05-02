@@ -16,7 +16,7 @@ from translate_video.core.log import Timer, get_logger
 from translate_video.core.store import ProjectStore, sanitize_project_id
 from translate_video.pipeline import build_stages, project_summary
 from translate_video.pipeline.context import StageContext
-from translate_video.pipeline.runner import PipelineRunner
+from translate_video.pipeline.runner import PipelineCancelledError, PipelineRunner
 
 _log = get_logger(__name__)
 
@@ -25,6 +25,8 @@ router = APIRouter(prefix="/api/v1/projects", tags=["pipeline"])
 # Глобальный in-memory реестр запущенных проектов (защита от race condition)
 _running_lock = threading.Lock()
 _running_projects: set[str] = set()
+# Реестр cancel-токенов: project_id → threading.Event
+_cancel_tokens: dict[str, threading.Event] = {}
 
 _BLOCKED_HOSTNAMES = {"localhost", "localhost.localdomain"}
 
@@ -111,6 +113,11 @@ async def run_pipeline_task(
         loaded_project = store.load_project(store.root / safe_project_id)
         runner = PipelineRunner(build_stages(req.provider), force=req.force)
 
+        # Создаём cancel-токен для этого запуска
+        cancel_event = threading.Event()
+        with _running_lock:
+            _cancel_tokens[safe_project_id] = cancel_event
+
         # Режим разработчика: создаём DevLogWriter если включён в конфиге
         from translate_video.core.devlog import DevLogWriter
         dev_log = DevLogWriter.from_config(loaded_project.config, loaded_project.work_dir)
@@ -138,8 +145,13 @@ async def run_pipeline_task(
 
         # Запускаем блокирующий пайплайн в отдельном потоке,
         # чтобы не блокировать asyncio event loop
+        ctx = StageContext(
+            project=loaded_project,
+            store=store,
+            cancel_event=cancel_event,
+        )
         with Timer() as t:
-            await asyncio.to_thread(runner.run, StageContext(project=loaded_project, store=store))
+            await asyncio.to_thread(runner.run, ctx)
 
         restored = store.load_project(loaded_project.work_dir)
         _log.info(
@@ -153,6 +165,25 @@ async def run_pipeline_task(
             summary = project_summary(restored)
             await notify_webhook(webhook_url, summary)
 
+    except PipelineCancelledError:
+        # Обновляем статус проекта до FAILED (cancelled) и сохраняем
+        try:
+            cancelled_project = store.load_project(store.root / safe_project_id)
+            from translate_video.core.schemas import ProjectStatus
+            cancelled_project.status = ProjectStatus.FAILED
+            store.save_project(cancelled_project)
+        except Exception:
+            pass
+        _log.info(
+            "api.pipeline_cancelled",
+            project=safe_project_id,
+            elapsed_s=round(t.elapsed, 2),
+        )
+        if webhook_url:
+            await notify_webhook(
+                webhook_url,
+                {"project_id": safe_project_id, "status": "cancelled"},
+            )
     except Exception as e:
         _log.error("api.pipeline_error", project=project_id, error=str(e)[:200])
         if webhook_url:
@@ -161,7 +192,43 @@ async def run_pipeline_task(
             )
     finally:
         with _running_lock:
-            _running_projects.discard(project_id)
+            _running_projects.discard(safe_project_id)
+            _cancel_tokens.pop(safe_project_id, None)
+
+
+@router.post("/{project_id}/cancel")
+def cancel_pipeline(
+    project_id: str,
+    store: ProjectStore = Depends(get_store),
+):
+    """Запросить отмену запущенного пайплайна.
+
+    Устанавливает cancel-флаг — пайплайн завершится после текущего этапа.
+    Возвращает 404 если проект не запущен.
+    """
+    safe_project_id = sanitize_project_id(project_id)
+    with _running_lock:
+        if safe_project_id not in _running_projects:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Проект '{safe_project_id}' не запущен или уже завершён",
+            )
+        event = _cancel_tokens.get(safe_project_id)
+        if event:
+            event.set()
+    _log.info("api.pipeline_cancel_requested", project=safe_project_id)
+    return {"status": "cancelling", "project_id": safe_project_id}
+
+
+@router.get("/{project_id}/running")
+def is_pipeline_running(
+    project_id: str,
+) -> dict:
+    """Проверить, запущен ли пайплайн для данного проекта."""
+    safe_project_id = sanitize_project_id(project_id)
+    with _running_lock:
+        running = safe_project_id in _running_projects
+    return {"project_id": safe_project_id, "running": running}
 
 
 @router.post("/{project_id}/run")

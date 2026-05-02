@@ -892,3 +892,34 @@
   padding: 2px 8px;
   font-style: italic;
 }
+
+/* ══ Cancel pipeline button ══════════════════════════════════════════════════ */
+.running-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(239,68,68,0.35);
+  background: rgba(239,68,68,0.08);
+  color: #f87171;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  width: 100%;
+}
+.running-cancel-btn:hover:not(:disabled) {
+  background: rgba(239,68,68,0.16);
+  border-color: rgba(239,68,68,0.55);
+}
+.running-cancel-btn:disabled,
+.running-cancel-btn--cancelling {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-color: rgba(255,255,255,0.1);
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.04);
+}

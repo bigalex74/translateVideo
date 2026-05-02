@@ -140,3 +140,12 @@ export async function fetchProviderBalance(provider: string): Promise<ProviderBa
 export function artifactDownloadUrl(project_id: string, kind: string): string {
     return `${API_BASE}/projects/${encodeURIComponent(project_id)}/artifacts/${encodeURIComponent(kind)}`;
 }
+
+/** Запросить отмену запущенного пайплайна. Бросает ошибку если проект не запущен. */
+export async function cancelPipeline(project_id: string): Promise<{ status: string }> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/cancel`, {
+        method: 'POST',
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
