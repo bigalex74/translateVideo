@@ -111,11 +111,29 @@ async def run_pipeline_task(
         loaded_project = store.load_project(store.root / safe_project_id)
         runner = PipelineRunner(build_stages(req.provider), force=req.force)
 
+        # Режим разработчика: создаём DevLogWriter если включён в конфиге
+        from translate_video.core.devlog import DevLogWriter
+        dev_log = DevLogWriter.from_config(loaded_project.config, loaded_project.work_dir)
+        if dev_log.exists() or getattr(loaded_project.config, "dev_mode", False):
+            # Подключаем DevLog ко всем провайдерам через with_dev_log()
+            for pipeline_stage in runner.stages:
+                translator = getattr(pipeline_stage, "translator", None)
+                if hasattr(translator, "with_dev_log"):
+                    translator.with_dev_log(dev_log)
+                timing_fitter = getattr(pipeline_stage, "timing_fitter", None)
+                if hasattr(timing_fitter, "with_dev_log"):
+                    timing_fitter.with_dev_log(dev_log)
+                # NaturalVoiceTimingFitter создаёт rewriter лениво — передаём туда
+                rewriter = getattr(timing_fitter, "_rewriter", None)
+                if hasattr(rewriter, "with_dev_log"):
+                    rewriter.with_dev_log(dev_log)
+
         _log.info(
             "api.pipeline_run",
             project=safe_project_id,
             provider=req.provider,
             force=req.force,
+            dev_mode=getattr(loaded_project.config, "dev_mode", False),
         )
 
         # Запускаем блокирующий пайплайн в отдельном потоке,

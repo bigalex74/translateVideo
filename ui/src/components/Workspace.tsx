@@ -8,6 +8,8 @@ import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
 import { ArtifactCard } from './ArtifactCard';
+import { StatsPanel } from './StatsPanel';
+import { DevLogPanel } from './DevLogPanel';
 import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
@@ -23,7 +25,7 @@ interface WorkspaceProps {
 }
 
 // Правая панель: вкладки
-type RightTab = 'status' | 'qa' | 'artifacts';
+type RightTab = 'status' | 'qa' | 'artifacts' | 'stats' | 'devlog';
 
 const API_VIDEO = '/api/v1/video';
 
@@ -512,6 +514,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             >
               <Download size={14} /> {t('workspace.filesTab', locale)}
             </button>
+            <button
+              className={rightTab === 'stats' ? 'active' : ''}
+              onClick={() => setRightTab('stats')}
+              title="Статистика перевода"
+            >
+              📊
+            </button>
+            <button
+              className={rightTab === 'devlog' ? 'active' : ''}
+              onClick={() => setRightTab('devlog')}
+              title={`Режим разработчика${project.config?.dev_mode ? '' : ' (выключен)'}`}
+            >
+              🔧{project.config?.dev_mode ? '' : '·'}
+            </button>
           </div>
 
           {/* Вкладка: Статус */}
@@ -589,6 +605,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               ) : (
                 <p className="empty-text">{t('workspace.noResults', locale)}</p>
               )}
+            </div>
+          )}
+
+          {/* Вкладка: Статистика */}
+          {rightTab === 'stats' && (
+            <div className="right-tab-content right-tab-content--flush">
+              <StatsPanel projectId={projectId} />
+            </div>
+          )}
+
+          {/* Вкладка: Dev Log */}
+          {rightTab === 'devlog' && (
+            <div className="right-tab-content right-tab-content--flush right-tab-content--devlog">
+              <DevLogPanel
+                projectId={projectId}
+                devMode={project.config?.dev_mode ?? false}
+              />
             </div>
           )}
         </div>
