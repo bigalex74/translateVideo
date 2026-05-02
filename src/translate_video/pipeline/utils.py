@@ -10,6 +10,7 @@ from translate_video.pipeline import (
     PipelineRunner,  # noqa: F401 — переэкспорт для удобства
     RegroupStage,
     RenderStage,
+    ExportSubtitlesStage,
     TTSStage,
     TimingFitStage,
     TranscribeStage,
@@ -108,6 +109,7 @@ def build_stages(provider: str) -> list:
             TimingFitStage(FakeTimingFitter()),
             TTSStage(FakeTTSProvider()),
             RenderStage(FakeRenderer()),
+            ExportSubtitlesStage(),
         ]
     if provider == "legacy":
         from translate_video.media import LegacyMoviePyMediaProvider
@@ -125,6 +127,7 @@ def build_stages(provider: str) -> list:
             TimingFitStage(NaturalVoiceTimingFitter()),
             TTSStage(EdgeTTSProvider()),
             RenderStage(MoviePyVoiceoverRenderer()),
+            ExportSubtitlesStage(),
         ]
     raise ValueError(f"неподдерживаемый провайдер: {provider!r}")
 

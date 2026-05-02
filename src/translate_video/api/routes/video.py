@@ -15,8 +15,12 @@ router = APIRouter(prefix="/api/v1/video", tags=["video"])
 
 _WORK_ROOT = Path(os.getenv("WORK_ROOT", "runs")).resolve()
 
-# Список разрешённых расширений
-_ALLOWED_EXTS = {".mp4", ".webm", ".ogg", ".ogv", ".mov", ".mkv", ".avi", ".mp3", ".wav", ".aac"}
+# Список разрешённых расширений (видео, аудио и субтитры)
+_ALLOWED_EXTS = {
+    ".mp4", ".webm", ".ogg", ".ogv", ".mov", ".mkv", ".avi",
+    ".mp3", ".wav", ".aac",
+    ".vtt", ".srt",  # субтитры для <track> элемента видеоплеера
+}
 
 # Размер чанка для стриминга
 _CHUNK = 1024 * 1024  # 1 MiB
@@ -52,10 +56,15 @@ def _resolve_video(project_id: str, rel_path: str) -> Path:
 
 def _mime(path: Path) -> str:
     """Определить MIME-тип по расширению."""
+    ext = path.suffix.lower()
+    # Субтитры — всегда одинаковы
+    if ext == ".vtt":
+        return "text/vtt; charset=utf-8"
+    if ext == ".srt":
+        return "text/plain; charset=utf-8"
     mime, _ = mimetypes.guess_type(str(path))
     if mime and mime.startswith(("video/", "audio/")):
         return mime
-    ext = path.suffix.lower()
     return {
         ".mp4": "video/mp4",
         ".webm": "video/webm",

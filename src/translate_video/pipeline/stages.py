@@ -391,6 +391,28 @@ class RenderStage(BaseStage):
         return self._record(context, action)
 
 
+class ExportSubtitlesStage(BaseStage):
+    """Экспортирует субтитры (VTT + SRT) после рендера.
+
+    Гарантирует, что файлы субтитров всегда соответствуют текущему
+    translated_text сегментов — и совпадают с тем, что показывает редактор.
+    """
+
+    stage = Stage.EXPORT
+
+    def run(self, context: StageContext) -> StageRun:
+        def action(_run: StageRun) -> tuple[list[str], list[str]]:
+            # Генерируем VTT (для видеоплеера) и SRT (для скачивания)
+            vtt_path = context.store.export_subtitles(context.project, fmt="vtt")
+            srt_path = context.store.export_subtitles(context.project, fmt="srt")
+            return [], [
+                vtt_path.relative_to(context.project.work_dir).as_posix(),
+                srt_path.relative_to(context.project.work_dir).as_posix(),
+            ]
+
+        return self._record(context, action)
+
+
 def _required_artifact(context: StageContext, kind: ArtifactKind):
     record = context.store.get_artifact(context.project, kind)
     if record is None:
