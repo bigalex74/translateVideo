@@ -203,21 +203,46 @@ def cancel_pipeline(
 ):
     """Запросить отмену запущенного пайплайна.
 
-    Устанавливает cancel-флаг — пайплайн завершится после текущего этапа.
-    Возвращает 404 если проект не запущен.
+    **Нормальный режим**: устанавливает cancel-флаг — пайплайн завершится после текущего этапа.
+    **Zombie-режим**: если пайплайн не зарегистрирован (рестарт контейнера), но проект
+    имеет статус 'running' в FS — принудительно сбрасывает статус в 'failed'.
+    Возвращает 404 если проект не запущен и статус не 'running'.
     """
+    from translate_video.core.schemas import ProjectStatus
     safe_project_id = sanitize_project_id(project_id)
+
     with _running_lock:
-        if safe_project_id not in _running_projects:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Проект '{safe_project_id}' не запущен или уже завершён",
-            )
-        event = _cancel_tokens.get(safe_project_id)
+        in_registry = safe_project_id in _running_projects
+        event = _cancel_tokens.get(safe_project_id) if in_registry else None
+
+    if in_registry:
+        # Нормальный случай — пайплайн активен в этом процессе
         if event:
             event.set()
-    _log.info("api.pipeline_cancel_requested", project=safe_project_id)
-    return {"status": "cancelling", "project_id": safe_project_id}
+        _log.info("api.pipeline_cancel_requested", project=safe_project_id, mode="normal")
+        return {"status": "cancelling", "project_id": safe_project_id, "zombie": False}
+
+    # Zombie-режим — проверяем статус в FS
+    try:
+        project = store.load_project(store.root / safe_project_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Проект '{safe_project_id}' не найден")
+
+    if project.status != ProjectStatus.RUNNING:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Проект '{safe_project_id}' не запущен (статус: {project.status.value})",
+        )
+
+    # Принудительно сбрасываем zombie-статус
+    project.status = ProjectStatus.FAILED
+    store.save_project(project)
+    _log.warning(
+        "api.pipeline_zombie_cancel",
+        project=safe_project_id,
+        reason="not_in_registry_but_running_in_fs",
+    )
+    return {"status": "cancelled", "project_id": safe_project_id, "zombie": True}
 
 
 @router.get("/{project_id}/running")

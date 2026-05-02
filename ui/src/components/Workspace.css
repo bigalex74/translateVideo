@@ -973,3 +973,16 @@
   padding: 6px 0;
   animation: qa-item-in 0.2s ease;
 }
+
+/* ══ Force stop button (zombie mode) ════════════════════════════════════════ */
+.running-cancel-btn--force {
+  margin-top: 2px;
+  border-color: rgba(239,68,68,0.6) !important;
+  background: rgba(239,68,68,0.14) !important;
+  color: #fca5a5 !important;
+  font-weight: 700;
+  animation: qa-item-in 0.3s ease;
+}
+.running-cancel-btn--force:hover {
+  background: rgba(239,68,68,0.26) !important;
+}
