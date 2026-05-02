@@ -55,7 +55,7 @@ class PipelineConfigTest(unittest.TestCase):
         self.assertTrue(restored.use_cloud_timing_rewriter)
         self.assertEqual(
             restored.rewrite_provider_order,
-            ["gemini", "openrouter", "aihubmix", "polza", "rule_based"],
+            ["gemini", "aihubmix", "openrouter", "polza", "rule_based"],
         )
         self.assertEqual(restored.rewrite_provider_timeout, 8.0)
         self.assertTrue(restored.rewrite_provider_disable_on_quota)

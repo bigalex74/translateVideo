@@ -93,7 +93,7 @@ class PipelineConfig:
     timing_fit_max_rewrites: int = 3
     use_cloud_timing_rewriter: bool = True
     rewrite_provider_order: list[str] = field(
-        default_factory=lambda: ["gemini", "openrouter", "aihubmix", "polza", "rule_based"]
+        default_factory=lambda: ["gemini", "aihubmix", "openrouter", "polza", "rule_based"]
     )
     # Сетевые rewriter-провайдеры должны быстро отдавать управление fallback-цепочке:
     # бесплатные лимиты часто отвечают 429/503, и долго ждать их на каждом сегменте нельзя.
@@ -171,7 +171,7 @@ class PipelineConfig:
                 "rewrite_provider_order": list(
                     data.get(
                         "rewrite_provider_order",
-                        ["gemini", "openrouter", "aihubmix", "polza", "rule_based"],
+                        ["gemini", "aihubmix", "openrouter", "polza", "rule_based"],
                     )
                 ),
                 "rewrite_provider_timeout": float(data.get("rewrite_provider_timeout", 8.0)),

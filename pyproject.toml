@@ -1,6 +1,6 @@
 [project]
 name = "translate-video"
-version = "1.13.3"
+version = "1.13.4"
 description = "Движок ИИ-перевода видео с CLI и UI-интерфейсами."
 readme = "README.md"
 requires-python = ">=3.11"

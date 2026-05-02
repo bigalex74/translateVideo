@@ -1,5 +1,17 @@
 # Журнал Изменений
 
+## 1.13.4 - 2026-05-02 - PATCH
+
+### Обновлён рейтинг OpenRouter в `timing_fit`
+
+- OpenRouter перенесён после AIHubMix в цепочке rewrite fallback:
+  `gemini → aihubmix → openrouter → polza → rule_based`.
+- Дефолтная модель OpenRouter заменена с тяжёлой
+  `openai/gpt-oss-120b:free` на более лёгкую `openai/gpt-oss-20b:free`.
+- Обновлены `.env.example`, документация и тесты конфигурации.
+
+
+
 ## 1.13.3 - 2026-05-02 - PATCH
 
 ### Прогресс-бар для долгого `timing_fit`
