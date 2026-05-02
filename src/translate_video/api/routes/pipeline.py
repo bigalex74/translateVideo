@@ -296,19 +296,34 @@ def run_pipeline(
 # ── TTS endpoints ─────────────────────────────────────────────────────────────
 
 @tts_router.get("/voices")
-def get_tts_voices():
-    """Вернуть список доступных TTS-голосов (OpenAI-совместимые провайдеры)."""
+def get_tts_voices(provider: str = "openai"):
+    """Вернуть список доступных TTS-голосов.
+
+    ?provider=openai  → голоса OpenAI-совместимых провайдеров (polza/neuroapi)
+    ?provider=yandex  → голоса Yandex SpeechKit с ролями
+    """
+    if provider == "yandex":
+        from translate_video.tts import SPEECHKIT_VOICES
+        return {"voices": SPEECHKIT_VOICES, "provider": "yandex"}
     from translate_video.tts import TTS_VOICES
-    return {"voices": TTS_VOICES}
+    return {"voices": TTS_VOICES, "provider": "openai"}
 
 
 @tts_router.get("/models")
-def get_tts_models():
+def get_tts_models(provider: str = "openai"):
     """Вернуть список доступных TTS-моделей."""
+    if provider == "yandex":
+        return {
+            "models": [
+                {"id": "general", "name": "General", "note": "Стандартная модель SpeechKit"},
+            ],
+            "provider": "yandex",
+        }
     return {
         "models": [
-            {"id": "tts-1",          "name": "TTS-1",          "note": "Быстрая, стандартное качество"},
-            {"id": "tts-1-hd",       "name": "TTS-1 HD",       "note": "Улучшенное качество, медленнее"},
-            {"id": "gpt-4o-mini-tts","name": "GPT-4o Mini TTS","note": "Высокое качество, поддержка инструкций"},
-        ]
+            {"id": "tts-1",           "name": "TTS-1",           "note": "Быстрая, стандартное качество"},
+            {"id": "tts-1-hd",        "name": "TTS-1 HD",        "note": "Улучшенное качество, медленнее"},
+            {"id": "gpt-4o-mini-tts", "name": "GPT-4o Mini TTS", "note": "Высокое качество, поддержка инструкций"},
+        ],
+        "provider": "openai",
     }
