@@ -100,7 +100,10 @@ class YandexSpeechKitTTSProvider:
         voice_2: str,
         role_1: str = "neutral",
         role_2: str = "neutral",
-        speed: float = 1.0,
+        speed_1: float = 1.0,
+        speed_2: float = 1.0,
+        pitch_1: int = 0,
+        pitch_2: int = 0,
         timeout: float = 60.0,
         use_stress: bool = True,
         http_post=None,
@@ -110,7 +113,10 @@ class YandexSpeechKitTTSProvider:
         self.voice_2 = voice_2
         self.role_1 = role_1
         self.role_2 = role_2
-        self.speed = speed
+        self.speed_1 = speed_1
+        self.speed_2 = speed_2
+        self.pitch_1 = pitch_1
+        self.pitch_2 = pitch_2
         self.timeout = timeout
         self.use_stress = use_stress
         self._http_post = http_post or _post_streaming
@@ -128,7 +134,7 @@ class YandexSpeechKitTTSProvider:
             if not text:
                 continue
 
-            voice, role = self._pick_voice_role(
+            voice, role, speed, pitch = self._pick_voice_role(
                 index=index,
                 speaker_id=segment.speaker_id,
                 voice_strategy=voice_strategy,
@@ -144,7 +150,7 @@ class YandexSpeechKitTTSProvider:
 
             with Timer() as t:
                 try:
-                    self._synth(text, voice, role, output)
+                    self._synth(text, voice, role, speed, pitch, output)
                 except Exception as exc:  # noqa: BLE001
                     _log.error(
                         "tts.speechkit.error",
@@ -179,32 +185,40 @@ class YandexSpeechKitTTSProvider:
         index: int,
         speaker_id: str | None,
         voice_strategy: str,
-        speaker_voice_map: dict[str, tuple[str, str]],
-    ) -> tuple[str, str]:
-        """Выбрать (voice, role) по стратегии."""
+        speaker_voice_map: dict[str, tuple[str, str, float, int]],
+    ) -> tuple[str, str, float, int]:
+        """Выбрать (voice, role, speed, pitch) по стратегии."""
         if voice_strategy == "single":
-            return self.voice_1, self.role_1
+            return self.voice_1, self.role_1, self.speed_1, self.pitch_1
 
         if voice_strategy == "two_voices":
             if index % 2 == 0:
-                return self.voice_1, self.role_1
-            return self.voice_2, self.role_2
+                return self.voice_1, self.role_1, self.speed_1, self.pitch_1
+            return self.voice_2, self.role_2, self.speed_2, self.pitch_2
 
         if voice_strategy == "per_speaker":
             key = speaker_id or str(index)
             if key not in speaker_voice_map:
                 pool_idx = len(speaker_voice_map) % len(_VOICE_POOL)
                 voice = _VOICE_POOL[pool_idx]
-                speaker_voice_map[key] = (voice, "neutral")
+                speaker_voice_map[key] = (voice, "neutral", self.speed_1, self.pitch_1)
             return speaker_voice_map[key]
 
-        return self.voice_1, self.role_1
+        return self.voice_1, self.role_1, self.speed_1, self.pitch_1
 
-    def _synth(self, text: str, voice: str, role: str, output) -> None:
+    def _synth(
+        self,
+        text: str,
+        voice: str,
+        role: str,
+        speed: float,
+        pitch: int,
+        output,
+    ) -> None:
         """Вызвать SpeechKit v3 и сохранить mp3.
 
-        Хинт ``role`` отправляется ТОЛЬКО если голос поддерживает роли
-        (madirus, filipp, amira, john вернут HTTP 400 при любом role).
+        Хинт ``role`` отправляется ТОЛЬКО если голос поддерживает роли.
+        Хинт ``pitchShift`` отправляется только если pitch != 0 (диапазон -1000..1000).
         """
         voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
         supports_role = bool(voice_meta and voice_meta.get("roles"))
@@ -212,7 +226,9 @@ class YandexSpeechKitTTSProvider:
         hints: list[dict] = [{"voice": voice}]
         if supports_role:
             hints.append({"role": role})
-        hints.append({"speed": self.speed})
+        hints.append({"speed": max(0.1, min(10.0, speed))})
+        if pitch != 0:
+            hints.append({"pitchShift": max(-1000, min(1000, pitch))})
 
         payload = {
             "text": text,
@@ -256,11 +272,14 @@ def build_speechkit_tts_provider(config) -> YandexSpeechKitTTSProvider | None:
 
     return YandexSpeechKitTTSProvider(
         api_key=api_key,
-        voice_1=getattr(config, "professional_tts_voice", "alena"),
-        voice_2=getattr(config, "professional_tts_voice_2", "filipp"),
-        role_1=getattr(config, "professional_tts_role", "neutral"),
-        role_2=getattr(config, "professional_tts_role_2", "neutral"),
-        speed=float(getattr(config, "professional_tts_speed", 1.0)),
+        voice_1=getattr(config, "professional_tts_voice",    "alena"),
+        voice_2=getattr(config, "professional_tts_voice_2",  "filipp"),
+        role_1=getattr(config, "professional_tts_role",      "neutral"),
+        role_2=getattr(config, "professional_tts_role_2",    "neutral"),
+        speed_1=float(getattr(config, "professional_tts_speed",   1.0)),
+        speed_2=float(getattr(config, "professional_tts_speed_2", 1.0)),
+        pitch_1=int(getattr(config, "professional_tts_pitch",     0)),
+        pitch_2=int(getattr(config, "professional_tts_pitch_2",   0)),
         use_stress=bool(getattr(config, "professional_tts_stress", True)),
     )
 

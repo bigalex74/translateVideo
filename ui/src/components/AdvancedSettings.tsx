@@ -161,6 +161,10 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   const ttsVoice2     = c.professional_tts_voice_2  ?? (ttsProvider === 'yandex' ? 'filipp' : 'onyx');
   const ttsRole1      = c.professional_tts_role     ?? 'neutral';
   const ttsRole2      = c.professional_tts_role_2   ?? 'neutral';
+  const ttsSpeed1     = c.professional_tts_speed    ?? 1.0;
+  const ttsSpeed2     = c.professional_tts_speed_2  ?? 1.0;
+  const ttsPitch1     = c.professional_tts_pitch    ?? 0;
+  const ttsPitch2     = c.professional_tts_pitch_2  ?? 0;
   const voiceStrategy = c.voice_strategy ?? 'single';
   const needVoice2    = voiceStrategy === 'two_voices' || voiceStrategy === 'per_speaker';
   const isYandex      = ttsProvider === 'yandex';
@@ -184,6 +188,8 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
     neutral: 'Нейтральный',
     good:    'Добродушный',
     evil:    'Суровый / злодей',
+    strict:  'Строгий',
+    whisper: 'Шёпот',
   };
 
   return (
@@ -467,7 +473,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                     ))}
                   </div>
 
-                  {/* Роль голоса 1 (только Yandex, если у голоса >1 роли) */}
+                  {/* Амплуа голоса 1 (только Yandex) */}
                   {isYandex && roles1.length > 1 && (
                     <div className="adv-tts-roles">
                       {roles1.map(role => (
@@ -481,6 +487,46 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                           {ROLE_LABELS[role] ?? role}
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Скорость и высота голоса 1 (только Yandex) */}
+                  {isYandex && (
+                    <div className="adv-tts-sliders">
+                      <div className="adv-tts-slider-row">
+                        <label className="adv-tts-slider-label">
+                          🎚 Скорость: <strong>{ttsSpeed1.toFixed(2)}×</strong>
+                        </label>
+                        <input
+                          id="adv-tts-speed-1"
+                          type="range"
+                          className="adv-tts-slider"
+                          min={0.5} max={2.0} step={0.05}
+                          value={ttsSpeed1}
+                          onChange={e => onChange({ professional_tts_speed: parseFloat(e.target.value) })}
+                          disabled={disabled}
+                        />
+                        <div className="adv-tts-slider-ticks">
+                          <span>0.5×</span><span>1.0×</span><span>1.5×</span><span>2.0×</span>
+                        </div>
+                      </div>
+                      <div className="adv-tts-slider-row">
+                        <label className="adv-tts-slider-label">
+                          🎵 Высота: <strong>{ttsPitch1 > 0 ? `+${ttsPitch1}` : ttsPitch1}</strong>
+                        </label>
+                        <input
+                          id="adv-tts-pitch-1"
+                          type="range"
+                          className="adv-tts-slider"
+                          min={-500} max={500} step={25}
+                          value={ttsPitch1}
+                          onChange={e => onChange({ professional_tts_pitch: parseInt(e.target.value) })}
+                          disabled={disabled}
+                        />
+                        <div className="adv-tts-slider-ticks">
+                          <span>-500</span><span>0</span><span>+500</span>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -512,7 +558,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                         ))}
                       </div>
 
-                      {/* Роль голоса 2 (только Yandex) */}
+                      {/* Амплуа голоса 2 (только Yandex) */}
                       {isYandex && roles2.length > 1 && (
                         <div className="adv-tts-roles">
                           {roles2.map(role => (
@@ -526,6 +572,46 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                               {ROLE_LABELS[role] ?? role}
                             </button>
                           ))}
+                        </div>
+                      )}
+
+                      {/* Скорость и высота голоса 2 (только Yandex) */}
+                      {isYandex && (
+                        <div className="adv-tts-sliders">
+                          <div className="adv-tts-slider-row">
+                            <label className="adv-tts-slider-label">
+                              🎚 Скорость: <strong>{ttsSpeed2.toFixed(2)}×</strong>
+                            </label>
+                            <input
+                              id="adv-tts-speed-2"
+                              type="range"
+                              className="adv-tts-slider"
+                              min={0.5} max={2.0} step={0.05}
+                              value={ttsSpeed2}
+                              onChange={e => onChange({ professional_tts_speed_2: parseFloat(e.target.value) })}
+                              disabled={disabled}
+                            />
+                            <div className="adv-tts-slider-ticks">
+                              <span>0.5×</span><span>1.0×</span><span>1.5×</span><span>2.0×</span>
+                            </div>
+                          </div>
+                          <div className="adv-tts-slider-row">
+                            <label className="adv-tts-slider-label">
+                              🎵 Высота: <strong>{ttsPitch2 > 0 ? `+${ttsPitch2}` : ttsPitch2}</strong>
+                            </label>
+                            <input
+                              id="adv-tts-pitch-2"
+                              type="range"
+                              className="adv-tts-slider"
+                              min={-500} max={500} step={25}
+                              value={ttsPitch2}
+                              onChange={e => onChange({ professional_tts_pitch_2: parseInt(e.target.value) })}
+                              disabled={disabled}
+                            />
+                            <div className="adv-tts-slider-ticks">
+                              <span>-500</span><span>0</span><span>+500</span>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </>
