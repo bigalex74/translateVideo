@@ -388,6 +388,31 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
             </div>
             <span className="adv-hint">Нажмите Enter или «+» для добавления</span>
           </div>
+
+          {/* Режим разработчика */}
+          <div className="adv-field adv-field--devmode">
+            <div className="adv-devmode-row">
+              <div className="adv-devmode-info">
+                <label className="adv-label adv-label--devmode" htmlFor="adv-devmode">
+                  🔧 Режим разработчика
+                </label>
+                <span className="adv-hint">
+                  Записывает все промты, ответы моделей и I/O этапов в devlog.jsonl.
+                  Позволяет анализировать качество перевода через вкладку Dev.
+                </span>
+              </div>
+              <button
+                id="adv-devmode"
+                type="button"
+                className={`adv-toggle ${c.dev_mode ? 'adv-toggle--on' : ''}`}
+                onClick={() => onChange({ dev_mode: !c.dev_mode })}
+                disabled={disabled}
+                aria-pressed={c.dev_mode}
+              >
+                {c.dev_mode ? 'Вкл' : 'Выкл'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

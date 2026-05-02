@@ -170,6 +170,11 @@ class PipelineConfig:
 
     do_not_translate: list[str] = field(default_factory=list)
 
+    # ── Режим разработчика ────────────────────────────────────────────────────
+    # При dev_mode=True DevLogWriter пишет все промты, ответы модели и I/O
+    # этапов в {work_dir}/devlog.jsonl. Выключен по умолчанию.
+    dev_mode: bool = False
+
     def to_dict(self) -> dict[str, Any]:
         """Вернуть JSON-совместимое представление конфигурации."""
 
@@ -281,5 +286,7 @@ class PipelineConfig:
                 "allow_render_audio_trim": bool(data.get("allow_render_audio_trim", False)),
                 # Regroup — дефолт для совместимости
                 "regroup_max_slot": float(data.get("regroup_max_slot", 8.0)),
+                # Режим разработчика
+                "dev_mode": bool(data.get("dev_mode", False)),
             }
         )

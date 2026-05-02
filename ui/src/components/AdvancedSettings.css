@@ -312,3 +312,29 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Dev mode field ──────────────────────────────────────────────────────── */
+.adv-field--devmode {
+  margin-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 10px;
+}
+
+.adv-devmode-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.adv-devmode-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.adv-label--devmode {
+  color: #a5b4fc;
+  font-size: 0.8rem;
+}

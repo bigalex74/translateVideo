@@ -248,3 +248,230 @@ def patch_project_config(
     except Exception:
         logger.exception("Неожиданная ошибка при обновлении конфигурации")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+# ── Dev Log ───────────────────────────────────────────────────────────────────
+
+@router.get("/{project_id}/devlog")
+def get_project_devlog(
+    project_id: str,
+    limit: int = 500,
+    offset: int = 0,
+    stage: str | None = None,
+    event_type: str | None = None,
+    store: ProjectStore = Depends(get_store),
+):
+    """Вернуть события dev-лога проекта с опциональной фильтрацией."""
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+        from translate_video.core.devlog import DevLogWriter
+        writer = DevLogWriter(project.work_dir, enabled=False)
+        writer._path = project.work_dir / "devlog.jsonl"
+        writer._enabled = True
+        events = writer.read_events(
+            limit=limit,
+            offset=offset,
+            stage=stage or None,
+            event_type=event_type or None,
+        )
+        return {
+            "project_id": safe_project_id,
+            "dev_mode": getattr(project.config, "dev_mode", False),
+            "size_bytes": writer.size_bytes(),
+            "event_count": len(events),
+            "offset": offset,
+            "events": events,
+        }
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    except Exception:
+        logger.exception("Ошибка при чтении dev log")
+        raise HTTPException(status_code=500, detail="Ошибка чтения dev log")
+
+
+# ── Statistics ────────────────────────────────────────────────────────────────
+
+@router.get("/{project_id}/stats")
+def get_project_stats(
+    project_id: str,
+    store: ProjectStore = Depends(get_store),
+):
+    """Вернуть полную статистику проекта."""
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+        from translate_video.core.stats import compute_project_stats
+        return compute_project_stats(project)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    except Exception:
+        logger.exception("Ошибка при вычислении статистики")
+        raise HTTPException(status_code=500, detail="Ошибка вычисления статистики")
+
+
+# ── AI Log Analysis ───────────────────────────────────────────────────────────
+
+class AnalyzeLogRequest(BaseModel):
+    """Режим AI-анализа dev-лога."""
+    mode: str = "errors"  # errors | quality | performance | improvements | anomalies | full
+
+
+_ANALYSIS_PROMPTS = {
+    "errors": (
+        "Проанализируй этот dev-лог пайплайна перевода видео. "
+        "Найди все ошибки, сбои провайдеров, таймауты, отказы fallback. "
+        "Перечисли их с указанием времени, провайдера и возможной причины."
+    ),
+    "quality": (
+        "Проанализируй промты и ответы моделей в этом dev-логе. "
+        "Оцени качество переводов по текстам промтов и ответов. "
+        "Найди сегменты с подозрительными или некачественными переводами."
+    ),
+    "performance": (
+        "Проанализируй времена выполнения (elapsed_s) в этом dev-логе. "
+        "Определи узкие места: самые медленные провайдеры, этапы, сегменты. "
+        "Дай рекомендации по ускорению."
+    ),
+    "improvements": (
+        "Изучи промты в dev-логе и предложи конкретные улучшения. "
+        "Что можно добавить/убрать из промтов? Какие параметры изменить? "
+        "Какие паттерны ошибок указывают на системные проблемы?"
+    ),
+    "anomalies": (
+        "Найди аномалии в dev-логе: необычно долгие ответы, "
+        "подозрительно короткие переводы, многократные fallback-ы для одного сегмента, "
+        "большие расхождения между входным и выходным текстами."
+    ),
+    "full": (
+        "Сделай полный анализ dev-лога пайплайна перевода. "
+        "Структурируй отчёт по разделам: Ошибки, Качество переводов, "
+        "Производительность, Аномалии, Рекомендации по улучшению."
+    ),
+}
+
+
+@router.post("/{project_id}/analyze-log")
+def analyze_project_log(
+    project_id: str,
+    req: AnalyzeLogRequest,
+    store: ProjectStore = Depends(get_store),
+):
+    """Проанализировать dev-лог проекта с помощью LLM."""
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+
+        from translate_video.core.devlog import DevLogWriter
+        writer = DevLogWriter(project.work_dir, enabled=False)
+        writer._path = project.work_dir / "devlog.jsonl"
+        writer._enabled = True
+        if not writer.path().exists():
+            raise HTTPException(
+                status_code=404,
+                detail="Dev log not found. Enable dev_mode and run the pipeline first.",
+            )
+
+        # Читаем последние 200 событий для анализа (контекстный лимит)
+        events = writer.read_events(limit=200)
+        if not events:
+            return {"analysis": "Dev log пуст.", "model_used": "none", "mode": req.mode}
+
+        # Формируем компактный лог для LLM
+        log_lines: list[str] = []
+        for evt in events:
+            ts = evt.get("ts", "")
+            event = evt.get("event", "?")
+            stage = evt.get("stage", "")
+            # Включаем ключевые поля, исключаем длинные промты (кратко)
+            summary_fields = {
+                k: v for k, v in evt.items()
+                if k not in ("ts", "event", "stage", "prompt", "response")
+                and not isinstance(v, str)
+                or (k in ("prompt", "response") and isinstance(v, str) and len(v) < 200)
+            }
+            log_lines.append(f"[{ts}] {event} stage={stage} {json.dumps(summary_fields, ensure_ascii=False)[:300]}")
+
+        log_text = "\n".join(log_lines)
+        system_prompt = _ANALYSIS_PROMPTS.get(req.mode, _ANALYSIS_PROMPTS["full"])
+        full_prompt = (
+            f"{system_prompt}\n\n"
+            f"=== DEV LOG (последние {len(events)} событий) ===\n"
+            f"{log_text}\n\n"
+            f"Ответ структурируй с заголовками и маркерами. Используй русский язык."
+        )
+
+        # Выбираем провайдер для анализа (Gemini bridge или rewriter-провайдер)
+        analysis_text, model_used = _call_analysis_llm(full_prompt, project.config)
+        return {
+            "mode": req.mode,
+            "events_analyzed": len(events),
+            "model_used": model_used,
+            "analysis": analysis_text,
+        }
+    except HTTPException:
+        raise
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    except Exception as exc:
+        logger.exception("Ошибка при AI-анализе лога")
+        raise HTTPException(status_code=500, detail=f"Ошибка анализа: {exc}")
+
+
+def _call_analysis_llm(prompt: str, config: PipelineConfig) -> tuple[str, str]:
+    """Вызвать LLM для анализа лога. Возвращает (текст, имя_модели)."""
+    import os, urllib.request, json as _json
+
+    # Приоритет: Gemini bridge → Polza → NeuroAPI → ошибка
+    bridge_url = os.getenv("GEMINI_BRIDGE_URL")
+    if bridge_url:
+        # OpenAI-compatible bridge
+        model = os.getenv("GEMINI_REWRITE_MODEL", "gemini-2.5-flash")
+        api_key = os.getenv("GEMINI_API_KEY", "bridge")
+        base_url = bridge_url.rstrip("/")
+        provider_name = f"gemini-bridge/{model}"
+    else:
+        polza_key = os.getenv("POLZA_API_KEY")
+        neuro_key = os.getenv("NEUROAPI_API_KEY")
+        if polza_key:
+            api_key = polza_key
+            base_url = os.getenv("POLZA_BASE_URL", "https://api.polza.ai/api/v1")
+            model = os.getenv("POLZA_REWRITE_MODEL", "google/gemini-2.5-flash-lite-preview-09-2025")
+            provider_name = f"polza/{model}"
+        elif neuro_key:
+            api_key = neuro_key
+            base_url = os.getenv("NEUROAPI_BASE_URL", "https://neuroapi.host/v1")
+            model = os.getenv("NEUROAPI_REWRITE_MODEL", "gpt-5-mini")
+            provider_name = f"neuroapi/{model}"
+        else:
+            return "Нет доступного LLM-провайдера для анализа. Настройте GEMINI_BRIDGE_URL, POLZA_API_KEY или NEUROAPI_API_KEY.", "none"
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+        "max_tokens": 2048,
+    }
+    req = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=_json.dumps(payload, ensure_ascii=False).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    proxy_url = os.getenv("REWRITER_PROXY")
+    if proxy_url:
+        opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
+        )
+        open_fn = opener.open
+    else:
+        open_fn = urllib.request.urlopen
+    try:
+        with open_fn(req, timeout=60) as resp:
+            data = _json.loads(resp.read().decode())
+        return data["choices"][0]["message"]["content"], provider_name
+    except Exception as exc:
+        return f"Ошибка вызова LLM: {exc}", provider_name

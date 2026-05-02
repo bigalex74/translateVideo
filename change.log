@@ -1,5 +1,42 @@
 # Журнал Изменений
 
+## 1.20.0 - 2026-05-02 - FEAT - TVIDEO-067
+
+### Dev Mode + Statistics Panel
+
+**Dev Mode (вкладка 🔧 Dev)**:
+- core/devlog.py: DevLogWriter — thread-safe JSONL-логгер промтов, ответов,
+  I/O этапов, rewrite-попыток, TTS. Лимит 5 MB. NullDevLogWriter для выкл. режима.
+- Интеграция в CloudFallbackSegmentTranslator: логирует полный промт + ответ
+  для каждого сегмента при dev_mode=True.
+- Интеграция в CloudFallbackTimingRewriter: логирует каждую попытку rewrite
+  с original/result chars, fits, elapsed_s.
+- pipeline/pipeline.py: автоматически создаёт DevLogWriter и подключает через
+  with_dev_log() ко всем провайдерам перед запуском.
+
+**Statistics (вкладка 📊)**:
+- core/stats.py: compute_project_stats() — полная статистика из VideoProject.
+  Секции: timing (breakdown по этапам), segments (слова/символы/сжатие),
+  quality (QA-флаги, провайдеры, fallback), tts (длительность, переполнения).
+
+**API endpoints**:
+- GET /api/v1/projects/{id}/devlog — события с фильтрацией по stage/type/offset.
+- GET /api/v1/projects/{id}/stats — статистика проекта.
+- POST /api/v1/projects/{id}/analyze-log — AI-анализ через Gemini/Polza/NeuroAPI.
+  Режимы: errors, quality, performance, improvements, anomalies, full.
+
+**UI**:
+- StatsPanel.tsx: стacked timing bar, cards (сегменты/слова), провайдеры,
+  QA-флаги, TTS. Цветовое кодирование этапов.
+- DevLogPanel.tsx: фильтры stage/type, поиск, expand/collapse событий,
+  полные промты с syntax-like display. AI-панель с 6 режимами анализа.
+- Workspace: вкладки 📊 Stats и 🔧 Dev в правой панели.
+- AdvancedSettings: toggle «Режим разработчика» в professional-секции.
+
+**Config**: PipelineConfig.dev_mode (bool, default=False) + from_dict + TS type.
+
+**Tests**: 303 Python + 32 Vitest.
+
 ## 1.19.0 - 2026-05-02 - FEAT - TVIDEO-066
 
 ### Скроллбар + разделение промтов amateur/professional
