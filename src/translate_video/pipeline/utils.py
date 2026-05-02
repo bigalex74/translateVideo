@@ -114,14 +114,14 @@ def build_stages(provider: str) -> list:
         from translate_video.render import MoviePyVoiceoverRenderer
         from translate_video.speech import FasterWhisperTranscriber
         from translate_video.timing import NaturalVoiceTimingFitter
-        from translate_video.translation import GoogleSegmentTranslator
+        from translate_video.translation import CloudFallbackSegmentTranslator, GoogleSegmentTranslator
         from translate_video.tts import EdgeTTSProvider
 
         return [
             ExtractAudioStage(LegacyMoviePyMediaProvider()),
             TranscribeStage(FasterWhisperTranscriber()),
             RegroupStage(),
-            TranslateStage(GoogleSegmentTranslator()),
+            TranslateStage(CloudFallbackSegmentTranslator(fallback=GoogleSegmentTranslator())),
             TimingFitStage(NaturalVoiceTimingFitter()),
             TTSStage(EdgeTTSProvider()),
             RenderStage(MoviePyVoiceoverRenderer()),

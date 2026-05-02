@@ -4,4 +4,16 @@
 должно поддерживать любую пару языков, которую способен обработать выбранный
 провайдер.
 
-`legacy.py` содержит адаптер `deep-translator` для GoogleTranslator.
+`cloud.py` содержит основной LLM-переводчик:
+
+- берёт 2 предыдущих и 2 следующих сегмента как контекст;
+- учитывает `translation_style`, `adaptation_level`, предметную область,
+  целевую аудиторию, `do_not_translate` и глоссарий;
+- пробует провайдеры в порядке
+  `gemini → aihubmix → openrouter → polza → google`;
+- отправляет Polza.ai только если явно включён `TRANSLATION_ALLOW_PAID_FALLBACK`;
+- при лимитах, timeout или ошибках провайдера падает обратно на Google Translate.
+
+`legacy.py` содержит адаптер `deep-translator` для GoogleTranslator. Он остаётся
+резервным переводчиком и используется автоматически, если LLM-провайдеры
+недоступны.

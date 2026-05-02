@@ -18,6 +18,13 @@ from typing import Any
 from translate_video.core.config import PipelineConfig
 from translate_video.core.env import load_env_file
 from translate_video.core.log import Timer, get_logger
+from translate_video.core.prompting import (
+    build_context_block,
+    build_glossary_block,
+    build_project_directives,
+    language_label,
+)
+from translate_video.core.schemas import Segment
 from translate_video.timing.base import TimingRewriter
 from translate_video.timing.natural import RuleBasedTimingRewriter
 
@@ -106,6 +113,10 @@ class CloudFallbackTimingRewriter:
         source_text: str,
         max_chars: int,
         attempt: int,
+        segment: Segment | None = None,
+        context_before: list[Segment] | None = None,
+        context_after: list[Segment] | None = None,
+        config: PipelineConfig | None = None,
     ) -> str:
         """Вернуть лучший короткий вариант, используя fallback-цепочку."""
 
@@ -139,11 +150,16 @@ class CloudFallbackTimingRewriter:
                     in_chars=len(text),
                 )
                 with Timer() as t:
-                    candidate = _clean_candidate(provider.rewrite(
+                    candidate = _clean_candidate(_call_rewriter(
+                        provider,
                         text,
                         source_text=source_text,
                         max_chars=max_chars,
                         attempt=attempt,
+                        segment=segment,
+                        context_before=context_before,
+                        context_after=context_after,
+                        config=config,
                     ))
             except RewriteProviderError as exc:
                 reason = str(exc)[:120]
@@ -204,11 +220,16 @@ class CloudFallbackTimingRewriter:
             in_chars=len(text),
             max_chars=max_chars,
         )
-        candidate = self.fallback.rewrite(
+        candidate = _call_rewriter(
+            self.fallback,
             text,
             source_text=source_text,
             max_chars=max_chars,
             attempt=attempt,
+            segment=segment,
+            context_before=context_before,
+            context_after=context_after,
+            config=config,
         )
         if candidate != text:
             self._events.append("rewrite_provider_rule_based")
@@ -314,6 +335,10 @@ class GeminiRewriteProvider:
         source_text: str,
         max_chars: int,
         attempt: int,
+        segment: Segment | None = None,
+        context_before: list[Segment] | None = None,
+        context_after: list[Segment] | None = None,
+        config: PipelineConfig | None = None,
     ) -> str:
         """Запросить у Gemini короткую версию перевода."""
 
@@ -322,7 +347,19 @@ class GeminiRewriteProvider:
             f"{self.model}:generateContent?key={self.api_key}"
         )
         payload = {
-            "contents": [{"parts": [{"text": build_rewrite_prompt(text, source_text, max_chars)}]}],
+            "contents": [{
+                "parts": [{
+                    "text": build_rewrite_prompt(
+                        text,
+                        source_text,
+                        max_chars,
+                        segment=segment,
+                        context_before=context_before,
+                        context_after=context_after,
+                        config=config,
+                    )
+                }]
+            }],
             "generationConfig": {
                 "temperature": 0.2,
                 "maxOutputTokens": max(32, min(256, max_chars * 2)),
@@ -425,6 +462,10 @@ class OpenAICompatibleRewriteProvider:
         source_text: str,
         max_chars: int,
         attempt: int,
+        segment: Segment | None = None,
+        context_before: list[Segment] | None = None,
+        context_after: list[Segment] | None = None,
+        config: PipelineConfig | None = None,
     ) -> str:
         """Запросить короткую версию перевода у OpenAI-compatible API."""
 
@@ -435,7 +476,18 @@ class OpenAICompatibleRewriteProvider:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "user", "content": build_rewrite_prompt(text, source_text, max_chars)},
+                {
+                    "role": "user",
+                    "content": build_rewrite_prompt(
+                        text,
+                        source_text,
+                        max_chars,
+                        segment=segment,
+                        context_before=context_before,
+                        context_after=context_after,
+                        config=config,
+                    ),
+                },
             ],
             "temperature": 0.1,
             "max_tokens": max(64, min(512, max_chars * 3)),
@@ -452,24 +504,86 @@ class OpenAICompatibleRewriteProvider:
             raise RewriteProviderError(f"{self.name} вернул неожиданный формат") from exc
 
 
-def build_rewrite_prompt(text: str, source_text: str, max_chars: int) -> str:
+def build_rewrite_prompt(
+    text: str,
+    source_text: str,
+    max_chars: int,
+    *,
+    segment: Segment | None = None,
+    context_before: list[Segment] | None = None,
+    context_after: list[Segment] | None = None,
+    config: PipelineConfig | None = None,
+) -> str:
     """Сформировать промпт для сокращения текста под тайминг дубляжа."""
 
     # Целевой диапазон — использовать лимит по максимуму, не обрезать лишнего.
     target_min = max(1, int(max_chars * 0.75))
+    source_language = language_label(config.source_language) if config else "исходный язык"
+    target_language = language_label(config.target_language) if config else "целевой язык"
+    current = segment or Segment(start=0.0, end=0.0, source_text=source_text, translated_text=text)
+    context = build_context_block(
+        before=context_before,
+        current=current,
+        after=context_after,
+        include_translations=True,
+    )
+    directives = build_project_directives(config) if config else "Настройки проекта не переданы."
+    glossary = build_glossary_block(config) if config else "Глоссарий не задан."
     return (
-        f"Ты редактор русского дубляжа. Перепиши перевод так, чтобы он умещался "
-        f"в {max_chars} символов, сохраняя смысл максимально полно.\n\n"
+        f"Ты редактор дубляжа и адаптации текста под естественную озвучку.\n"
+        f"Перепиши ТОЛЬКО текущий перевод на {target_language}, чтобы он помещался "
+        f"в слот озвучки и не терял смысл оригинала на {source_language}.\n\n"
+        f"ТРЕБОВАНИЯ ПРОЕКТА:\n{directives}\n\n"
+        f"ГЛОССАРИЙ И ТЕРМИНЫ:\n{glossary}\n\n"
+        f"КОНТЕКСТ СЦЕНЫ:\n{context}\n\n"
         f"ПРАВИЛА:\n"
         f"- Длина результата: от {target_min} до {max_chars} символов (стремись к максимуму).\n"
-        f"- Сохраняй смысл, факты, имена, термины, метафоры и тон оригинала.\n"
-        f"- Сокращай длинные обороты, убирай вводные слова, используй синонимы.\n"
+        f"- Сохраняй смысл, факты, имена, термины, метафоры, тон и стиль проекта.\n"
+        f"- Используй глоссарий и список do-not-translate строго, без переименований.\n"
+        f"- Соседние сегменты нужны только для контекста; не добавляй их смысл в текущую реплику.\n"
+        f"- Сокращай длинные обороты, убирай вводные слова, перестраивай фразу естественно.\n"
         f"- НЕ обрезай текст на полуслове и НЕ выбрасывай ключевые идеи.\n"
         f"- Ответ — только готовая фраза, без кавычек, пояснений и комментариев.\n\n"
-        f"Оригинал (EN):\n{source_text}\n\n"
-        f"Перевод (RU, {len(text)} симв.):\n{text}\n\n"
+        f"ОРИГИНАЛ ТЕКУЩЕГО СЕГМЕНТА:\n{source_text}\n\n"
+        f"ТЕКУЩИЙ ПЕРЕВОД ({len(text)} симв.):\n{text}\n\n"
         f"Перепиши (≤{max_chars} симв.):"
     )
+
+
+def _call_rewriter(
+    provider: TimingRewriter,
+    text: str,
+    *,
+    source_text: str,
+    max_chars: int,
+    attempt: int,
+    segment: Segment | None,
+    context_before: list[Segment] | None,
+    context_after: list[Segment] | None,
+    config: PipelineConfig | None,
+) -> str:
+    """Вызвать rewriter с контекстом, сохранив совместимость со старыми тестовыми классами."""
+
+    try:
+        return provider.rewrite(
+            text,
+            source_text=source_text,
+            max_chars=max_chars,
+            attempt=attempt,
+            segment=segment,
+            context_before=context_before,
+            context_after=context_after,
+            config=config,
+        )
+    except TypeError as exc:
+        if "unexpected keyword" not in str(exc):
+            raise
+        return provider.rewrite(
+            text,
+            source_text=source_text,
+            max_chars=max_chars,
+            attempt=attempt,
+        )
 
 
 def _clean_candidate(candidate: str) -> str:
