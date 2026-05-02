@@ -1,5 +1,39 @@
 # Журнал Изменений
 
+## 1.22.15 - 2026-05-02 - FEAT - TVIDEO-087
+
+### Автоматическая расстановка ударений для Yandex SpeechKit
+
+**Проблема**: SpeechKit без ударений часто делает неправильное ударение
+("зАмок" вместо "замОк", "бЕлки" вместо "белкИ" и т.п.)
+
+**Решение**: библиотека ruaccent (Den4ikAI) добавляет + перед ударной
+гласной прямо в текст — SpeechKit это принимает нативно.
+
+**Backend**:
+- tts/stress.py: lazy-loading singleton обёртка над ruaccent.
+  process(text) → текст с ударениями (+ перед ударной гласной).
+  Graceful fallback: нет ruaccent → исходный текст без исключений.
+  Thread-safe (double-checked locking).
+- speechkit_tts.py: YandexSpeechKitTTSProvider(use_stress=True).
+  Перед каждым _synth() вызывается stress.process(text).
+- config.py: +professional_tts_stress (bool, default True).
+- pyproject.toml: +ruaccent в dependencies.
+
+**Пример**:
+  Вход:  "Мама мыла раму. На двери висит замок."
+  Выход: "М+ама м+ыла р+аму. На двер+и вис+ит зам+ок."
+
+**Тесты** (test_stress.py):
+- process() без ruaccent → graceful fallback
+- process() с mock → правильный вызов
+- process() с пустым текстом → пустая строка
+- Ошибка акцентизатора → fallback без исключения
+- reset() сбрасывает синглтон
+- use_stress=True → process() вызван
+- use_stress=False → process() НЕ вызван
+- 7 новых тестов, 400 Python + 101 Vitest
+
 ## 1.22.14 - 2026-05-02 - FIX - TVIDEO-086
 
 ### Bugfix: SpeechKit HTTP 400 для голосов без поддержки role
