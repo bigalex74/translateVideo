@@ -786,6 +786,13 @@
   overflow: hidden !important;
 }
 
+/* Stats: скролл внутри самого StatsPanel, контейнер должен быть flex-column */
+.right-tab-content--stats {
+  overflow: visible !important;
+  display: flex;
+  flex-direction: column;
+}
+
 .right-tab-content--devlog {
   height: 100%;
   display: flex;

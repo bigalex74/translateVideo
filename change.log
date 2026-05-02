@@ -1,5 +1,30 @@
 # Журнал Изменений
 
+## 1.22.9 - 2026-05-02 - FEAT - TVIDEO-082
+
+### StatsPanel: скролл + секция биллинга
+
+**Скролл**:
+- .stats-panel добавлен overflow-y: auto + кастомный скроллбар (4px, accent)
+- .right-tab-content--stats — новый CSS-модификатор который снимает overflow:hidden
+  у flush-контейнера и позволяет StatsPanel скроллиться вертикально
+
+**Биллинг (stats.py)**:
+- _compute_billing() — оценка стоимости перевода из source_chars/target_chars
+- _PROVIDER_PRICE_USD_PER_1M: polza 0.40/1.20, neuroapi 0.40/1.20, openrouter 1.00/3.00,
+  aihubmix 0.40/1.20, gemini 0.00/0.00, google 0.00/0.00 (USD за 1M токенов in/out)
+- Учитывает: перевод LLM + timing rewrite (professional mode)
+- Возвращает: estimated_cost_usd, dominant_translation_provider, input/output tokens, note
+
+**UI (StatsPanel.tsx)**:
+- Секция «💲 Стоимость перевода» с зелёным gradient числом
+- Разбивка: перевод + rewrite + цена (1M tok)
+- Показывает провайдера перевода и rewrite
+
+**9 новых тестов** (test_billing_stats.py) — billing присутствует, стоимость,
+google = 0, токены из chars, rewrite провайдер, total = translate + rewrite.
+361 Python + 101 Vitest ✅
+
 ## 1.22.8 - 2026-05-02 - TEST DEBT
 
 ### Написаны пропущенные тесты для TVIDEO-080 и TVIDEO-081

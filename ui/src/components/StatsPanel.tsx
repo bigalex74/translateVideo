@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Clock, FileText, Star, Mic, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, Clock, FileText, Star, Mic, AlertTriangle, ChevronDown, ChevronUp, DollarSign } from 'lucide-react';
 import './StatsPanel.css';
 
 interface StatsData {
@@ -46,6 +46,18 @@ interface StatsData {
     target_language: string;
     dev_mode: boolean;
   };
+  billing: {
+    dominant_translation_provider: string;
+    rewrite_provider: string | null;
+    estimated_input_tokens: number;
+    estimated_output_tokens: number;
+    estimated_cost_usd: number;
+    estimated_cost_translate_usd: number;
+    estimated_cost_rewrite_usd: number;
+    price_per_1m_in_usd: number;
+    price_per_1m_out_usd: number;
+    note: string;
+  } | null;
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -139,7 +151,7 @@ export const StatsPanel: React.FC<Props> = ({ projectId }) => {
 
   if (!stats) return null;
 
-  const { timing, segments, quality, tts, summary } = stats;
+  const { timing, segments, quality, tts, summary, billing } = stats;
 
   // Timing bar data
   const totalTime = Object.values(timing.stage_times).reduce((a, b) => a + b, 0);
@@ -385,6 +397,60 @@ export const StatsPanel: React.FC<Props> = ({ projectId }) => {
               </strong>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Биллинг ── */}
+      {billing && (
+        <div className="stats-section">
+          <div className="stats-section-title">
+            <DollarSign size={13} />
+            Стоимость перевода
+          </div>
+          <div className="stats-billing-total">
+            <span className="stats-billing-amount">
+              ${billing.estimated_cost_usd.toFixed(4)}
+            </span>
+            <span className="stats-billing-approx">≈ оценка</span>
+          </div>
+          <div className="stats-kv-group">
+            <div className="stats-kv">
+              <span>Провайдер перевода</span>
+              <strong className="stats-billing-provider">{billing.dominant_translation_provider}</strong>
+            </div>
+            {billing.rewrite_provider && (
+              <div className="stats-kv">
+                <span>Провайдер rewrite</span>
+                <strong className="stats-billing-provider">{billing.rewrite_provider}</strong>
+              </div>
+            )}
+            <div className="stats-kv">
+              <span>Токены (вход / выход)</span>
+              <strong>
+                {billing.estimated_input_tokens.toLocaleString()} / {billing.estimated_output_tokens.toLocaleString()}
+              </strong>
+            </div>
+          </div>
+          {/* Разбивка по статьям */}
+          <div className="stats-billing-breakdown">
+            <div className="stats-billing-row">
+              <span>Перевод</span>
+              <span className="stats-billing-val">${billing.estimated_cost_translate_usd.toFixed(4)}</span>
+            </div>
+            {billing.estimated_cost_rewrite_usd > 0 && (
+              <div className="stats-billing-row">
+                <span>Timing rewrite</span>
+                <span className="stats-billing-val">${billing.estimated_cost_rewrite_usd.toFixed(4)}</span>
+              </div>
+            )}
+            <div className="stats-billing-row stats-billing-price-row">
+              <span>Цена (1M tok in/out)</span>
+              <span className="stats-billing-val">
+                ${billing.price_per_1m_in_usd.toFixed(2)} / ${billing.price_per_1m_out_usd.toFixed(2)}
+              </span>
+            </div>
+          </div>
+          <div className="stats-billing-note">{billing.note}</div>
         </div>
       )}
 
