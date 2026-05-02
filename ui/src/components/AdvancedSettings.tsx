@@ -51,6 +51,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   const [loadingModels, setLoadingModels] = React.useState<Set<string>>(new Set());
   const [balances, setBalances] = React.useState<Record<string, ProviderBalance>>({});
   const [balanceErrors, setBalanceErrors] = React.useState<Record<string, string>>({});
+  const [loadingBalances, setLoadingBalances] = React.useState<Set<string>>(new Set());
   const requestedModels = React.useRef(new Set<string>());
   const requestedBalances = React.useRef(new Set<string>());
 
@@ -89,29 +90,33 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
     }
   }, [professional, translationProvider, rewriteProvider, modelsByProvider]);
 
+  const loadBalance = React.useCallback((provider: string) => {
+    setLoadingBalances(prev => new Set(prev).add(provider));
+    fetchProviderBalance(provider)
+      .then(balance => {
+        setBalances(prev => ({ ...prev, [provider]: balance }));
+        setBalanceErrors(prev => { const next = { ...prev }; delete next[provider]; return next; });
+      })
+      .catch(error => {
+        setBalanceErrors(prev => ({
+          ...prev,
+          [provider]: error instanceof Error ? error.message : String(error),
+        }));
+      })
+      .finally(() => {
+        setLoadingBalances(prev => { const next = new Set(prev); next.delete(provider); return next; });
+      });
+  }, []);
+
+  // Автозагрузка балансов при включении professional-режима
   React.useEffect(() => {
     if (!professional) return;
-    const providers = Array.from(new Set([translationProvider, rewriteProvider]));
-    for (const provider of providers) {
-      if (!provider || balances[provider] || requestedBalances.current.has(provider)) continue;
+    for (const provider of ['neuroapi', 'polza']) {
+      if (balances[provider] || requestedBalances.current.has(provider)) continue;
       requestedBalances.current.add(provider);
-      fetchProviderBalance(provider)
-        .then(balance => {
-          setBalances(prev => ({ ...prev, [provider]: balance }));
-          setBalanceErrors(prev => {
-            const next = { ...prev };
-            delete next[provider];
-            return next;
-          });
-        })
-        .catch(error => {
-          setBalanceErrors(prev => ({
-            ...prev,
-            [provider]: error instanceof Error ? error.message : String(error),
-          }));
-        });
+      loadBalance(provider);
     }
-  }, [professional, translationProvider, rewriteProvider, balances]);
+  }, [professional, balances, loadBalance]);
 
   const translationModels = withCurrentModel(
     modelsByProvider[translationProvider] ?? PROFESSIONAL_MODEL_OPTIONS[translationProvider] ?? [],
@@ -147,108 +152,120 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
         </div>
 
         {professional && (
-          <div className="adv-professional-grid">
-            <div className="adv-field">
-              <label className="adv-label" htmlFor="adv-pro-trans-provider">Провайдер перевода</label>
-              <select
-                id="adv-pro-trans-provider"
-                className="adv-select"
-                value={translationProvider}
-                onChange={e => {
-                  const provider = e.target.value;
-                  // Берём первую уже загруженную динамическую модель,
-                  // иначе первую из статического fallback
-                  const firstModel =
-                    modelsByProvider[provider]?.[0] ??
-                    PROFESSIONAL_MODEL_OPTIONS[provider]?.[0] ??
-                    '';
-                  onChange({
-                    professional_translation_provider: provider,
-                    professional_translation_model: firstModel,
-                  });
-                }}
-                disabled={disabled}
-              >
-                {Object.entries(MODEL_PROVIDER_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
+          <>
+            {/* Блок балансов */}
+            <div className="adv-balance-row">
+              {(['neuroapi', 'polza'] as const).map(provider => (
+                <BalanceCard
+                  key={provider}
+                  provider={provider}
+                  balance={balances[provider]}
+                  error={balanceErrors[provider]}
+                  loading={loadingBalances.has(provider)}
+                  onRefresh={() => {
+                    // сбрасываем кэш чтобы разрешить повторный запрос
+                    requestedBalances.current.delete(provider);
+                    setBalances(prev => { const next = { ...prev }; delete next[provider]; return next; });
+                    loadBalance(provider);
+                  }}
+                />
+              ))}
             </div>
-            <div className="adv-field">
-              <label className="adv-label" htmlFor="adv-pro-trans-model">Модель перевода</label>
-              <select
-                id="adv-pro-trans-model"
-                className="adv-select"
-                value={c.professional_translation_model ?? translationModels[0] ?? ''}
-                onChange={e => onChange({ professional_translation_model: e.target.value })}
-                disabled={disabled || loadingModels.has(translationProvider)}
-              >
-                {loadingModels.has(translationProvider) ? (
-                  <option value="">Загрузка моделей…</option>
-                ) : (
-                  translationModels.map(model => (
-                    <option key={model} value={model}>{model}</option>
-                  ))
+
+            {/* Настройки провайдеров */}
+            <div className="adv-professional-grid">
+              <div className="adv-field">
+                <label className="adv-label" htmlFor="adv-pro-trans-provider">Провайдер перевода</label>
+                <select
+                  id="adv-pro-trans-provider"
+                  className="adv-select"
+                  value={translationProvider}
+                  onChange={e => {
+                    const provider = e.target.value;
+                    const firstModel =
+                      modelsByProvider[provider]?.[0] ??
+                      PROFESSIONAL_MODEL_OPTIONS[provider]?.[0] ??
+                      '';
+                    onChange({
+                      professional_translation_provider: provider,
+                      professional_translation_model: firstModel,
+                    });
+                  }}
+                  disabled={disabled}
+                >
+                  {Object.entries(MODEL_PROVIDER_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="adv-field">
+                <label className="adv-label" htmlFor="adv-pro-trans-model">Модель перевода</label>
+                <select
+                  id="adv-pro-trans-model"
+                  className="adv-select"
+                  value={c.professional_translation_model ?? translationModels[0] ?? ''}
+                  onChange={e => onChange({ professional_translation_model: e.target.value })}
+                  disabled={disabled || loadingModels.has(translationProvider)}
+                >
+                  {loadingModels.has(translationProvider) ? (
+                    <option value="">Загрузка моделей…</option>
+                  ) : (
+                    translationModels.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))
+                  )}
+                </select>
+                {modelErrors[translationProvider] && (
+                  <span className="adv-hint adv-hint--error">{modelErrors[translationProvider]}</span>
                 )}
-              </select>
-              <ProviderMeta
-                provider={translationProvider}
-                modelError={modelErrors[translationProvider]}
-                balance={balances[translationProvider]}
-                balanceError={balanceErrors[translationProvider]}
-              />
-            </div>
-            <div className="adv-field">
-              <label className="adv-label" htmlFor="adv-pro-rewrite-provider">Провайдер сокращения</label>
-              <select
-                id="adv-pro-rewrite-provider"
-                className="adv-select"
-                value={rewriteProvider}
-                onChange={e => {
-                  const provider = e.target.value;
-                  // Берём первую уже загруженную динамическую модель,
-                  // иначе первую из статического fallback
-                  const firstModel =
-                    modelsByProvider[provider]?.[0] ??
-                    PROFESSIONAL_MODEL_OPTIONS[provider]?.[0] ??
-                    '';
-                  onChange({
-                    professional_rewrite_provider: provider,
-                    professional_rewrite_model: firstModel,
-                  });
-                }}
-                disabled={disabled}
-              >
-                {Object.entries(MODEL_PROVIDER_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="adv-field">
-              <label className="adv-label" htmlFor="adv-pro-rewrite-model">Модель сокращения</label>
-              <select
-                id="adv-pro-rewrite-model"
-                className="adv-select"
-                value={c.professional_rewrite_model ?? rewriteModels[0] ?? ''}
-                onChange={e => onChange({ professional_rewrite_model: e.target.value })}
-                disabled={disabled || loadingModels.has(rewriteProvider)}
-              >
-                {loadingModels.has(rewriteProvider) ? (
-                  <option value="">Загрузка моделей…</option>
-                ) : (
-                  rewriteModels.map(model => (
-                    <option key={model} value={model}>{model}</option>
-                  ))
+              </div>
+              <div className="adv-field">
+                <label className="adv-label" htmlFor="adv-pro-rewrite-provider">Провайдер постредактуры</label>
+                <select
+                  id="adv-pro-rewrite-provider"
+                  className="adv-select"
+                  value={rewriteProvider}
+                  onChange={e => {
+                    const provider = e.target.value;
+                    const firstModel =
+                      modelsByProvider[provider]?.[0] ??
+                      PROFESSIONAL_MODEL_OPTIONS[provider]?.[0] ??
+                      '';
+                    onChange({
+                      professional_rewrite_provider: provider,
+                      professional_rewrite_model: firstModel,
+                    });
+                  }}
+                  disabled={disabled}
+                >
+                  {Object.entries(MODEL_PROVIDER_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="adv-field">
+                <label className="adv-label" htmlFor="adv-pro-rewrite-model">Модель постредактуры</label>
+                <select
+                  id="adv-pro-rewrite-model"
+                  className="adv-select"
+                  value={c.professional_rewrite_model ?? rewriteModels[0] ?? ''}
+                  onChange={e => onChange({ professional_rewrite_model: e.target.value })}
+                  disabled={disabled || loadingModels.has(rewriteProvider)}
+                >
+                  {loadingModels.has(rewriteProvider) ? (
+                    <option value="">Загрузка моделей…</option>
+                  ) : (
+                    rewriteModels.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))
+                  )}
+                </select>
+                {modelErrors[rewriteProvider] && (
+                  <span className="adv-hint adv-hint--error">{modelErrors[rewriteProvider]}</span>
                 )}
-              </select>
-              <ProviderMeta
-                provider={rewriteProvider}
-                modelError={modelErrors[rewriteProvider]}
-                balance={balances[rewriteProvider]}
-                balanceError={balanceErrors[rewriteProvider]}
-              />
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -378,33 +395,81 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   );
 };
 
-function ProviderMeta({
+const PROVIDER_DISPLAY: Record<string, { label: string; url: string }> = {
+  neuroapi: { label: 'NeuroAPI', url: 'https://neuroapi.host' },
+  polza: { label: 'Polza.ai', url: 'https://polza.ai' },
+};
+
+function BalanceCard({
   provider,
-  modelError,
   balance,
-  balanceError,
+  error,
+  loading,
+  onRefresh,
 }: {
   provider: string;
-  modelError?: string;
   balance?: ProviderBalance;
-  balanceError?: string;
+  error?: string;
+  loading: boolean;
+  onRefresh: () => void;
 }) {
-  const parts: string[] = [];
-  if (modelError) parts.push(`модели: ${modelError}`);
-  if (balanceError) parts.push(`баланс: ${balanceError}`);
-  if (balance) {
-    if (!balance.configured) {
-      parts.push(balance.message ?? `ключ ${provider} не настроен`);
-    } else if (typeof balance.balance === 'number') {
-      parts.push(`остаток: ${formatMoney(balance.balance, balance.currency)}`);
-    } else if (typeof balance.used === 'number') {
-      parts.push(`расход: ${formatMoney(balance.used, balance.currency)}`);
-    } else if (balance.message) {
-      parts.push(balance.message);
-    }
-  }
-  if (parts.length === 0) return null;
-  return <span className="adv-hint">{parts.join(' · ')}</span>;
+  const meta = PROVIDER_DISPLAY[provider] ?? { label: provider, url: '#' };
+
+  return (
+    <div className={`adv-balance-card ${!balance?.configured ? 'adv-balance-card--unconfigured' : ''}`}>
+      <div className="adv-balance-card__header">
+        <a
+          className="adv-balance-card__name"
+          href={meta.url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {meta.label}
+        </a>
+        <button
+          type="button"
+          className={`adv-balance-card__refresh ${loading ? 'adv-balance-card__refresh--spinning' : ''}`}
+          onClick={onRefresh}
+          disabled={loading}
+          title="Обновить баланс"
+          aria-label="Обновить баланс"
+        >
+          ↻
+        </button>
+      </div>
+
+      {loading && !balance && (
+        <div className="adv-balance-card__loading">Загрузка…</div>
+      )}
+
+      {error && (
+        <div className="adv-balance-card__error" title={error}>⚠ {error.slice(0, 60)}</div>
+      )}
+
+      {balance && !error && (
+        <div className="adv-balance-card__body">
+          {typeof balance.balance === 'number' ? (
+            <div className="adv-balance-card__main">
+              <span className="adv-balance-card__value">{formatMoney(balance.balance, balance.currency)}</span>
+              <span className="adv-balance-card__sublabel">остаток</span>
+            </div>
+          ) : !balance.configured ? (
+            <div className="adv-balance-card__error">Ключ не настроен</div>
+          ) : null}
+
+          {typeof balance.used === 'number' && (
+            <div className="adv-balance-card__secondary">
+              потрачено: <strong>{formatMoney(balance.used, balance.currency)}</strong>
+            </div>
+          )}
+
+          {balance.message && (
+            <div className="adv-balance-card__hint">{balance.message}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function withCurrentModel(options: string[], current?: string): string[] {
