@@ -923,3 +923,53 @@
   color: var(--text-secondary);
   background: rgba(255,255,255,0.04);
 }
+
+/* ══ Cancel inline confirm block ════════════════════════════════════════════ */
+.running-cancel-confirm {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: qa-item-in 0.2s ease;
+}
+
+.running-cancel-confirm-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 0.75rem;
+  color: #fca5a5;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.running-cancel-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.running-cancel-confirm-keep {
+  flex: 1;
+  font-size: 0.74rem;
+  padding: 6px 10px;
+}
+
+.running-cancel-btn--confirm {
+  flex: 1;
+  font-size: 0.74rem;
+  padding: 6px 10px;
+}
+
+.running-cancel-waiting {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.74rem;
+  color: rgba(255,255,255,0.45);
+  padding: 6px 0;
+  animation: qa-item-in 0.2s ease;
+}

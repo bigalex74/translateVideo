@@ -96,3 +96,56 @@ describe('TVIDEO-032: переключение локали RU/EN', () => {
     expect(providerLabel('legacy', 'en')).toContain('Full translation');
   });
 });
+
+// ─── TVIDEO-068: QA-флаги не показываются как raw-строки ────────────────────
+
+describe('TVIDEO-068: qa.flag.* i18n — не возвращает raw ключ', () => {
+  const knownFlags = [
+    'translation_empty',
+    'translation_fallback_source',
+    'tts_pretrim',
+    'render_speed_fallback',
+    'render_audio_speedup',
+    'render_audio_trimmed',
+    'tts_rate_adapted',
+    'tts_overflow_after_rate',
+    'tts_overflow_natural_rate',
+    'tts_invalid_slot',
+    'render_audio_overflow',
+    'translation_rewritten_for_timing',
+    'timing_fit_failed',
+    'timing_fit_invalid_slot',
+    'timeline_shifted',
+    'timeline_shift_limit_reached',
+    'timeline_audio_extends_video',
+    'rewrite_provider_used',
+    'rewrite_fallback_used',
+    'rewrite_provider_failed',
+    'rewrite_provider_rule_based',
+    'translation_llm',
+    'translation_provider_used',
+    'translation_google_fallback',
+    // новые ключи из TVIDEO-068
+    'rewrite_provider_quota_limited',
+    'rewrite_provider_cooldown',
+    'rewrite_provider_skipped',
+    'translation_provider_quota_limited',
+    'translation_provider_cooldown',
+  ];
+
+  for (const flag of knownFlags) {
+    it(`qa.flag.${flag} (ru) — не возвращает raw ключ`, () => {
+      const key = `qa.flag.${flag}`;
+      const result = t(key, 'ru');
+      expect(result).not.toBe(key);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it(`qa.flag.${flag} (en) — не возвращает raw ключ`, () => {
+      const key = `qa.flag.${flag}`;
+      const result = t(key, 'en');
+      expect(result).not.toBe(key);
+      expect(result.length).toBeGreaterThan(0);
+    });
+  }
+});
