@@ -100,6 +100,7 @@ class RunPipelineRequest(BaseModel):
     """Схема запроса на запуск пайплайна."""
     force: bool = False
     provider: str = "legacy"
+    from_stage: str | None = None  # если задан — сбросить этот и последующие этапы, начать с него
 
 
 async def run_pipeline_task(
@@ -112,7 +113,11 @@ async def run_pipeline_task(
     try:
         safe_project_id = sanitize_project_id(project_id)
         loaded_project = store.load_project(store.root / safe_project_id)
-        runner = PipelineRunner(build_stages(req.provider, project_config=loaded_project.config), force=req.force)
+        runner = PipelineRunner(
+            build_stages(req.provider, project_config=loaded_project.config),
+            force=req.force,
+            from_stage=req.from_stage,
+        )
 
         # Создаём cancel-токен для этого запуска
         cancel_event = threading.Event()
