@@ -69,8 +69,9 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
             </div>
           )}
 
-          {/* QA: непереведённые сегменты */}
-          {reviewCount > 0 && segments.length > 0 && (
+          {/* QA: непереведённые сегменты — только при resume, не при force.
+              При force все этапы будут перезапущены, статус сегментов неактуален. */}
+          {!isForce && reviewCount > 0 && segments.length > 0 && (
             <div className="modal-warning modal-warning--warn">
               <AlertTriangle size={14} />
               <span>
