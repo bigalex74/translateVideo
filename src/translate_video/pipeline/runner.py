@@ -57,6 +57,7 @@ class PipelineRunner:
             project=project_id,
             stages=stage_names,
             force=self.force,
+            from_stage=self.from_stage,
         )
 
         context.project.status = ProjectStatus.RUNNING
@@ -105,7 +106,20 @@ class PipelineRunner:
                         f"Pipeline cancelled before stage {stage.stage.value}"
                     )
 
-                if not self.force and self._already_completed(context, stage.stage):
+                # ── Вычисляем множество этапов ДО from_stage ещё до цикла в py3.10+ ──
+                # Если from_stage задан — этапы ДО него всегда пропускаются,
+                # даже если force=True. force влияет только на этапы НАЧИНАЯ с from_stage.
+                is_before_from_stage = (
+                    self.from_stage is not None
+                    and stage.stage.value != self.from_stage
+                    and self._is_before(stage.stage.value, self.from_stage)
+                )
+                # Пропускаем этап, если:
+                # 1) этап до from_stage (from_stage задан) — всегда
+                # 2) force=False и этап уже completed
+                if is_before_from_stage or (
+                    not self.force and self._already_completed(context, stage.stage)
+                ):
                     skipped = StageRun(
                         stage=stage.stage,
                         status=JobStatus.SKIPPED,
@@ -201,6 +215,14 @@ class PipelineRunner:
             r for r in context.project.stage_runs
             if r.stage.value not in stages_to_reset
         ]
+
+    def _is_before(self, stage_value: str, reference_value: str) -> bool:
+        """Вернуть True если stage_value идёт раньше reference_value в пайплайне."""
+        pipeline_order = [s.stage.value for s in self.stages]
+        try:
+            return pipeline_order.index(stage_value) < pipeline_order.index(reference_value)
+        except ValueError:
+            return False
 
 
 def _elapsed_from_run(run: StageRun) -> float | None:

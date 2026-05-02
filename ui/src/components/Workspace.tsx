@@ -790,16 +790,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           locale={locale}
           stageRuns={project.stage_runs ?? []}
           speedChanged={(() => {
-            // Скорость изменилась, если в configPatch есть любое из полей скорости,
-            // которое отличается от сохранённого значения в project.config
-            const saved = project.config ?? {};
-            const patch = configPatch;
-            const keys: (keyof typeof patch)[] = [
-              'professional_tts_speed',
-              'professional_tts_speed_2',
-            ];
-            return keys.some(k =>
-              k in patch && patch[k] !== (saved as Record<string, unknown>)[k]
+            // Находим последний успешный timing_fit с metadata скорости
+            const timingRun = [...(project.stage_runs ?? [])]
+              .reverse()
+              .find(r => r.stage === 'timing_fit' && r.status === 'completed' && r.metadata);
+            const cfg = project.config as unknown as Record<string, unknown> | undefined;
+            const currentSpeed1 = cfg?.professional_tts_speed ?? 1.0;
+            const currentSpeed2 = cfg?.professional_tts_speed_2 ?? 1.0;
+            if (timingRun?.metadata) {
+              const savedSpeed1 = timingRun.metadata['tts_speed_1'] ?? 1.0;
+              const savedSpeed2 = timingRun.metadata['tts_speed_2'] ?? 1.0;
+              return Math.abs(Number(currentSpeed1) - Number(savedSpeed1)) > 0.001
+                  || Math.abs(Number(currentSpeed2) - Number(savedSpeed2)) > 0.001;
+            }
+            // Fallback: проверяем несохранённый configPatch
+            const patch = configPatch as Record<string, unknown>;
+            const saved = (project.config ?? {}) as Record<string, unknown>;
+            return ['professional_tts_speed', 'professional_tts_speed_2'].some(k =>
+              k in patch && patch[k] !== saved[k]
             );
           })()}
           onConfirm={(fromStage) => handleRunConfirmed(confirm.force, fromStage)}

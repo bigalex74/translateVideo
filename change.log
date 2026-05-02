@@ -1,5 +1,32 @@
 # Журнал Изменений
 
+## 1.22.27 - 2026-05-02 - FIX - TVIDEO-093
+
+### КРИТИЧНО: from_stage игнорировался при force=True — пайплайн стартовал заново
+
+**Настоящая причина**: В PipelineRunner.run() условие пропуска этапа:
+  if not self.force and self._already_completed(...)
+При force=True это условие НИКОГДА не срабатывало — все этапы запускались
+заново, даже если from_stage='tts'. from_stage только очищал stage_runs,
+но не защищал предшествующие этапы от перезапуска.
+
+**Исправление** (runner.py):
+- Добавлен helper _is_before(stage_value, reference_value)
+- Новое условие: if is_before_from_stage or (not self.force and already_completed)
+- Этапы ДО from_stage пропускаются ВСЕГДА (даже при force=True)
+- force влияет только на этапы НАЧИНАЯ с from_stage
+- from_stage логируется в pipeline.start
+
+**Также добавлено**:
+- timing_fit сохраняет tts_speed_1/tts_speed_2 в StageRun.metadata
+- StageRun: добавлено поле metadata (schemas.py + from_dict + to_dict через asdict)
+- BaseStage._record: копирует metadata из running run в completed StageRun
+- Workspace.tsx: speedChanged теперь сравнивает config.speed с
+  timing_fit.metadata.tts_speed (работает даже после сохранения конфига)
+- StageRun TS-тип: добавлено поле metadata
+
+Итого: 447 Python + 101 Vitest.
+
 ## 1.22.26 - 2026-05-02 - FIX - TVIDEO-092
 
 ### Скорость TTS теперь учитывается при подгонке таймингов

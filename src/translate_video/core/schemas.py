@@ -122,6 +122,7 @@ class StageRun:
     progress_current: int | None = None
     progress_total: int | None = None
     progress_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Вернуть JSON-совместимую запись запуска этапа."""
@@ -145,6 +146,7 @@ class StageRun:
             progress_current=payload.get("progress_current"),
             progress_total=payload.get("progress_total"),
             progress_message=payload.get("progress_message"),
+            metadata=dict(payload.get("metadata", {})),
         )
 
 

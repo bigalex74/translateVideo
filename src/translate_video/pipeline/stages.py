@@ -87,6 +87,7 @@ class BaseStage:
             progress_current=run.progress_current,
             progress_total=run.progress_total,
             progress_message=run.progress_message,
+            metadata=dict(run.metadata),   # переносим metadata, накопленное action()
         )
         context.store.record_stage_run(context.project, completed)
         _log.info(
@@ -321,9 +322,15 @@ class TimingFitStage(BaseStage):
                 stage=self.stage,
             )
             output = output_path.relative_to(context.project.work_dir).as_posix()
+            # Сохраняем скорость TTS в metadata чтобы UI мог определить,
+            # изменилась ли скорость с момента последнего timing_fit.
+            cfg = context.project.config
+            run.metadata["tts_speed_1"] = float(getattr(cfg, "professional_tts_speed",   1.0))
+            run.metadata["tts_speed_2"] = float(getattr(cfg, "professional_tts_speed_2", 1.0))
             return [translated_transcript.path], [output]
 
         return self._record(context, action)
+
 
 
 class TTSStage(BaseStage):

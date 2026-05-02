@@ -90,6 +90,7 @@ export interface StageRun {
     progress_current?: number | null;
     progress_total?: number | null;
     progress_message?: string | null;
+    metadata?: Record<string, unknown>;
 }
 
 export interface ArtifactRecord {
