@@ -214,80 +214,59 @@ def compute_project_stats(project: VideoProject) -> dict[str, Any]:
     }
 
 
-# ── Биллинг ────────────────────────────────────────────────────────────────
-# Приблизительные цены (USD за 1M токенов, вход / выход).
-# Обновляй по актуальным прайс-листам провайдеров.
-_PROVIDER_PRICE_USD_PER_1M: dict[str, tuple[float, float]] = {
-    "polza":     (0.40, 1.20),   # NeuroAPI / polza, gpt-4o-mini tier
-    "neuroapi":  (0.40, 1.20),
-    "openrouter": (1.00, 3.00), # средний по popular models
-    "aihubmix":  (0.40, 1.20),
-    "gemini":    (0.00, 0.00),   # free-tier (Flash)
-    "google":    (0.00, 0.00),   # Google Translate — бесплатно
-}
-# Среднее число символов на токен (смешанный RU/EN текст)
-_CHARS_PER_TOKEN = 3.5
-
 
 def _compute_billing(
     project: "VideoProject",
     segment_stats: dict,
     quality: dict,
 ) -> dict:
-    """Оценить стоимость перевода на основе объёма текста и провайдеров."""
+    """Вычислить реальный расход из снапшотов баланса до/после пайплайна.
 
-    source_chars: int = segment_stats.get("source_chars", 0)
-    target_chars: int = segment_stats.get("target_chars", 0)
+    Если снапшоты отсутствуют (провайдер не настроен или старый проект) —
+    возвращает None в соответствующих полях.
+    """
+    snaps = project.billing_snapshots or {}
 
-    # Оцениваем токены
-    input_tokens = int(source_chars / _CHARS_PER_TOKEN)
-    output_tokens = int(target_chars / _CHARS_PER_TOKEN)
+    # ── Polza (RUB: balance = остаток; расход = before - after) ─────────────
+    polza_before = snaps.get("polza_before")
+    polza_after  = snaps.get("polza_after")
+    polza_spent: float | None = None
+    if polza_before is not None and polza_after is not None:
+        polza_spent = round(polza_before - polza_after, 2)
 
-    # Определяем доминирующего провайдера перевода
+    # ── NeuroAPI (USD: balance = hard_limit - used; расход = before - after) ─
+    neuro_before = snaps.get("neuroapi_before")
+    neuro_after  = snaps.get("neuroapi_after")
+    neuro_spent: float | None = None
+    if neuro_before is not None and neuro_after is not None:
+        neuro_spent = round(neuro_before - neuro_after, 4)
+
+    # Провайдер перевода (для информации)
     provider_usage: dict = quality.get("provider_usage", {})
     dominant_provider = (
         max(provider_usage, key=provider_usage.get)
         if provider_usage
         else "unknown"
     )
-    total_segs: int = segment_stats.get("count", 0) or 1
-    google_segs: int = quality.get("google_fallback_count", 0)
-    llm_segs: int = total_segs - google_segs
 
-    # Стоимость LLM-перевода (в USD)
-    price_in, price_out = _PROVIDER_PRICE_USD_PER_1M.get(
-        dominant_provider.lower(), (0.80, 2.40)
-    )
-    llm_frac = llm_segs / total_segs
-    cost_translate = (
-        (input_tokens * llm_frac * price_in / 1_000_000)
-        + (output_tokens * llm_frac * price_out / 1_000_000)
-    )
-
-    # Стоимость timing rewrite (если professional)
-    rewrite_cost = 0.0
-    rewrite_provider = getattr(project.config, "professional_rewrite_provider", None)
-    if rewrite_provider:
-        rp_in, rp_out = _PROVIDER_PRICE_USD_PER_1M.get(rewrite_provider.lower(), (0.80, 2.40))
-        # rewrite: ~source_chars вход + ~source_chars вывод (shortened)
-        rw_in_tok = int(source_chars / _CHARS_PER_TOKEN)
-        rw_out_tok = int(source_chars * 0.7 / _CHARS_PER_TOKEN)  # rewrite обычно короче
-        rewrite_cost = (
-            rw_in_tok * rp_in / 1_000_000
-            + rw_out_tok * rp_out / 1_000_000
-        )
-
-    total_cost = round(cost_translate + rewrite_cost, 4)
+    # Есть ли вообще реальные данные?
+    has_real_data = polza_spent is not None or neuro_spent is not None
 
     return {
         "dominant_translation_provider": dominant_provider,
-        "rewrite_provider": rewrite_provider,
-        "estimated_input_tokens": input_tokens,
-        "estimated_output_tokens": output_tokens,
-        "estimated_cost_usd": total_cost,
-        "estimated_cost_translate_usd": round(cost_translate, 4),
-        "estimated_cost_rewrite_usd": round(rewrite_cost, 4),
-        "price_per_1m_in_usd": price_in,
-        "price_per_1m_out_usd": price_out,
-        "note": "оценка на основе символов/токенов; точные данные недоступны",
+        # Polza
+        "polza_before": polza_before,
+        "polza_after": polza_after,
+        "polza_spent_rub": polza_spent,
+        # NeuroAPI
+        "neuroapi_before": neuro_before,
+        "neuroapi_after": neuro_after,
+        "neuroapi_spent_usd": neuro_spent,
+        # Мета
+        "has_real_data": has_real_data,
+        "note": (
+            "реальные данные из снапшотов баланса"
+            if has_real_data
+            else "снапшоты недоступны — запустите перевод повторно"
+        ),
     }

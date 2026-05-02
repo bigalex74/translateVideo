@@ -1,5 +1,36 @@
 # Журнал Изменений
 
+## 1.22.10 - 2026-05-02 - FEAT - TVIDEO-083
+
+### Биллинг: реальные данные из снапшотов баланса
+
+**Проблема**: биллинг показывал приблизительные оценки на основе символов/токенов.
+
+**Решение**: снапшот баланса ДО и ПОСЛЕ пайплайна → разница = реальный расход.
+
+**schemas.py**:
+- VideoProject.billing_snapshots: dict[str, float] — ключи polza_before/after,
+  neuroapi_before/after. Сохраняется в JSON проекта.
+
+**runner.py**:
+- _snapshot_balances() — вызывает get_provider_balance() для polza и neuroapi
+  перед запуском этапов и после. Ошибки API не прерывают пайплайн (try/except).
+- force=True очищает billing_snapshots вместе с stage_runs.
+
+**stats.py**:
+- _compute_billing() переписан: берёт before/after из billing_snapshots,
+  вычисляет разницу. Удалены приблизительные _PROVIDER_PRICE_USD_PER_1M.
+- При отсутствии снапшотов: has_real_data=False, все spent=None.
+
+**UI (StatsPanel.tsx)**:
+- Секция Стоимость перевода показывает реальные суммы по провайдерам.
+- Polza: сумма в ₽, диапазон остатка (before → after).
+- NeuroAPI: сумма в $, диапазон.
+- При отсутствии снапшотов: «снапшоты недоступны — запустите перевод повторно».
+
+**13 новых тестов** (test_billing_stats.py) — снапшоты, частичные данные,
+разные провайдеры, dominant_provider. 364 Python + 101 Vitest ✅
+
 ## 1.22.9 - 2026-05-02 - FEAT - TVIDEO-082
 
 ### StatsPanel: скролл + секция биллинга

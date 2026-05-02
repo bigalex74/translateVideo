@@ -203,6 +203,9 @@ class VideoProject:
     artifact_records: list[ArtifactRecord] = field(default_factory=list)
     stage_runs: list[StageRun] = field(default_factory=list)
     status: ProjectStatus = ProjectStatus.CREATED
+    # Снапшоты баланса до/после пайплайна — для вычисления реального расхода.
+    # Ключи: "polza_before", "polza_after", "neuroapi_before", "neuroapi_after"
+    billing_snapshots: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.status = ProjectStatus(self.status)
@@ -220,6 +223,7 @@ class VideoProject:
             "artifact_records": [record.to_dict() for record in self.artifact_records],
             "stage_runs": [run.to_dict() for run in self.stage_runs],
             "status": self.status,
+            "billing_snapshots": self.billing_snapshots,
         }
 
     @classmethod
@@ -238,4 +242,5 @@ class VideoProject:
             ],
             stage_runs=[StageRun.from_dict(item) for item in payload.get("stage_runs", [])],
             status=ProjectStatus(payload.get("status", "created")),
+            billing_snapshots=dict(payload.get("billing_snapshots", {})),
         )
