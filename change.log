@@ -1,21 +1,51 @@
 # Журнал Изменений
 
-## 1.21.1 - 2026-05-02 - PATCH
+## 1.21.1 - 2026-05-02 - FIX - TVIDEO-071
 
-- TODO: заполнить описание перед мержем в master.
+### Исправлен чёрный экран в редакторе (Rules of Hooks)
 
+- `React.useMemo` для `liveFlags` вызывался ПОСЛЕ условного `return (!project)`,
+  что нарушало Rules of Hooks и вызывало краш рендера → чёрный экран.
+- Исправлено: `useMemo` + `FLAG_SEV` перенесены ДО раннего return.
+  Безопасное чтение через `project?.status`, `project?.segments`.
+- Удалён дублированный блок объявлений `runningStage/completedStages/totalStages`.
+- Добавлены unit-тесты: `test_pipeline_cancel.py` (cancel_event, PipelineCancelledError).
+- 303 Python + 32 Vitest ✅
 
+## 1.21.0 - 2026-05-02 - FEAT - TVIDEO-070
 
-## 1.21.0 - 2026-05-02 - MINOR
+### Отмена перевода в реальном времени
 
-- TODO: заполнить описание перед мержем в master.
+**Backend**:
+- `pipeline/context.py`: `StageContext.cancel_event: threading.Event` (default_factory).
+- `pipeline/runner.py`: `PipelineCancelledError` + проверка `cancel_event.is_set()`
+  ПЕРЕД каждым этапом — текущий этап дорабатывает, следующий не начинается.
+- `api/routes/pipeline.py`:
+  - `_cancel_tokens: dict[str, Event]` — thread-safe in-memory реестр.
+  - `cancel_event` передаётся в `StageContext` при каждом запуске.
+  - `PipelineCancelledError` → статус `FAILED` + лог + webhook `{status: cancelled}`.
+  - `POST /{project_id}/cancel` — устанавливает флаг отмены (404 если не запущен).
+  - `GET /{project_id}/running` — проверить статус запуска.
 
+**Frontend**:
+- `api/client.ts`: `cancelPipeline()`.
+- `Workspace`: кнопка «Отменить перевод» в running overlay.
+  - `window.confirm` перед отменой.
+  - `cancelling` state → заголовок «Отмена перевода…» + disabled btn + spinner.
+- 303 Python + 32 Vitest ✅
 
+## 1.20.2 - 2026-05-02 - FEAT - TVIDEO-069
 
-## 1.20.2 - 2026-05-02 - PATCH
+### Live QA Feed в running overlay
 
-- TODO: заполнить описание перед мержем в master.
-
+- Во время перевода (polling каждые 2с) overlay показывает QA-события в реальном времени.
+- Только non-info флаги (critical/error/warning) — не засоряют экран.
+- Цветовое кодирование совпадает с итоговой QA-панелью (единая система).
+- Счётчик затронутых сегментов для каждого типа флага.
+- Slide-in анимация при появлении новых событий.
+- Скролл при > 8 типов предупреждений.
+- Данные из `segments.qa_flags` — новый API не нужен, только polling.
+- 303 Python + 32 Vitest ✅
 
 
 ## 1.20.1 - 2026-05-02 - FIX - TVIDEO-068

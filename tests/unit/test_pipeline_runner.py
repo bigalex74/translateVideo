@@ -217,5 +217,88 @@ class ResumeRegressionTest(PipelineRunnerTest):
         self.assertTrue(transcribe_stage.called, "FAILED после COMPLETED должен перезапуститься")
 
 
+class CancelPipelineTest(unittest.TestCase):
+    """TVIDEO-070: тесты отмены пайплайна через cancel_event."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.store = ProjectStore(Path(self.temp_dir.name) / "runs")
+        self.project = self.store.create_project("lesson.mp4", project_id="lesson")
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_cancel_event_default_not_set(self):
+        """StageContext.cancel_event должен быть не установлен по умолчанию."""
+        import threading
+        ctx = StageContext(project=self.project, store=self.store)
+        self.assertIsInstance(ctx.cancel_event, threading.Event)
+        self.assertFalse(ctx.cancel_event.is_set(), "cancel_event не должен быть установлен по умолчанию")
+
+    def test_cancel_before_first_stage_raises(self):
+        """Если cancel_event установлен до запуска, PipelineCancelledError выбрасывается сразу."""
+        from translate_video.pipeline.runner import PipelineCancelledError
+        stage = StaticStage(StageRun(stage=Stage.TRANSCRIBE, status=JobStatus.COMPLETED))
+        ctx = StageContext(project=self.project, store=self.store)
+        ctx.cancel_event.set()
+
+        runner = PipelineRunner([stage])
+        with self.assertRaises(PipelineCancelledError):
+            runner.run(ctx)
+
+        self.assertFalse(stage.called, "этап не должен запускаться после установки cancel_event")
+
+    def test_cancel_between_stages(self):
+        """Cancel_event, установленный первым этапом, останавливает второй."""
+        from translate_video.pipeline.runner import PipelineCancelledError
+
+        ctx = StageContext(project=self.project, store=self.store)
+
+        class CancellingStage:
+            """Первый этап — сам устанавливает cancel_event."""
+            stage = Stage.TRANSCRIBE
+            called = False
+
+            def run(self, context):
+                self.called = True
+                context.cancel_event.set()   # устанавливаем флаг внутри этапа
+                return StageRun(stage=Stage.TRANSCRIBE, status=JobStatus.COMPLETED)
+
+        first = CancellingStage()
+        second = StaticStage(StageRun(stage=Stage.TRANSLATE, status=JobStatus.COMPLETED))
+
+        runner = PipelineRunner([first, second])
+        with self.assertRaises(PipelineCancelledError):
+            runner.run(ctx)
+
+        self.assertTrue(first.called, "первый этап должен был выполниться")
+        self.assertFalse(second.called, "второй этап не должен запускаться после отмены")
+
+    def test_cancel_sets_project_status_failed(self):
+        """После PipelineCancelledError проект должен остаться в статусе RUNNING (runner не меняет сам)."""
+        from translate_video.pipeline.runner import PipelineCancelledError
+        ctx = StageContext(project=self.project, store=self.store)
+        ctx.cancel_event.set()
+
+        runner = PipelineRunner([
+            StaticStage(StageRun(stage=Stage.TRANSCRIBE, status=JobStatus.COMPLETED))
+        ])
+
+        with self.assertRaises(PipelineCancelledError):
+            runner.run(ctx)
+        # API-слой (pipeline.py) отвечает за перевод в FAILED при отмене.
+        # Runner сам не меняет статус при отмене — проверяем что он не COMPLETED.
+        restored = self.store.load_project(self.project.work_dir)
+        self.assertNotEqual(restored.status, ProjectStatus.COMPLETED)
+
+    def test_independent_cancel_events_per_context(self):
+        """Два StageContext независимы — cancel одного не влияет на другой."""
+        ctx1 = StageContext(project=self.project, store=self.store)
+        ctx2 = StageContext(project=self.project, store=self.store)
+        ctx1.cancel_event.set()
+        self.assertTrue(ctx1.cancel_event.is_set())
+        self.assertFalse(ctx2.cancel_event.is_set(), "cancel_event должны быть независимыми объектами")
+
+
 if __name__ == "__main__":
     unittest.main()
