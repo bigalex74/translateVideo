@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Protocol
 
 from translate_video.core.log import Timer, get_logger
@@ -77,14 +78,33 @@ class PipelineRunner:
                 context.project.status = ProjectStatus.COMPLETED
                 context.store.save_project(context.project)
 
+        total_s = total.elapsed
         _log.info(
             "pipeline.done",
             project=project_id,
             status=context.project.status.value,
-            total_elapsed_s=total.elapsed,
+            total_elapsed_s=total_s,
             stages_ran=sum(1 for r in runs if r.status != JobStatus.SKIPPED),
             stages_skipped=sum(1 for r in runs if r.status == JobStatus.SKIPPED),
         )
+
+        # ── Автосводка: pipeline.summary — все этапы с временем ──────────────
+        # Удобна для log_analyze.py: одна строка = весь прогон.
+        stage_times: dict[str, float | None] = {
+            r.stage.value: _elapsed_from_run(r)
+            for r in runs
+            if r.status != JobStatus.SKIPPED
+        }
+        failed_stages = [r.stage.value for r in runs if r.status == JobStatus.FAILED]
+        _log.info(
+            "pipeline.summary",
+            project=project_id,
+            status=context.project.status.value,
+            total_elapsed_s=round(total_s, 2),
+            stage_times=stage_times,
+            failed_stages=failed_stages or None,
+        )
+
         return runs
 
     @staticmethod
@@ -100,3 +120,16 @@ class PipelineRunner:
             None,
         )
         return last is not None and last.status == JobStatus.COMPLETED
+
+
+def _elapsed_from_run(run: StageRun) -> float | None:
+    """Вычислить длительность этапа из ISO-меток started_at / finished_at."""
+    if run.started_at is None or run.finished_at is None:
+        return None
+    try:
+        fmt = "%Y-%m-%dT%H:%M:%S.%f"
+        start = datetime.strptime(run.started_at[:26], fmt).replace(tzinfo=timezone.utc)
+        end = datetime.strptime(run.finished_at[:26], fmt).replace(tzinfo=timezone.utc)
+        return round((end - start).total_seconds(), 2)
+    except (ValueError, TypeError):
+        return None

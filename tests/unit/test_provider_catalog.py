@@ -28,13 +28,16 @@ class ProviderCatalogTest(unittest.TestCase):
         self.assertEqual([model.id for model in models], ["claude-sonnet", "gpt-5-mini"])
         self.assertEqual(models[0].name, "Claude")
 
-    def test_neuroapi_balance_returns_usage_when_balance_endpoint_is_unknown(self):
-        """NeuroAPI documented endpoint отдаёт расход в центах USD."""
+    def test_neuroapi_balance_returns_usage_and_remaining(self):
+        """NeuroAPI: баланс = hard_limit_usd - total_usage/100."""
 
         def fake_get_json(url, *, headers, timeout):
-            self.assertEqual(url, "https://neuroapi.host/v1/dashboard/billing/usage")
             self.assertEqual(headers["Authorization"], "Bearer secret")
-            return {"object": "list", "total_usage": 1234}
+            if url.endswith("/dashboard/billing/usage"):
+                return {"object": "list", "total_usage": 50600}   # 506.00$
+            if url.endswith("/dashboard/billing/subscription"):
+                return {"object": "billing_subscription", "hard_limit_usd": 600.0}
+            self.fail(f"Неожиданный URL: {url}")
 
         with patch("translate_video.core.provider_catalog.load_env_file", lambda: None), \
                 patch.dict("os.environ", {"NEUROAPI_API_KEY": "secret"}, clear=True), \
@@ -42,8 +45,8 @@ class ProviderCatalogTest(unittest.TestCase):
             balance = get_provider_balance("neuroapi")
 
         self.assertTrue(balance.configured)
-        self.assertIsNone(balance.balance)
-        self.assertEqual(balance.used, 12.34)
+        self.assertAlmostEqual(balance.used, 506.0, places=2)
+        self.assertAlmostEqual(balance.balance, 94.0, places=2)   # 600 - 506
         self.assertEqual(balance.currency, "USD")
 
     def test_missing_key_returns_configured_false_for_balance(self):
