@@ -398,10 +398,12 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
 
         {/* ═══ Шаг 2: Расширенные настройки ═══ */}
         {step === 2 && (
-          <AdvancedSettings
-            config={advConfig}
-            onChange={patch => setAdvConfig(prev => ({ ...prev, ...patch }))}
-          />
+          <div className="adv-scroll-wrap">
+            <AdvancedSettings
+              config={advConfig}
+              onChange={patch => setAdvConfig(prev => ({ ...prev, ...patch }))}
+            />
+          </div>
         )}
 
         {error && <div className="error-banner" role="alert">{error}</div>}
