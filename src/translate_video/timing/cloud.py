@@ -256,7 +256,18 @@ class CloudFallbackTimingRewriter:
             max_chars=max_chars,
         )
         if not self.allow_rule_based_fallback:
-            raise RewriteProviderError("профессиональный rewriter не вернул полезный результат")
+            # Professional-режим: rewriter не справился.
+            # НЕ бросаем исключение — это уронит весь pipeline и видео не создастся.
+            # Вместо этого возвращаем оригинальный текст без подгонки.
+            # QA-флаг rewrite_provider_failed уже добавлен выше.
+            _log.warning(
+                "rewriter.professional_fallback_to_original",
+                in_chars=len(text),
+                max_chars=max_chars,
+                reason="all_providers_failed",
+            )
+            self._events.append("rewrite_provider_no_timing_fit")
+            return text
         candidate = _call_rewriter(
             self.fallback,
             text,
