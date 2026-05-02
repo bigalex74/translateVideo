@@ -125,7 +125,29 @@ def get_provider_balance(provider: str, *, timeout: float = 10.0) -> ProviderBal
             currency="USD",
             used=used,
             source="dashboard/billing/usage",
-            message="NeuroAPI отдаёт расход; endpoint остатка баланса в публичной документации не указан.",
+            message="Показан суммарный расход. Остаток баланса — в личном кабинете neuroapi.host.",
+        )
+
+    if normalized == "polza":
+        data = _get_json(
+            f"{_base_url(meta)}/balance",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=timeout,
+        )
+        balance = _optional_float(data.get("amount"))
+        used = _optional_float(data.get("spentAmount"))
+        # Polza хранит баланс в условных единицах (не USD), делим на 100
+        if balance is not None:
+            balance = balance / 100
+        if used is not None:
+            used = used / 100
+        return ProviderBalance(
+            provider=normalized,
+            configured=True,
+            balance=balance,
+            currency="RUB",
+            used=used,
+            source="balance",
         )
 
     if normalized == "openrouter":

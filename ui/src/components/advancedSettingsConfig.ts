@@ -43,19 +43,13 @@ export const QUALITY_LABELS: Record<string, string> = {
 };
 
 export const MODEL_PROVIDER_LABELS: Record<string, string> = {
-  gemini: 'Gemini',
-  aihubmix: 'AIHubMix',
-  openrouter: 'OpenRouter',
-  polza: 'Polza.ai',
   neuroapi: 'NeuroAPI',
+  polza: 'Polza.ai',
 };
 
 export const PROFESSIONAL_MODEL_OPTIONS: Record<string, string[]> = {
-  neuroapi: ['gpt-5-mini'],
-  polza: ['google/gemini-2.5-flash-lite-preview-09-2025'],
-  openrouter: ['openai/gpt-oss-20b:free'],
-  aihubmix: ['gemini-3-flash-preview-free'],
-  gemini: ['gemini-2.5-flash-lite'],
+  neuroapi: ['gpt-5-mini', 'gpt-4.1-mini', 'gpt-4.1', 'claude-3-7-sonnet-20250219'],
+  polza: ['google/gemini-2.5-flash-lite-preview-09-2025', 'google/gemini-2.5-flash', 'gpt-4o-mini'],
 };
 
 export const DEFAULT_CONFIG: Partial<PipelineConfig> = {

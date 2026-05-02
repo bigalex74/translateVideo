@@ -172,8 +172,143 @@
   opacity: 0.6;
 }
 
+.adv-hint--error {
+  color: #f87171;
+  opacity: 0.9;
+}
+
+/* ── Balance Cards ─────────────────────────────────────────────────────────── */
+.adv-balance-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.adv-balance-card {
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 72px;
+  transition: border-color 0.15s;
+}
+
+.adv-balance-card--unconfigured {
+  opacity: 0.55;
+}
+
+.adv-balance-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.adv-balance-card__name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+.adv-balance-card__name:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.adv-balance-card__refresh {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 2px 7px;
+  transition: all 0.15s;
+}
+
+.adv-balance-card__refresh:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.adv-balance-card__refresh:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@keyframes adv-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.adv-balance-card__refresh--spinning {
+  animation: adv-spin 0.7s linear infinite;
+}
+
+.adv-balance-card__loading {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.adv-balance-card__error {
+  font-size: 0.75rem;
+  color: #f87171;
+}
+
+.adv-balance-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.adv-balance-card__main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.adv-balance-card__value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.adv-balance-card__sublabel {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.adv-balance-card__secondary {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+
+.adv-balance-card__hint {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  line-height: 1.3;
+}
+
 @media (max-width: 760px) {
   .adv-professional-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .adv-balance-row {
     grid-template-columns: 1fr;
   }
 }
