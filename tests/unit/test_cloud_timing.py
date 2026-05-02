@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-from translate_video.core.config import PipelineConfig
+from translate_video.core.config import AdaptationLevel, PipelineConfig, TranslationStyle
+from translate_video.core.schemas import Segment
 from translate_video.timing.cloud import (
     CloudFallbackTimingRewriter,
     GeminiRewriteProvider,
@@ -212,15 +215,48 @@ class ProviderPayloadTest(unittest.TestCase):
         self.assertEqual(calls[0][1]["model"], "free-model")
         self.assertEqual(calls[0][2]["Authorization"], "Bearer secret")
 
-    def test_prompt_contains_character_limit(self):
-        """Промпт явно содержит лимит символов, целевой диапазон и ключевые правила."""
+    def test_prompt_contains_character_limit_style_glossary_and_context(self):
+        """Промпт содержит лимит, стиль, глоссарий и соседние сегменты."""
 
-        prompt = build_rewrite_prompt("перевод", "source", 42)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            glossary = Path(temp_dir) / "glossary.md"
+            glossary.write_text("Antigravity = Антигравити", encoding="utf-8")
+            config = PipelineConfig(
+                source_language="en",
+                target_language="ru",
+                translation_style=TranslationStyle.CINEMATIC,
+                adaptation_level=AdaptationLevel.SHORTENED_FOR_TIMING,
+                glossary_path=glossary,
+                do_not_translate=["Codex"],
+            )
+            prompt = build_rewrite_prompt(
+                "длинный перевод",
+                "source",
+                42,
+                segment=Segment(
+                    start=1,
+                    end=2,
+                    source_text="source",
+                    translated_text="длинный перевод",
+                ),
+                context_before=[
+                    Segment(start=0, end=1, source_text="before", translated_text="до")
+                ],
+                context_after=[
+                    Segment(start=2, end=3, source_text="after", translated_text="после")
+                ],
+                config=config,
+            )
 
         self.assertIn("42 символов", prompt)          # лимит упоминается
         self.assertIn("31 до 42", prompt)              # целевой диапазон (75–100%)
         self.assertIn("только готовая фраза", prompt)  # запрет пояснений
         self.assertIn("НЕ обрезай", prompt)            # запрет жёсткой обрезки
+        self.assertIn("кинематографичный", prompt)
+        self.assertIn("Antigravity = Антигравити", prompt)
+        self.assertIn("Codex", prompt)
+        self.assertIn("before", prompt)
+        self.assertIn("after", prompt)
 
     def test_openrouter_default_model_is_configured(self):
         """OpenRouter по умолчанию использует правильный ID модели с префиксом и суффиксом :free."""

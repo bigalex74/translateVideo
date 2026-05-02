@@ -53,6 +53,17 @@ class PipelineConfigTest(unittest.TestCase):
         self.assertEqual(restored.tts_base_rate, 0)
         self.assertEqual(restored.tts_max_rate, 0)
         self.assertTrue(restored.use_cloud_timing_rewriter)
+        self.assertTrue(restored.use_cloud_translation)
+        self.assertEqual(
+            restored.translation_provider_order,
+            ["gemini", "aihubmix", "openrouter", "polza", "google"],
+        )
+        self.assertEqual(restored.translation_provider_timeout, 15.0)
+        self.assertTrue(restored.translation_provider_disable_on_quota)
+        self.assertEqual(restored.translation_provider_rpm["gemini"], 5.0)
+        self.assertEqual(restored.translation_provider_cooldown_seconds, 75.0)
+        self.assertTrue(restored.translation_provider_wait_for_rate_limit)
+        self.assertFalse(restored.translation_allow_paid_fallback)
         self.assertEqual(
             restored.rewrite_provider_order,
             ["gemini", "aihubmix", "openrouter", "polza", "rule_based"],
