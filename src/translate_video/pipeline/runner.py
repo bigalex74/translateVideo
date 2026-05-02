@@ -60,6 +60,14 @@ class PipelineRunner:
         )
 
         context.project.status = ProjectStatus.RUNNING
+
+        # ── Дедупликация stage_runs ────────────────────────────────────────────
+        # После нескольких запусков в stage_runs накапливаются дубли одной стадии.
+        # _already_completed берёт ПОСЛЕДНЮЮ запись через reversed() — если она
+        # не completed (running/failed от предыдущего запуска), стадия перезапустится.
+        # Оставляем только последнюю запись на стадию ПЕРЕД любым сбросом.
+        context.project.stage_runs = _dedup_stage_runs(context.project.stage_runs)
+
         if self.from_stage:
             # from_stage имеет приоритет над force: сбрасываем указанный этап и последующие,
             # предыдущие completed-этапы остаются нетронутыми (будут пропущены).
@@ -240,3 +248,27 @@ def _snapshot_balances(context: StageContext, *, suffix: str) -> None:
                 suffix=suffix,
                 error=str(exc),
             )
+
+
+def _dedup_stage_runs(runs: list[StageRun]) -> list[StageRun]:
+    """Оставить только ПОСЛЕДНЮЮ запись для каждого этапа.
+
+    После нескольких запусков пайплайна в stage_runs накапливаются дубли:
+      extract_audio completed
+      transcribe    completed
+      extract_audio completed   ← дубль от повторного запуска
+      transcribe    running     ← дубль с неверным статусом!
+
+    _already_completed() использует reversed() и берёт последнюю запись.
+    Если последняя — running/failed (от прерванного запуска), стадия
+    будет запущена заново, хотя предыдущий completed-результат валиден.
+
+    Решение: перед любым сбросом дедуплицируем список, сохраняя порядок
+    первого появления каждой стадии, но оставляя последнее значение статуса.
+    """
+    seen: dict[str, StageRun] = {}
+    for run in runs:
+        seen[run.stage.value] = run   # всегда перезаписываем → остаётся последняя
+    # Восстанавливаем порядок по первому вхождению
+    order = list(dict.fromkeys(r.stage.value for r in runs))
+    return [seen[k] for k in order]
