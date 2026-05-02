@@ -1,5 +1,28 @@
 # Журнал Изменений
 
+## 1.22.5 - 2026-05-02 - FIX - TVIDEO-079
+
+### Исправлены: HTTP 500 в Stats + пропущенный i18n ключ
+
+**Баг 1: HTTP 500 на вкладке Stats**
+- stats.py использовал JobStatus.DONE — которого нет в StrEnum (есть COMPLETED).
+- AttributeError на строке: if run.status in (JobStatus.DONE, "done").
+- Исправлено: JobStatus.COMPLETED + "completed" в обоих местах (строки 58 и 198).
+
+**Баг 2: qa.flag.rewrite_provider_rate_limited показывался как raw-ключ**
+- Ключ отсутствовал в i18n.ts (RU и EN).
+- Добавлено: RU — «rewrite-провайдер ограничен по частоте запросов»,
+  EN — «rewrite provider is rate-limited».
+
+**Тесты (+6 Python в test_stats.py)**:
+- no_attributeerror_with_completed_runs: нет AttributeError с COMPLETED
+- stage_times_computed_for_completed_runs: время считается для COMPLETED
+- failed_runs_not_in_stage_times: FAILED не попадает в stage_times
+- stages_done_counts_completed: stages_done считает COMPLETED
+- empty_project_no_crash: пустой проект не падает
+- qa_flags_distribution: флаги считаются правильно
+335 Python + 101 Vitest ✅
+
 ## 1.22.4 - 2026-05-02 - FIX - TVIDEO-078
 
 ### Live QA флаги в overlay — появляются в реальном времени
