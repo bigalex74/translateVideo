@@ -27,6 +27,8 @@ interface ConfirmRunModalProps {
   locale: AppLocale;
   /** Текущие stage_runs проекта — для определения дефолтного шага продолжения */
   stageRuns?: StageRun[];
+  /** Скорость изменена относительно сохранённых настроек — нужна переподгонка таймингов */
+  speedChanged?: boolean;
   onConfirm: (fromStage: string | null) => void;
   onCancel: () => void;
 }
@@ -46,6 +48,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
   segments,
   locale,
   stageRuns = [],
+  speedChanged = false,
   onConfirm,
   onCancel,
 }) => {
@@ -135,6 +138,25 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
               <div className="modal-from-stage-note">
                 <Info size={12} />
                 Пайплайн продолжится с первого незавершённого этапа.
+              </div>
+            )}
+
+            {/* ── Предупреждение: скорость изменена → нужна переподгонка таймингов ── */}
+            {speedChanged && fromStage === 'tts' && (
+              <div className="modal-warning modal-warning--warn modal-speed-warn">
+                <AlertTriangle size={14} />
+                <span>
+                  <strong>Скорость речи изменена.</strong>{' '}
+                  Тайминги рассчитывались под старую скорость — видео может рассинхронизироваться.
+                  Рекомендуем начать с «Подгонки таймингов».
+                </span>
+                <button
+                  type="button"
+                  className="modal-speed-warn-btn"
+                  onClick={() => setFromStage('timing_fit')}
+                >
+                  ← Начать с таймингов
+                </button>
               </div>
             )}
           </div>

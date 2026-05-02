@@ -789,6 +789,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           segments={segments}
           locale={locale}
           stageRuns={project.stage_runs ?? []}
+          speedChanged={(() => {
+            // Скорость изменилась, если в configPatch есть любое из полей скорости,
+            // которое отличается от сохранённого значения в project.config
+            const saved = project.config ?? {};
+            const patch = configPatch;
+            const keys: (keyof typeof patch)[] = [
+              'professional_tts_speed',
+              'professional_tts_speed_2',
+            ];
+            return keys.some(k =>
+              k in patch && patch[k] !== (saved as Record<string, unknown>)[k]
+            );
+          })()}
           onConfirm={(fromStage) => handleRunConfirmed(confirm.force, fromStage)}
           onCancel={() => setConfirm(null)}
         />
