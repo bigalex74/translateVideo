@@ -1,5 +1,22 @@
 # Журнал Изменений
 
+## 1.22.24 - 2026-05-02 - FEAT - TVIDEO-091
+
+### Амплуа, скорость и высота голоса в TTS-настройках
+
+**Добавлено в UI** (только для Yandex SpeechKit):
+- 🎭 **Амплуа**: все 5 ролей с русскими метками (Нейтральный, Добродушный, Суровый, Строгий, Шёпот)
+- 🎚 **Скорость речи**: слайдер 0.50× — 2.00× с шагом 0.05 (для каждого голоса независимо)
+- 🎵 **Высота голоса**: слайдер -500..+500 (pitchShift SpeechKit API) с шагом 25
+
+**Backend**:
+- PipelineConfig: +professional_tts_speed_2, +professional_tts_pitch, +professional_tts_pitch_2
+- speechkit_tts.py: _synth() передаёт pitchShift-хинт (только если ≠ 0), speed зажат в 0.1..10.0
+- _pick_voice_role() возвращает (voice, role, speed, pitch) — у каждого голоса свои параметры
+
+**Тесты**: обновлены test_speechkit_voices.py + test_speechkit_tts.py
+Итого: 439 Python + 101 Vitest.
+
 ## 1.22.23 - 2026-05-02 - FIX - TVIDEO-088e
 
 ### Исправлен корень накопления дублей в stage_runs
