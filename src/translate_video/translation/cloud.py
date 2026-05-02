@@ -26,6 +26,7 @@ from translate_video.core.prompting import (
     language_label,
 )
 from translate_video.core.schemas import Segment
+from translate_video.core.devlog import DevLogWriter, NullDevLogWriter
 from translate_video.translation.base import Translator
 from translate_video.translation.legacy import GoogleSegmentTranslator
 
@@ -73,6 +74,7 @@ class CloudFallbackSegmentTranslator:
         cooldown_seconds: float = 75.0,
         wait_for_rate_limit: bool = True,
         allow_fallback: bool = True,
+        dev_log: "DevLogWriter | None" = None,
         now_fn=None,
         sleep_fn=None,
     ) -> None:
@@ -83,6 +85,7 @@ class CloudFallbackSegmentTranslator:
         self.cooldown_seconds = cooldown_seconds
         self.wait_for_rate_limit = wait_for_rate_limit
         self.allow_fallback = allow_fallback
+        self._dev_log: DevLogWriter = dev_log or NullDevLogWriter()
         self._now = now_fn or time.monotonic
         self._sleep = sleep_fn or time.sleep
         self._cooldown_until: dict[str, float] = {}
@@ -145,6 +148,11 @@ class CloudFallbackSegmentTranslator:
             allow_fallback=config.translation_quality != "professional",
         )
 
+    def with_dev_log(self, dev_log: "DevLogWriter") -> "CloudFallbackSegmentTranslator":
+        """Установить DevLogWriter (вызывается из pipeline/runner.py)."""
+        self._dev_log = dev_log
+        return self
+
     def translate(
         self,
         segments: list[Segment],
@@ -184,6 +192,7 @@ class CloudFallbackSegmentTranslator:
                     f"Перевод сегмента {index + 1}/{len(segments)}",
                 )
                 before, after = context_window(segments, index, size=2)
+                self._current_index = index  # передаём индекс через self для _translate_one
                 result = self._translate_one(
                     segment,
                     config=config,
@@ -195,6 +204,12 @@ class CloudFallbackSegmentTranslator:
                         raise ValueError(
                             f"профессиональный переводчик не вернул результат для сегмента {segment.id}"
                         )
+                    self._dev_log.log_translate_fallback(
+                        segment_index=index,
+                        segment_id=segment.id,
+                        reason="all_providers_exhausted",
+                        fallback="google",
+                    )
                     translated.append(self._fallback_one(segment, config))
                 else:
                     translated.append(_apply_translation(segment, result.text, result.provider))
@@ -239,14 +254,28 @@ class CloudFallbackSegmentTranslator:
             try:
                 self._respect_rate_limit(name)
                 with Timer() as timer:
-                    candidate = _clean_candidate(
-                        provider.translate_segment(
-                            segment,
-                            config=config,
-                            context_before=context_before,
-                            context_after=context_after,
-                        )
+                    _prompt = build_translation_prompt(
+                        segment, config=config,
+                        context_before=context_before,
+                        context_after=context_after,
                     )
+                    _raw_response = provider.translate_segment(
+                        segment,
+                        config=config,
+                        context_before=context_before,
+                        context_after=context_after,
+                    )
+                    candidate = _clean_candidate(_raw_response)
+                self._dev_log.log_translate_prompt(
+                    segment_index=getattr(self, "_current_index", -1),
+                    segment_id=segment.id,
+                    provider=name,
+                    model=getattr(provider, "model", name),
+                    source_text=segment.source_text,
+                    prompt=_prompt,
+                    response=_raw_response or "",
+                    elapsed_s=timer.elapsed,
+                )
             except TranslationProviderError as exc:
                 reason = str(exc)[:120]
                 _log.warning("translation.provider_fail", provider=name, reason=reason)
@@ -281,6 +310,11 @@ class CloudFallbackSegmentTranslator:
             previous_provider = name
 
         _log.warning("translation.all_failed", fallback="google", segment=segment.id)
+        self._dev_log.log_translate_fallback(
+            segment_index=-1,
+            segment_id=segment.id,
+            reason="all_providers_failed",
+        )
         return None
 
     def _fallback_one(self, segment: Segment, config: PipelineConfig) -> Segment:

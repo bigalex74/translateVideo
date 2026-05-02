@@ -25,6 +25,7 @@ from translate_video.core.prompting import (
     language_label,
 )
 from translate_video.core.schemas import Segment
+from translate_video.core.devlog import DevLogWriter, NullDevLogWriter
 from translate_video.timing.base import TimingRewriter
 from translate_video.timing.natural import RuleBasedTimingRewriter
 
@@ -66,6 +67,7 @@ class CloudFallbackTimingRewriter:
         self.cooldown_seconds = cooldown_seconds
         self.wait_for_rate_limit = wait_for_rate_limit
         self.allow_rule_based_fallback = allow_rule_based_fallback
+        self._dev_log: DevLogWriter = NullDevLogWriter()
         self._now = now_fn or time.monotonic
         self._sleep = sleep_fn or time.sleep
         self._events: list[str] = []
@@ -204,6 +206,25 @@ class CloudFallbackTimingRewriter:
                 max_chars=max_chars,
                 fits=len(candidate) <= max_chars,
             )
+            _rewrite_prompt = build_rewrite_prompt(
+                text, source_text, max_chars,
+                segment=segment, context_before=context_before,
+                context_after=context_after, config=config,
+            )
+            self._dev_log.log_rewrite_attempt(
+                segment_id=segment.id if segment else "unknown",
+                attempt=attempt,
+                provider=name,
+                model=getattr(provider, "model", name),
+                original_text=text,
+                source_text=source_text,
+                prompt=_rewrite_prompt,
+                response=candidate,
+                max_chars=max_chars,
+                result_chars=len(candidate),
+                fits=len(candidate) <= max_chars,
+                elapsed_s=t.elapsed,
+            )
 
             if _is_useful_candidate(candidate, original=text, max_chars=max_chars):
                 if prev_provider is not None:
@@ -257,6 +278,11 @@ class CloudFallbackTimingRewriter:
         events = list(dict.fromkeys(self._events))
         self._events = []
         return events
+
+    def with_dev_log(self, dev_log: "DevLogWriter") -> "CloudFallbackTimingRewriter":
+        """Установить DevLogWriter (вызывается из pipeline/runner.py)."""
+        self._dev_log = dev_log
+        return self
 
     def _cooldown_remaining(self, provider_name: str) -> float:
         """Вернуть остаток cooldown для провайдера в секундах."""
