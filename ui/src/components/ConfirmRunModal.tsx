@@ -52,9 +52,13 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
   const reviewCount = needsReviewCount(segments);
   const providerNote = providerWarning(provider, locale);
 
-  // По умолчанию: первый не завершённый этап (для resume) или null (начать с начала)
-  const defaultStage = isForce ? null : firstIncompleteStage(stageRuns);
-  const [fromStage, setFromStage] = useState<string | null>(defaultStage);
+  // По умолчанию:
+  // - force: первый этап (перезапуск с начала) — но пользователь может выбрать любой
+  // - resume: первый незавершённый, или null если все завершены (авто-продолжение)
+  const defaultStage = isForce
+    ? ALL_STAGES[0]
+    : firstIncompleteStage(stageRuns);
+  const [fromStage, setFromStage] = useState<string | null>(defaultStage ?? null);
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-run-title">
@@ -99,23 +103,22 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
             <select
               id="modal-from-stage-select"
               className="modal-from-stage-select"
-              value={fromStage ?? '__start__'}
-              onChange={e => setFromStage(e.target.value === '__start__' ? null : e.target.value)}
+              value={fromStage ?? '__auto__'}
+              onChange={e => setFromStage(e.target.value === '__auto__' ? null : e.target.value)}
             >
-              {isForce && (
-                <option value="__start__">— С самого начала —</option>
+              {/* Авто-режим только для resume (продолжить) */}
+              {!isForce && (
+                <option value="__auto__">⚡ Авто — продолжить с места остановки</option>
               )}
               {ALL_STAGES.map(s => {
                 const run = stageRuns.filter(r => r.stage === s).at(-1);
-                const statusBadge = run
-                  ? run.status === 'completed' ? ' ✓'
-                  : run.status === 'failed'    ? ' ✗'
-                  : run.status === 'running'   ? ' ⟳'
-                  : ''
+                const badge = run?.status === 'completed' ? ' ✓'
+                  : run?.status === 'failed'    ? ' ✗'
+                  : run?.status === 'running'   ? ' ⟳'
                   : '';
                 return (
                   <option key={s} value={s}>
-                    {stageLabel(s, locale)}{statusBadge}
+                    {stageLabel(s, locale)}{badge}
                   </option>
                 );
               })}
@@ -128,10 +131,10 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
                 Этот и следующие — выполнены заново.
               </div>
             )}
-            {!fromStage && isForce && (
-              <div className="modal-from-stage-note modal-from-stage-note--warn">
-                <AlertTriangle size={12} />
-                Весь перевод будет запущен заново.
+            {!fromStage && !isForce && (
+              <div className="modal-from-stage-note">
+                <Info size={12} />
+                Пайплайн продолжится с первого незавершённого этапа.
               </div>
             )}
           </div>
