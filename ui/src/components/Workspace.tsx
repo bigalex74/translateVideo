@@ -94,6 +94,36 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     return () => clearInterval(poll);
   }, [dirty, project?.status, projectId]);
 
+  // ─── Live QA feed ─── (ДОЛЖЕН быть ДО любого раннего return — Rules of Hooks)
+  const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
+    translation_empty: 'critical', tts_invalid_slot: 'critical',
+    timing_fit_invalid_slot: 'critical', timeline_audio_extends_video: 'critical',
+    translation_fallback_source: 'error', tts_overflow_after_rate: 'error',
+    timing_fit_failed: 'error', render_audio_trimmed: 'error', timeline_shift_limit_reached: 'error',
+    tts_overflow_natural_rate: 'warning', render_audio_overflow: 'warning',
+    tts_rate_adapted: 'warning', translation_rewritten_for_timing: 'warning',
+    rewrite_provider_failed: 'warning', render_speed_fallback: 'warning',
+    tts_pretrim: 'warning', timeline_shifted: 'warning',
+    rewrite_provider_quota_limited: 'warning', rewrite_provider_cooldown: 'warning',
+  };
+  type LiveSev = 'critical' | 'error' | 'warning' | 'info';
+  interface LiveFlag { flag: string; sev: LiveSev; count: number; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const liveFlags: LiveFlag[] = React.useMemo(() => {
+    const isRunningNow = project?.status === 'running';
+    if (!isRunningNow || !project) return [];
+    const segs = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
+    const counts: Record<string, number> = {};
+    segs.forEach(seg =>
+      (seg.qa_flags ?? []).forEach(f => { counts[f] = (counts[f] ?? 0) + 1; })
+    );
+    const SEV_ORDER: LiveSev[] = ['critical', 'error', 'warning', 'info'];
+    return Object.entries(counts)
+      .filter(([f]) => FLAG_SEV[f] !== 'info' && FLAG_SEV[f] !== undefined)
+      .map(([flag, count]) => ({ flag, sev: FLAG_SEV[flag] ?? 'info' as LiveSev, count }))
+      .sort((a, b) => SEV_ORDER.indexOf(a.sev) - SEV_ORDER.indexOf(b.sev));
+  }, [project]);
+
   if (!project) return (
     <div className="workspace-loading">
       <Loader2 className="animate-spin text-accent" size={32} />
@@ -112,35 +142,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const progress = totalStages > 0 ? Math.round((completedStages.length / totalStages) * 100) : 0;
   const runningStageProgress = stageProgressInfo(runningStage);
 
-  // ─── Live QA feed ─────────────────────────────────────────────────────────
-  // Severity map (дублируем из QASummary для независимости)
-  const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
-    translation_empty: 'critical', tts_invalid_slot: 'critical',
-    timing_fit_invalid_slot: 'critical', timeline_audio_extends_video: 'critical',
-    translation_fallback_source: 'error', tts_overflow_after_rate: 'error',
-    timing_fit_failed: 'error', render_audio_trimmed: 'error', timeline_shift_limit_reached: 'error',
-    tts_overflow_natural_rate: 'warning', render_audio_overflow: 'warning',
-    tts_rate_adapted: 'warning', translation_rewritten_for_timing: 'warning',
-    rewrite_provider_failed: 'warning', render_speed_fallback: 'warning',
-    tts_pretrim: 'warning', timeline_shifted: 'warning',
-    rewrite_provider_quota_limited: 'warning', rewrite_provider_cooldown: 'warning',
-  };
-  type LiveSev = 'critical' | 'error' | 'warning' | 'info';
-  interface LiveFlag { flag: string; sev: LiveSev; count: number; }
-  const liveFlags: LiveFlag[] = React.useMemo(() => {
-    if (!isRunning) return [];
-    const counts: Record<string, number> = {};
-    segments.forEach(seg =>
-      (seg.qa_flags ?? []).forEach(f => { counts[f] = (counts[f] ?? 0) + 1; })
-    );
-    const SEV_ORDER: LiveSev[] = ['critical', 'error', 'warning', 'info'];
-    return Object.entries(counts)
-      .filter(([f]) => FLAG_SEV[f] !== 'info' && FLAG_SEV[f] !== undefined)
-      .map(([flag, count]) => ({ flag, sev: FLAG_SEV[flag] ?? 'info', count }))
-      .sort((a, b) => SEV_ORDER.indexOf(a.sev) - SEV_ORDER.indexOf(b.sev));
-  }, [segments, isRunning]);
-
-  // ─── History ──────────────────────────────────────────────────────────────
 
   const pushHistory = (newSegments: Segment[]) => {
     const newHistory = history.slice(0, historyIndex + 1).concat([newSegments]);
