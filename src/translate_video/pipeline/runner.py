@@ -251,24 +251,41 @@ def _snapshot_balances(context: StageContext, *, suffix: str) -> None:
 
 
 def _dedup_stage_runs(runs: list[StageRun]) -> list[StageRun]:
-    """Оставить только ПОСЛЕДНЮЮ запись для каждого этапа.
+    """Оставить по одной записи для каждого этапа, предпочитая completed.
 
-    После нескольких запусков пайплайна в stage_runs накапливаются дубли:
-      extract_audio completed
-      transcribe    completed
-      extract_audio completed   ← дубль от повторного запуска
-      transcribe    running     ← дубль с неверным статусом!
+    Проблема: после нескольких запусков / рестартов контейнера в stage_runs
+    накапливаются дубли:
+      extract_audio  completed   ← запуск 1 (валидный)
+      transcribe     completed
+      extract_audio  completed   ← запуск 2
+      transcribe     running     ← прерван рестартом → ЗАВИСШИЙ статус
 
-    _already_completed() использует reversed() и берёт последнюю запись.
-    Если последняя — running/failed (от прерванного запуска), стадия
-    будет запущена заново, хотя предыдущий completed-результат валиден.
+    Логика выбора для каждой стадии:
+      1. Если есть хотя бы одна completed-запись → берём её.
+      2. Иначе берём ПОСЛЕДНЮЮ запись (failed / running / etc.).
 
-    Решение: перед любым сбросом дедуплицируем список, сохраняя порядок
-    первого появления каждой стадии, но оставляя последнее значение статуса.
+    Порядок результата = первое вхождение каждой стадии в исходном списке.
     """
-    seen: dict[str, StageRun] = {}
+    # Собираем все записи по стадиям
+    by_stage: dict[str, list[StageRun]] = {}
+    order: list[str] = []
     for run in runs:
-        seen[run.stage.value] = run   # всегда перезаписываем → остаётся последняя
-    # Восстанавливаем порядок по первому вхождению
-    order = list(dict.fromkeys(r.stage.value for r in runs))
-    return [seen[k] for k in order]
+        key = run.stage.value
+        if key not in by_stage:
+            by_stage[key] = []
+            order.append(key)
+        by_stage[key].append(run)
+
+    result: list[StageRun] = []
+    for key in order:
+        stage_runs = by_stage[key]
+        last = stage_runs[-1]
+        # Если последняя запись — «running» (зависший статус от рестарта контейнера),
+        # ищем последний completed перед ней. Если нашли — берём его.
+        # Если последняя — failed (реальная ошибка) — оставляем failed → перезапустится.
+        if last.status == JobStatus.RUNNING:
+            completed = [r for r in stage_runs if r.status == JobStatus.COMPLETED]
+            result.append(completed[-1] if completed else last)
+        else:
+            result.append(last)
+    return result
