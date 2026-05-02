@@ -49,24 +49,37 @@ _log = get_logger(__name__)
 
 SPEECHKIT_TTS_URL = "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis"
 
-# Голоса SpeechKit для русского языка с метаданными
-# Голоса поддерживающие role-хинт: alena, jane, omazh, zahar, ermil.
-# Голоса БЕЗ поддержки role (возвращают HTTP 400 при любом role): madirus, filipp, amira, john.
-# roles=[] означает что role-хинт отправлять нельзя.
+# Голоса SpeechKit для русского языка — полный список (проверено через API 2026-05-02).
+# roles=[] означает что role-хинт отправлять нельзя (вернёт HTTP 400).
+# Источник: live API test + Yandex SpeechKit Playground.
 SPEECHKIT_VOICES: list[dict] = [
-    {"id": "alena",   "name": "Алёна",   "gender": "female", "tone": "Тёплая, дружелюбная",       "roles": ["neutral", "good"]},
-    {"id": "jane",    "name": "Джейн",   "gender": "female", "tone": "Эмоциональная, живая",       "roles": ["neutral", "good", "evil"]},
-    {"id": "omazh",   "name": "Омаж",    "gender": "female", "tone": "Нейтральная, офисная",       "roles": ["neutral", "evil"]},
-    {"id": "madirus", "name": "Мадирус", "gender": "male",   "tone": "Молодой, энергичный",        "roles": []},
-    {"id": "zahar",   "name": "Захар",   "gender": "male",   "tone": "Авторитетный, солидный",     "roles": ["neutral", "good"]},
-    {"id": "ermil",   "name": "Ермил",   "gender": "male",   "tone": "Дикторский, чёткий",         "roles": ["neutral", "good"]},
-    {"id": "filipp",  "name": "Филипп",  "gender": "male",   "tone": "Деловой, уверенный",         "roles": []},
-    {"id": "amira",   "name": "Амира",   "gender": "female", "tone": "Мягкая, приятная",           "roles": []},
-    {"id": "john",    "name": "Джон",    "gender": "male",   "tone": "Нейтральный, универсальный",  "roles": []},
+    # ── Стандартные голоса ─────────────────────────────────────────────────────
+    {"id": "alena",     "name": "Алёна",     "gender": "female", "tier": "standard", "tone": "Тёплая, дружелюбная",       "roles": ["neutral", "good"]},
+    {"id": "jane",      "name": "Джейн",     "gender": "female", "tier": "standard", "tone": "Эмоциональная, живая",       "roles": ["neutral", "good", "evil"]},
+    {"id": "omazh",     "name": "Омаж",      "gender": "female", "tier": "standard", "tone": "Нейтральная, офисная",       "roles": ["neutral", "evil"]},
+    {"id": "zahar",     "name": "Захар",     "gender": "male",   "tier": "standard", "tone": "Авторитетный, солидный",     "roles": ["neutral", "good"]},
+    {"id": "ermil",     "name": "Ермил",     "gender": "male",   "tier": "standard", "tone": "Дикторский, чёткий",         "roles": ["neutral", "good"]},
+    {"id": "filipp",    "name": "Филипп",    "gender": "male",   "tier": "standard", "tone": "Деловой, уверенный",         "roles": []},
+    {"id": "madirus",   "name": "Мадирус",   "gender": "male",   "tier": "standard", "tone": "Молодой, энергичный",        "roles": []},
+    {"id": "amira",     "name": "Амира",     "gender": "female", "tier": "standard", "tone": "Мягкая, приятная",           "roles": []},
+    {"id": "john",      "name": "Джон",      "gender": "male",   "tier": "standard", "tone": "Нейтральный, универсальный", "roles": []},
+    # ── Премиум голоса (новое поколение) ───────────────────────────────────────
+    {"id": "julia",     "name": "Юлия",      "gender": "female", "tier": "premium",  "tone": "Чёткая, деловая",            "roles": ["neutral", "strict"]},
+    {"id": "lera",      "name": "Лера",      "gender": "female", "tier": "premium",  "tone": "Молодая, живая",             "roles": ["neutral"]},
+    {"id": "marina",    "name": "Марина",    "gender": "female", "tier": "premium",  "tone": "Мягкая, выразительная",      "roles": ["neutral", "whisper"]},
+    {"id": "alexander", "name": "Александр", "gender": "male",   "tier": "premium",  "tone": "Уверенный, солидный",        "roles": ["neutral", "good"]},
+    {"id": "kirill",    "name": "Кирилл",    "gender": "male",   "tier": "premium",  "tone": "Строгий, профессиональный",  "roles": ["neutral", "good", "strict"]},
+    {"id": "anton",     "name": "Антон",     "gender": "male",   "tier": "premium",  "tone": "Нейтральный, чёткий",        "roles": ["neutral", "good"]},
+    {"id": "masha",     "name": "Маша",      "gender": "female", "tier": "premium",  "tone": "Лёгкая, дружелюбная",        "roles": ["neutral", "good", "strict"]},
+    {"id": "zhanar",    "name": "Жанар",     "gender": "female", "tier": "premium",  "tone": "Нейтральная, ровная",        "roles": ["neutral"]},
+    {"id": "saule",     "name": "Сауле",     "gender": "female", "tier": "premium",  "tone": "Строгая, чёткая",            "roles": ["neutral", "strict"]},
+    {"id": "yulduz",    "name": "Юлдуз",     "gender": "female", "tier": "premium",  "tone": "Мягкая, шёпот",              "roles": ["neutral", "strict", "whisper"]},
+    {"id": "zamira",    "name": "Замира",     "gender": "female", "tier": "premium",  "tone": "Строгая, уверенная",         "roles": ["neutral", "strict"]},
 ]
 
-# Пул голосов для per_speaker (round-robin)
-_VOICE_POOL = [v["id"] for v in SPEECHKIT_VOICES]
+# Пул голосов для per_speaker (round-robin) — предпочитаем premium
+_VOICE_POOL = [v["id"] for v in SPEECHKIT_VOICES if v.get("tier") == "premium"] + \
+              [v["id"] for v in SPEECHKIT_VOICES if v.get("tier") == "standard"]
 
 
 class YandexSpeechKitTTSProvider:
