@@ -184,6 +184,7 @@ const TEXT: LocaleMap = {
     'qa.flag.rewrite_provider_cooldown': 'rewrite-провайдер на паузе после превышения лимита',
     'qa.flag.rewrite_provider_rate_limited': 'rewrite-провайдер ограничен по частоте запросов',
     'qa.flag.rewrite_provider_skipped': 'rewrite-провайдер пропущен (на паузе или квота)',
+    'qa.flag.rewrite_provider_no_timing_fit': 'профессиональный rewriter не сработал — текст оставлен без подгонки',
     'qa.flag.translation_provider_quota_limited': 'переводчик исчерпал квоту, временно отключён',
     'qa.flag.translation_provider_cooldown': 'переводчик на паузе после превышения лимита',
 
@@ -386,6 +387,7 @@ const TEXT: LocaleMap = {
     'qa.flag.rewrite_provider_cooldown': 'rewrite provider is on cooldown after exceeding rate limit',
     'qa.flag.rewrite_provider_rate_limited': 'rewrite provider is rate-limited',
     'qa.flag.rewrite_provider_skipped': 'rewrite provider was skipped (cooldown or quota)',
+    'qa.flag.rewrite_provider_no_timing_fit': 'professional rewriter failed — segment kept without timing fit',
     'qa.flag.translation_provider_quota_limited': 'translation provider hit quota limit and was temporarily disabled',
     'qa.flag.translation_provider_cooldown': 'translation provider is on cooldown after exceeding rate limit',
 
