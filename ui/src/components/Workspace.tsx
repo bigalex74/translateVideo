@@ -33,6 +33,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [project, setProject] = useState<VideoProject | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);  // инлайн-подтверждение
+  const [cancelTimedOut, setCancelTimedOut] = useState(false); // zombie-режим
   const [videoTab, setVideoTab] = useState<'source' | 'translated'>('source');
   const [rightTab, setRightTab] = useState<RightTab>('status');
   const [dirty, setDirty] = useState(false);
@@ -93,6 +94,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
         if (data.status !== 'running') {
           setCancelling(false);
           setCancelConfirm(false);
+          setCancelTimedOut(false);
         }
       } catch (e) {
         console.error('poll error', e);
@@ -100,6 +102,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     }, interval);
     return () => clearInterval(poll);
   }, [cancelling, dirty, project?.status, projectId]);
+
+  // Zombie-timeout: если через 8с после отмены статус не изменился — показываем Force Stop.
+  useEffect(() => {
+    if (!cancelling) { setCancelTimedOut(false); return; }
+    const t = setTimeout(() => setCancelTimedOut(true), 8000);
+    return () => clearTimeout(t);
+  }, [cancelling]);
 
   // ─── Live QA feed ─── (ДОЛЖЕН быть ДО любого раннего return — Rules of Hooks)
   const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
@@ -373,8 +382,28 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             {cancelling && (
               <div className="running-cancel-waiting">
                 <Loader2 size={13} className="animate-spin" />
-                Останавливаем перевод …
+                {cancelTimedOut
+                  ? 'Пайплайн не отвечает — контейнер мог перезапуститься'
+                  : 'Останавливаем перевод …'}
               </div>
+            )}
+
+            {cancelling && cancelTimedOut && (
+              <button
+                id="cancel-pipeline-force-btn"
+                className="running-cancel-btn running-cancel-btn--force"
+                onClick={async () => {
+                  try { await cancelPipeline(projectId); } catch { /* zombie */ }
+                  try {
+                    const data = await getProjectStatus(projectId);
+                    setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
+                  } catch { /* ignore */ }
+                  setCancelling(false);
+                  setCancelTimedOut(false);
+                }}
+              >
+                <XCircle size={13} /> Принудительно остановить
+              </button>
             )}
           </div>
         </div>
