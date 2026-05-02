@@ -70,15 +70,25 @@ class CloudFallbackTimingRewriterTest(unittest.TestCase):
         self.assertEqual(router.providers[0].model, "gpt-5")
 
     def test_professional_profile_does_not_use_rule_based_fallback(self):
-        """Профессиональный rewriter должен явно падать, если платная модель недоступна."""
+        """TVIDEO-081: professional-режим при провале rewriter возвращает оригинал (не падает).
 
+        Старое поведение: raise RewriteProviderError → TimingFitStage.FAILED → pipeline abort.
+        Новое поведение: возврат исходного текста + QA-флаг rewrite_provider_no_timing_fit.
+        Pipeline продолжается, видео создаётся.
+        """
+
+        original_text = "длинный текст который не подогнан"
         router = CloudFallbackTimingRewriter(
             providers=[],
             allow_rule_based_fallback=False,
         )
 
-        with self.assertRaises(RewriteProviderError):
-            router.rewrite("длинный текст", source_text="source", max_chars=5, attempt=1)
+        # НЕ бросает — возвращает исходный текст
+        result = router.rewrite(original_text, source_text="source", max_chars=5, attempt=1)
+        self.assertEqual(result, original_text)
+        # QA-флаг добавлен
+        events = router.consume_events()
+        self.assertIn("rewrite_provider_no_timing_fit", events)
 
     def test_router_falls_back_after_provider_error(self):
         """Ошибка первого провайдера переключает роутер на следующий."""

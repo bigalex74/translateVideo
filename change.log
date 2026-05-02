@@ -1,5 +1,28 @@
 # Журнал Изменений
 
+## 1.22.7 - 2026-05-02 - FIX - TVIDEO-081
+
+### professional rewriter провал роняет весь pipeline
+
+**Баг**: при translation_quality=professional, если платный rewriter не смог
+подогнать текст под тайминг, TimingFitStage падала с ошибкой → pipeline
+прерывался → TTS и Render не запускались → видео не создавалось.
+Пользователь видел статус «ошибка», хотя предыдущее видео ещё было на диске.
+
+**Исправление** (cloud.py):
+Вместо raise RewriteProviderError — возвращаем исходный translated_text без
+подгонки + добавляем QA-флаг rewrite_provider_no_timing_fit. Pipeline
+продолжается: TTS → Render → видео создаётся. Пользователь видит предупреждение
+в QA-панели, но перевод завершается.
+
+**Новый QA-флаг**:
+- rewrite_provider_no_timing_fit: «профессиональный rewriter не сработал — текст
+  оставлен без подгонки» (RU + EN в i18n.ts)
+
+**Тест**: обновлён test_professional_profile_does_not_use_rule_based_fallback
+— ожидает возврат текста + флаг вместо исключения.
+335 Python + 101 Vitest ✅
+
 ## 1.22.6 - 2026-05-02 - FIX - TVIDEO-080
 
 ### Субтитры на видео не совпадали с редактором + devlog объяснение
