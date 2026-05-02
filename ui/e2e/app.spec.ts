@@ -189,3 +189,80 @@ test('настройки переключают интерфейс с русск
   await expect(page.locator('#nav-my-translations')).toContainText('My translations');
   await expect(page.locator('#nav-new-project')).toContainText('New translation');
 });
+
+test('TVIDEO-084: StatsPanel скроллится когда контент не влазит', async ({ page }) => {
+  // Мокаем проект + stats с большим количеством данных чтобы контент точно переполнял панель
+  const statsResponse = {
+    timing: {
+      total_elapsed_s: 120,
+      stage_times: {
+        extract_audio: 5, transcribe: 40, regroup: 2,
+        translate: 60, timing_fit: 8, tts: 3, render: 2,
+      },
+      slowest_stage: 'translate',
+      translate_per_segment_avg_s: 1.2,
+    },
+    segments: {
+      count: 47, source_words: 3200, target_words: 2900,
+      source_chars: 18000, target_chars: 16000,
+      compression_ratio: 0.89, avg_duration_s: 3.2,
+      total_audio_duration_s: 150, segments_rewritten: 12,
+      empty_translations: 0,
+    },
+    quality: {
+      qa_flags_distribution: {
+        translation_llm: 47, tts_overflow: 3,
+        timing_overflow: 2, translation_empty: 1,
+      },
+      segments_with_issues: 5,
+      avg_confidence: 0.94,
+      provider_usage: { polza: 47 },
+      google_fallback_count: 0,
+      llm_translation_count: 47,
+    },
+    tts: { segments_with_audio: 47, total_duration_s: 150, overflow_count: 3, overflow_rate: 0.06 },
+    summary: {
+      project_id: 'demo', project_status: 'completed',
+      stages_done: 7, stages_failed: 0, failed_stages: [],
+      translation_quality: 'professional',
+      source_language: 'en', target_language: 'ru', dev_mode: false,
+    },
+    billing: {
+      dominant_translation_provider: 'polza',
+      polza_before: 1000.0, polza_after: 983.45, polza_spent_rub: 16.55,
+      neuroapi_before: null, neuroapi_after: null, neuroapi_spent_usd: null,
+      has_real_data: true,
+      note: 'реальные данные из снапшотов баланса',
+    },
+  };
+
+  await mockProjectList(page);
+  await page.route('**/api/v1/projects/demo', async route => {
+    await route.fulfill({ json: demoProject });
+  });
+  await page.route('**/api/v1/projects/demo/stats', async route => {
+    await route.fulfill({ json: statsResponse });
+  });
+
+  await page.goto('/');
+  await page.getByPlaceholder(/Имя проекта/).fill('demo');
+  await page.getByRole('button', { name: /Найти/ }).click();
+  await page.getByTestId('project-card').getByRole('button', { name: /^Открыть редактор$/ }).click();
+
+  // Переходим на вкладку Статистика
+  await page.getByRole('button', { name: /Стат/ }).click();
+  const panel = page.locator('.stats-panel');
+  await expect(panel).toBeVisible();
+
+  // Проверяем что контент переполняет панель (есть что скроллить)
+  const { scrollHeight, clientHeight } = await panel.evaluate((el: HTMLElement) => ({
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+  }));
+  expect(scrollHeight).toBeGreaterThan(clientHeight);
+
+  // Скроллим вниз и проверяем что scrollTop изменился
+  await panel.evaluate((el: HTMLElement) => { el.scrollTop = 9999; });
+  const scrollTop = await panel.evaluate((el: HTMLElement) => el.scrollTop);
+  expect(scrollTop).toBeGreaterThan(0);
+});
