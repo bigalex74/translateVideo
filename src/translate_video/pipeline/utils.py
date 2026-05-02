@@ -93,12 +93,13 @@ class FakeRenderer:
         return output
 
 
-def build_stages(provider: str) -> list:
+def build_stages(provider: str, project_config=None) -> list:
     """Создать этапы пайплайна для выбранного набора провайдеров.
 
     Поддерживаемые провайдеры:
     - ``fake`` — имитационные провайдеры без внешних зависимостей.
     - ``legacy`` — реальные провайдеры (moviepy, faster-whisper, edge-tts).
+    ``project_config`` — PipelineConfig проекта (нужен для выбора TTS-провайдера).
     """
     if provider == "fake":
         return [
@@ -117,7 +118,14 @@ def build_stages(provider: str) -> list:
         from translate_video.speech import FasterWhisperTranscriber
         from translate_video.timing import NaturalVoiceTimingFitter
         from translate_video.translation import CloudFallbackSegmentTranslator, GoogleSegmentTranslator
-        from translate_video.tts import EdgeTTSProvider
+        from translate_video.tts import EdgeTTSProvider, build_openai_tts_provider
+
+        # Профессиональный TTS или Edge TTS (бесплатный)
+        tts_provider = (
+            build_openai_tts_provider(project_config)
+            if project_config is not None
+            else None
+        ) or EdgeTTSProvider()
 
         return [
             ExtractAudioStage(LegacyMoviePyMediaProvider()),
@@ -125,7 +133,7 @@ def build_stages(provider: str) -> list:
             RegroupStage(),
             TranslateStage(CloudFallbackSegmentTranslator(fallback=GoogleSegmentTranslator())),
             TimingFitStage(NaturalVoiceTimingFitter()),
-            TTSStage(EdgeTTSProvider()),
+            TTSStage(tts_provider),
             RenderStage(MoviePyVoiceoverRenderer()),
             ExportSubtitlesStage(),
         ]

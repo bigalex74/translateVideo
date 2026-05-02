@@ -21,6 +21,7 @@ from translate_video.pipeline.runner import PipelineCancelledError, PipelineRunn
 _log = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/projects", tags=["pipeline"])
+tts_router = APIRouter(prefix="/api/v1/tts", tags=["tts"])
 
 # Глобальный in-memory реестр запущенных проектов (защита от race condition)
 _running_lock = threading.Lock()
@@ -111,7 +112,7 @@ async def run_pipeline_task(
     try:
         safe_project_id = sanitize_project_id(project_id)
         loaded_project = store.load_project(store.root / safe_project_id)
-        runner = PipelineRunner(build_stages(req.provider), force=req.force)
+        runner = PipelineRunner(build_stages(req.provider, project_config=loaded_project.config), force=req.force)
 
         # Создаём cancel-токен для этого запуска
         cancel_event = threading.Event()
@@ -290,3 +291,24 @@ def run_pipeline(
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+# ── TTS endpoints ─────────────────────────────────────────────────────────────
+
+@tts_router.get("/voices")
+def get_tts_voices():
+    """Вернуть список доступных TTS-голосов (OpenAI-совместимые провайдеры)."""
+    from translate_video.tts import TTS_VOICES
+    return {"voices": TTS_VOICES}
+
+
+@tts_router.get("/models")
+def get_tts_models():
+    """Вернуть список доступных TTS-моделей."""
+    return {
+        "models": [
+            {"id": "tts-1",          "name": "TTS-1",          "note": "Быстрая, стандартное качество"},
+            {"id": "tts-1-hd",       "name": "TTS-1 HD",       "note": "Улучшенное качество, медленнее"},
+            {"id": "gpt-4o-mini-tts","name": "GPT-4o Mini TTS","note": "Высокое качество, поддержка инструкций"},
+        ]
+    }

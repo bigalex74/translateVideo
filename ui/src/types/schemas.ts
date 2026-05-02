@@ -35,6 +35,10 @@ export interface PipelineConfig {
     professional_translation_model: string;
     professional_rewrite_provider: string;
     professional_rewrite_model: string;
+    professional_tts_provider: string;
+    professional_tts_model: string;
+    professional_tts_voice: string;
+    professional_tts_voice_2: string;
     allow_tts_rate_adaptation: boolean;
     allow_render_audio_speedup: boolean;
     allow_timeline_shift: boolean;
