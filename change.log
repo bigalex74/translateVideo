@@ -1,5 +1,22 @@
 # Журнал Изменений
 
+## 1.17.1 - 2026-05-02 - FIX - TVIDEO-064
+
+### Фикс балансов Polza / NeuroAPI + автосводка после пайплайна
+
+**Polza.ai**: amount/spentAmount возвращались уже в рублях, убрано ошибочное деление на 100.
+Теперь: остаток 425.21 ₽, потрачено 93.85 ₽.
+
+**NeuroAPI**: добавлен запрос /dashboard/billing/subscription (hard_limit_usd).
+Остаток = hard_limit_usd - total_usage/100. Теперь показывается реальный баланс в $.
+
+**pipeline.summary**: после каждого прогона в лог автоматически пишется событие
+с breakdown всех этапов (stage_times), статусом и total_elapsed_s.
+
+**log_analyze.py**: флаг --last — показывает только последний прогон.
+Читает pipeline.summary для быстрой сводки (одно событие вместо scan всех логов).
+Fallback на stage.done events для совместимости со старыми логами.
+
 ## 1.17.0 - 2026-05-02 - FEAT - TVIDEO-063
 
 ### Провайдеры Polza + NeuroAPI: балансы и ограничение выбора

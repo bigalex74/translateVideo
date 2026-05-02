@@ -111,21 +111,37 @@ def get_provider_balance(provider: str, *, timeout: float = 10.0) -> ProviderBal
         )
 
     if normalized == "neuroapi":
-        data = _get_json(
+        # Расход: /dashboard/billing/usage → total_usage (в центах)
+        usage_data = _get_json(
             f"{_base_url(meta)}/dashboard/billing/usage",
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=timeout,
         )
-        total_usage_cents = data.get("total_usage")
-        used = float(total_usage_cents) / 100 if total_usage_cents is not None else None
+        total_usage_cents = usage_data.get("total_usage")
+        used_usd = float(total_usage_cents) / 100 if total_usage_cents is not None else None
+
+        # Лимит: /dashboard/billing/subscription → hard_limit_usd
+        # Остаток = hard_limit_usd - потрачено
+        balance_usd: float | None = None
+        try:
+            sub_data = _get_json(
+                f"{_base_url(meta)}/dashboard/billing/subscription",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=timeout,
+            )
+            limit = _optional_float(sub_data.get("hard_limit_usd"))
+            if limit is not None and used_usd is not None:
+                balance_usd = round(limit - used_usd, 4)
+        except ValueError:
+            pass  # subscription endpoint недоступен — показываем только расход
+
         return ProviderBalance(
             provider=normalized,
             configured=True,
-            balance=None,
+            balance=balance_usd,
             currency="USD",
-            used=used,
-            source="dashboard/billing/usage",
-            message="Показан суммарный расход. Остаток баланса — в личном кабинете neuroapi.host.",
+            used=used_usd,
+            source="billing/usage + billing/subscription",
         )
 
     if normalized == "polza":
@@ -134,13 +150,9 @@ def get_provider_balance(provider: str, *, timeout: float = 10.0) -> ProviderBal
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=timeout,
         )
+        # API возвращает рубли как строку: amount="425.20", spentAmount="9384.47"
         balance = _optional_float(data.get("amount"))
         used = _optional_float(data.get("spentAmount"))
-        # Polza хранит баланс в условных единицах (не USD), делим на 100
-        if balance is not None:
-            balance = balance / 100
-        if used is not None:
-            used = used / 100
         return ProviderBalance(
             provider=normalized,
             configured=True,
