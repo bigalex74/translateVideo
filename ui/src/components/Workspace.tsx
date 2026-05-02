@@ -32,6 +32,7 @@ const API_VIDEO = '/api/v1/video';
 export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale }) => {
   const [project, setProject] = useState<VideoProject | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);  // инлайн-подтверждение
   const [videoTab, setVideoTab] = useState<'source' | 'translated'>('source');
   const [rightTab, setRightTab] = useState<RightTab>('status');
   const [dirty, setDirty] = useState(false);
@@ -79,20 +80,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   }, [projectId]);
 
   // Поллинг статуса во время работы пайплайна.
-  // Намеренно игнорируем dirty — статус нужно обновлять даже при несохранённых правках.
+  // При cancelling=true ускоряем до 500ms, чтобы overlay закрылся сразу после остановки.
   useEffect(() => {
     if (project?.status !== 'running') return;
+    const interval = cancelling ? 500 : 2000;
     const poll = setInterval(async () => {
       try {
         const data = await getProjectStatus(projectId);
         // Во время поллинга не затираем локально отредактированные сегменты.
         setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
+        // Когда перевод завершился — сбрасываем состояние отмены
+        if (data.status !== 'running') {
+          setCancelling(false);
+          setCancelConfirm(false);
+        }
       } catch (e) {
         console.error('poll error', e);
       }
-    }, 2000);
+    }, interval);
     return () => clearInterval(poll);
-  }, [dirty, project?.status, projectId]);
+  }, [cancelling, dirty, project?.status, projectId]);
 
   // ─── Live QA feed ─── (ДОЛЖЕН быть ДО любого раннего return — Rules of Hooks)
   const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
@@ -206,6 +213,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       // Оптимистично переключаем статус — поллинг подхватит реальный
       setProject(prev => prev ? { ...prev, status: 'running' } : prev);
       setCancelling(false);
+      setCancelConfirm(false);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : t('workspace.runError', locale));
     }
@@ -312,31 +320,62 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             )}
 
             <p className="running-hint">
-              {t('workspace.runningHint', locale)}
+              {cancelling
+                ? `Ожидаем завершения этапа «${runningStage ? stageLabel(runningStage.stage, locale) : '…'}» — после этого перевод остановится.`
+                : t('workspace.runningHint', locale)
+              }
             </p>
 
-            {/* ── Кнопка отмены ── */}
-            <button
-              id="cancel-pipeline-btn"
-              className={`running-cancel-btn ${cancelling ? 'running-cancel-btn--cancelling' : ''}`}
-              disabled={cancelling}
-              onClick={async () => {
-                if (!window.confirm('Отменить перевод? Текущий этап будет завершён, потом пайплайн остановится.')) return;
-                setCancelling(true);
-                try {
-                  await cancelPipeline(projectId);
-                } catch (e) {
-                  console.error('cancel error', e);
-                  setCancelling(false);
-                }
-              }}
-            >
-              {cancelling ? (
-                <><Loader2 size={13} className="animate-spin" /> Отмена…</>
-              ) : (
-                <><X size={13} /> Отменить перевод</>
-              )}
-            </button>
+            {/* ── Инлайн-подтверждение / кнопка отмены ── */}
+            {!cancelling && !cancelConfirm && (
+              <button
+                id="cancel-pipeline-btn"
+                className="running-cancel-btn"
+                onClick={() => setCancelConfirm(true)}
+              >
+                <X size={13} /> Отменить перевод
+              </button>
+            )}
+
+            {!cancelling && cancelConfirm && (
+              <div className="running-cancel-confirm">
+                <p className="running-cancel-confirm-text">
+                  <AlertTriangle size={13} />
+                  Текущий этап дорабoтает до конца, затем перевод остановится.
+                </p>
+                <div className="running-cancel-confirm-actions">
+                  <button
+                    className="btn-secondary running-cancel-confirm-keep"
+                    onClick={() => setCancelConfirm(false)}
+                  >
+                    Продолжить перевод
+                  </button>
+                  <button
+                    id="cancel-pipeline-confirm-btn"
+                    className="running-cancel-btn running-cancel-btn--confirm"
+                    onClick={async () => {
+                      setCancelConfirm(false);
+                      setCancelling(true);
+                      try {
+                        await cancelPipeline(projectId);
+                      } catch (e) {
+                        console.error('cancel error', e);
+                        setCancelling(false);
+                      }
+                    }}
+                  >
+                    <X size={13} /> Да, остановить
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {cancelling && (
+              <div className="running-cancel-waiting">
+                <Loader2 size={13} className="animate-spin" />
+                Останавливаем перевод …
+              </div>
+            )}
           </div>
         </div>
       )}

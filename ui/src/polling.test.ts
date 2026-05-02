@@ -148,3 +148,65 @@ describe('TVIDEO-029a: поллинг статуса пайплайна', () => 
     poller.stop();
   });
 });
+
+// ─── TVIDEO-072: ускоренный polling при отмене ─────────────────────────────
+
+describe('TVIDEO-072: cancel — ускоренный polling', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('при cancelling=true интервал 500ms быстрее 2000ms', async () => {
+    const getStatus = vi.fn().mockResolvedValue({ status: 'running' });
+    const onUpdate = vi.fn();
+
+    // Нормальный polling — 2000ms
+    const normalPoller = createPoller(getStatus, onUpdate, 2000);
+    normalPoller.start('running');
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(getStatus).toHaveBeenCalledTimes(0);  // ещё не сработал
+    normalPoller.stop();
+    getStatus.mockClear();
+
+    // Ускоренный polling — 500ms
+    const fastPoller = createPoller(getStatus, onUpdate, 500);
+    fastPoller.start('running');
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(getStatus).toHaveBeenCalledTimes(3);  // 3 раза за 1.5с
+    fastPoller.stop();
+  });
+
+  it('после перехода из running статус cancelling сбрасывается', async () => {
+    const statuses = ['running', 'running', 'failed'];
+    let call = 0;
+    const getStatus = vi.fn().mockImplementation(() =>
+      Promise.resolve({ status: statuses[call++] ?? 'failed' })
+    );
+
+    let cancellingState = true;
+    let cancelConfirmState = true;
+
+    const onUpdate = vi.fn().mockImplementation((status: string) => {
+      if (status !== 'running') {
+        cancellingState = false;
+        cancelConfirmState = false;
+      }
+    });
+
+    const poller = createPoller(getStatus, onUpdate, 500);
+    poller.start('running');
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(cancellingState).toBe(false);
+    expect(cancelConfirmState).toBe(false);
+    poller.stop();
+  });
+
+  it('при failed-статусе polling не запускается', () => {
+    const getStatus = vi.fn().mockResolvedValue({ status: 'failed' });
+    const onUpdate = vi.fn();
+    const poller = createPoller(getStatus, onUpdate, 500);
+
+    poller.start('failed');
+    expect(poller.isActive()).toBe(false);
+  });
+});
