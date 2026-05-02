@@ -25,15 +25,15 @@ const TTS_VOICES_FALLBACK = [
 
 // Yandex SpeechKit голоса-фолбэк
 const SPEECHKIT_VOICES_FALLBACK = [
-  { id: 'alena',   name: 'Алёна',   gender: 'female', tone: 'Тёплая',        roles: ['neutral', 'good'] },
-  { id: 'jane',    name: 'Джейн',   gender: 'female', tone: 'Эмоциональная', roles: ['neutral', 'good', 'evil'] },
-  { id: 'omazh',   name: 'Омаж',    gender: 'female', tone: 'Офисная',       roles: ['neutral', 'evil'] },
-  { id: 'madirus', name: 'Мадирус', gender: 'male',   tone: 'Энергичный',    roles: ['neutral'] },
-  { id: 'zahar',   name: 'Захар',   gender: 'male',   tone: 'Солидный',      roles: ['neutral', 'good'] },
-  { id: 'ermil',   name: 'Ермил',   gender: 'male',   tone: 'Дикторский',    roles: ['neutral', 'good'] },
-  { id: 'filipp',  name: 'Филипп',  gender: 'male',   tone: 'Деловой',       roles: ['neutral'] },
-  { id: 'amira',   name: 'Амира',   gender: 'female', tone: 'Мягкая',        roles: ['neutral'] },
-  { id: 'john',    name: 'Джон',    gender: 'male',   tone: 'Универсальный', roles: ['neutral'] },
+  { id: 'alena',   name: 'Алёна',   gender: 'female', tone: 'Тёплая, дружелюбная',       roles: ['neutral', 'good'] },
+  { id: 'jane',    name: 'Джейн',   gender: 'female', tone: 'Эмоциональная, живая',       roles: ['neutral', 'good', 'evil'] },
+  { id: 'omazh',   name: 'Омаж',    gender: 'female', tone: 'Нейтральная, офисная',       roles: ['neutral', 'evil'] },
+  { id: 'madirus', name: 'Мадирус', gender: 'male',   tone: 'Молодой, энергичный',        roles: [] },
+  { id: 'zahar',   name: 'Захар',   gender: 'male',   tone: 'Авторитетный, солидный',     roles: ['neutral', 'good'] },
+  { id: 'ermil',   name: 'Ермил',   gender: 'male',   tone: 'Дикторский, чёткий',         roles: ['neutral', 'good'] },
+  { id: 'filipp',  name: 'Филипп',  gender: 'male',   tone: 'Деловой, уверенный',         roles: [] },
+  { id: 'amira',   name: 'Амира',   gender: 'female', tone: 'Мягкая, приятная',           roles: [] },
+  { id: 'john',    name: 'Джон',    gender: 'male',   tone: 'Нейтральный, универсальный', roles: [] },
 ];
 
 // ─── Компонент ────────────────────────────────────────────────────────────
