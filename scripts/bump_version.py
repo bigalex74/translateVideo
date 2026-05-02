@@ -90,23 +90,16 @@ def bump_version(bump_arg: str) -> str:
     )
     print(f"  __init__.py:    {new_version}")
 
-    # 4. change.log — добавить заготовку ТОЛЬКО если записи ещё нет
+    # 4. change.log — НЕ генерируем заготовку автоматически.
+    # Причина: автоматическая вставка TODO-заготовки приводила к дублям, когда
+    # описание добавлялось позже в том же скрипте (deploy).
+    # Правило: changelog заполняется вручную/скриптом ДО вызова bump_version.
     changelog = ROOT / "change.log"
     content = changelog.read_text(encoding="utf-8")
     if f"## {new_version}" in content:
-        print(f"  change.log:     запись для {new_version} уже существует, пропускаем.")
+        print(f"  change.log:     запись для {new_version} найдена ✅")
     else:
-        today = datetime.now().strftime("%Y-%m-%d")
-        bump_label = {"major": "MAJOR", "minor": "MINOR", "patch": "PATCH"}.get(bump_arg, "RELEASE")
-        entry = (
-            f"## {new_version} - {today} - {bump_label}\n\n"
-            f"- TODO: заполнить описание перед мержем в master.\n\n\n"
-        )
-        changelog.write_text(
-            content.replace("# Журнал Изменений\n", f"# Журнал Изменений\n\n{entry}", 1),
-            encoding="utf-8",
-        )
-        print(f"  change.log:     добавлена заготовка для {new_version} — ЗАПОЛНИТЕ ДО МЕРЖА!")
+        print(f"  change.log:     ⚠️  запись для {new_version} ОТСУТСТВУЕТ — добавьте вручную!")
 
     return new_version
 
