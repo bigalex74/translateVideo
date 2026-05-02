@@ -68,4 +68,7 @@ export const DEFAULT_CONFIG: Partial<PipelineConfig> = {
   professional_tts_model: 'tts-1',
   professional_tts_voice: 'nova',
   professional_tts_voice_2: 'onyx',
+  professional_tts_role: 'neutral',
+  professional_tts_role_2: 'neutral',
+  professional_tts_speed: 1.0,
 };
