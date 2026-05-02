@@ -13,6 +13,16 @@ import {
 } from './advancedSettingsConfig';
 import './AdvancedSettings.css';
 
+// Список голосов-фолбэк (показывается пока API не ответил)
+const TTS_VOICES_FALLBACK = [
+  { id: 'alloy',   name: 'Alloy',   gender: 'neutral', tone: 'Нейтральный' },
+  { id: 'echo',    name: 'Echo',    gender: 'male',    tone: 'Чёткий' },
+  { id: 'fable',   name: 'Fable',   gender: 'male',    tone: 'Выразительный' },
+  { id: 'onyx',    name: 'Onyx',    gender: 'male',    tone: 'Глубокий' },
+  { id: 'nova',    name: 'Nova',    gender: 'female',  tone: 'Живой' },
+  { id: 'shimmer', name: 'Shimmer', gender: 'female',  tone: 'Мягкий' },
+];
+
 // ─── Компонент ────────────────────────────────────────────────────────────
 
 interface AdvancedSettingsProps {
@@ -126,6 +136,25 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
     modelsByProvider[rewriteProvider] ?? PROFESSIONAL_MODEL_OPTIONS[rewriteProvider] ?? [],
     c.professional_rewrite_model,
   );
+
+  // ── Профессиональный TTS ─────────────────────────────────────────────
+  const [ttsVoices, setTtsVoices] = React.useState<{id:string;name:string;gender:string;tone:string}[]>([]);
+  const [ttsModels, setTtsModels] = React.useState<{id:string;name:string;note:string}[]>([]);
+  const ttsVoicesFetched = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!professional || ttsVoicesFetched.current) return;
+    ttsVoicesFetched.current = true;
+    fetch('/api/v1/tts/voices').then(r => r.json()).then(d => setTtsVoices(d.voices ?? []));
+    fetch('/api/v1/tts/models').then(r => r.json()).then(d => setTtsModels(d.models ?? []));
+  }, [professional]);
+
+  const ttsProvider = c.professional_tts_provider ?? '';
+  const ttsModel    = c.professional_tts_model    ?? 'tts-1';
+  const ttsVoice1   = c.professional_tts_voice    ?? 'nova';
+  const ttsVoice2   = c.professional_tts_voice_2  ?? 'onyx';
+  const voiceStrategy = c.voice_strategy ?? 'single';
+  const needVoice2    = voiceStrategy === 'two_voices' || voiceStrategy === 'per_speaker';
 
   return (
     <div className="adv-settings">
@@ -320,6 +349,103 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                 <option key={val} value={val}>{label}</option>
               ))}
             </select>
+          </div>
+          {/* Профессиональная озвучка */}
+          <div className="adv-field">
+            <label className="adv-label">Профессиональная озвучка</label>
+            <div className="adv-tts-block">
+
+              {/* Провайдер TTS */}
+              <div className="adv-tts-row">
+                <div className="adv-field">
+                  <label className="adv-label" htmlFor="adv-tts-provider">Провайдер TTS</label>
+                  <select
+                    id="adv-tts-provider"
+                    className="adv-select"
+                    value={ttsProvider}
+                    onChange={e => onChange({ professional_tts_provider: e.target.value })}
+                    disabled={disabled}
+                  >
+                    <option value="">Edge TTS (бесплатный)</option>
+                    <option value="neuroapi">NeuroAPI</option>
+                    <option value="polza">Polza</option>
+                  </select>
+                </div>
+
+                {/* Модель TTS (только если выбран платный провайдер) */}
+                {ttsProvider && (
+                  <div className="adv-field">
+                    <label className="adv-label" htmlFor="adv-tts-model">Модель</label>
+                    <select
+                      id="adv-tts-model"
+                      className="adv-select"
+                      value={ttsModel}
+                      onChange={e => onChange({ professional_tts_model: e.target.value })}
+                      disabled={disabled}
+                    >
+                      {(ttsModels.length ? ttsModels : [
+                        {id:'tts-1',name:'TTS-1',note:'Стандартное'},
+                        {id:'tts-1-hd',name:'TTS-1 HD',note:'HD'},
+                        {id:'gpt-4o-mini-tts',name:'GPT-4o Mini TTS',note:'Высокое'},
+                      ]).map(m => (
+                        <option key={m.id} value={m.id}>{m.name} — {m.note}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Голос(а) — только для платного провайдера */}
+              {ttsProvider && (
+                <>
+                  <div className="adv-tts-voices-label">
+                    Голос{needVoice2 ? ' 1 (чётные сегменты)' : ''}
+                  </div>
+                  <div className="adv-tts-voices-grid">
+                    {(ttsVoices.length ? ttsVoices : TTS_VOICES_FALLBACK).map(v => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        className={`adv-tts-voice-card ${ttsVoice1 === v.id ? 'adv-tts-voice-card--selected' : ''}`}
+                        onClick={() => !disabled && onChange({ professional_tts_voice: v.id })}
+                        disabled={disabled}
+                        title={v.tone}
+                      >
+                        <span className="adv-tts-voice-gender">
+                          {v.gender === 'female' ? '👩' : v.gender === 'male' ? '👨' : '🧑'}
+                        </span>
+                        <span className="adv-tts-voice-name">{v.name}</span>
+                        <span className="adv-tts-voice-tone">{v.tone}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {needVoice2 && (
+                    <>
+                      <div className="adv-tts-voices-label">Голос 2 (нечётные / другие спикеры)</div>
+                      <div className="adv-tts-voices-grid">
+                        {(ttsVoices.length ? ttsVoices : TTS_VOICES_FALLBACK).map(v => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            className={`adv-tts-voice-card ${ttsVoice2 === v.id ? 'adv-tts-voice-card--selected' : ''}`}
+                            onClick={() => !disabled && onChange({ professional_tts_voice_2: v.id })}
+                            disabled={disabled}
+                            title={v.tone}
+                          >
+                            <span className="adv-tts-voice-gender">
+                              {v.gender === 'female' ? '👩' : v.gender === 'male' ? '👨' : '🧑'}
+                            </span>
+                            <span className="adv-tts-voice-name">{v.name}</span>
+                            <span className="adv-tts-voice-tone">{v.tone}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Обсценная лексика */}

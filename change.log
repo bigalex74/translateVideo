@@ -1,5 +1,42 @@
 # Журнал Изменений
 
+## 1.22.12 - 2026-05-02 - FEAT - TVIDEO-085
+
+### Профессиональная TTS озвучка с выбором голоса и модели
+
+**Бесплатный режим**: без изменений — EdgeTTS (ru-RU-SvetlanaNeural).
+**Профессиональный режим**: новый OpenAITTSProvider через NeuroAPI / Polza.
+
+**Backend**:
+- openai_tts.py: OpenAITTSProvider — POST /audio/speech OpenAI-совместимый.
+  Поддерживает single / two_voices / per_speaker стратегии:
+  - single: все сегменты voice_1
+  - two_voices: чётные → voice_1, нечётные → voice_2
+  - per_speaker: каждый speaker_id → свой голос из пула (round-robin 6 голосов)
+  Ошибки HTTP → QA-флаг tts_openai_error без обрыва пайплайна.
+- config.py: +professional_tts_provider, +professional_tts_model,
+  +professional_tts_voice (default: nova), +professional_tts_voice_2 (default: onyx)
+- pipeline/utils.py: build_stages() принимает project_config, выбирает TTS.
+- API: GET /api/v1/tts/voices и GET /api/v1/tts/models.
+- Голоса: alloy / echo / fable / onyx / nova / shimmer (OpenAI-совместимые).
+- Модели: tts-1 / tts-1-hd / gpt-4o-mini-tts.
+
+**UI** (AdvancedSettings.tsx):
+- Секция «Профессиональная озвучка» появляется только в professional-режиме.
+- Выбор провайдера: Edge TTS (бесплатный) / NeuroAPI / Polza.
+- При платном провайдере: выбор модели + карточки голосов (6 штук).
+- Голос 2 появляется при two_voices / per_speaker.
+- Иконки пола (👩👨🧑) и описание тона каждого голоса.
+- Данные загружаются из /api/v1/tts/voices при включении professional-режима,
+  fallback на константы если API не ответил.
+
+**Тесты** (test_openai_tts.py):
+- URL, payload, создание mp3, empty skip
+- Стратегии: single, two_voices, per_speaker
+- QA-флаги голоса, error → qa_flag без исключения
+- build_openai_tts_provider: нет провайдера/ключа → None, с ключом → провайдер
+- 13 новых тестов, 377 Python + 101 Vitest ✅
+
 ## 1.22.11 - 2026-05-02 - FIX - TVIDEO-084
 
 ### StatsPanel: исправлен скролл (flex:1 + min-height:0)

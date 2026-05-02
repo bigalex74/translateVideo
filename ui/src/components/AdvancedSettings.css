@@ -338,3 +338,87 @@
   color: #a5b4fc;
   font-size: 0.8rem;
 }
+
+/* ══ Professional TTS voice picker ══════════════════════════════════════════ */
+
+.adv-tts-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+}
+
+.adv-tts-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.adv-tts-row .adv-field {
+  flex: 1;
+}
+
+.adv-tts-voices-label {
+  font-size: 0.73rem;
+  color: var(--text-muted, #6b7280);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 0;
+}
+
+.adv-tts-voices-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.adv-tts-voice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 6px;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  text-align: center;
+}
+
+.adv-tts-voice-card:hover:not(:disabled) {
+  border-color: rgba(167,139,250,0.4);
+  background: rgba(167,139,250,0.06);
+  transform: translateY(-1px);
+}
+
+.adv-tts-voice-card--selected {
+  border-color: #a78bfa !important;
+  background: rgba(167,139,250,0.12) !important;
+  box-shadow: 0 0 0 2px rgba(167,139,250,0.2);
+}
+
+.adv-tts-voice-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adv-tts-voice-gender {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.adv-tts-voice-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary, #f9fafb);
+}
+
+.adv-tts-voice-tone {
+  font-size: 0.65rem;
+  color: var(--text-muted, #6b7280);
+  line-height: 1.3;
+}
