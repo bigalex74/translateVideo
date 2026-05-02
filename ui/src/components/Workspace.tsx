@@ -360,11 +360,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               </button>
             </div>
           </div>
-          <AdvancedSettings
-            config={{ ...(project.config ?? {}), ...configPatch }}
-            onChange={patch => setConfigPatch(prev => ({ ...prev, ...patch }))}
-            disabled={savingConfig}
-          />
+          <div className="adv-scroll-wrap">
+            <AdvancedSettings
+              config={{ ...(project.config ?? {}), ...configPatch }}
+              onChange={patch => setConfigPatch(prev => ({ ...prev, ...patch }))}
+              disabled={savingConfig}
+            />
+          </div>
         </div>
       )}
 
