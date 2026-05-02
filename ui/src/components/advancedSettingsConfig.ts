@@ -51,11 +51,11 @@ export const MODEL_PROVIDER_LABELS: Record<string, string> = {
 };
 
 export const PROFESSIONAL_MODEL_OPTIONS: Record<string, string[]> = {
-  neuroapi: ['gpt-5-mini', 'gpt-5', 'gpt-4.1', 'claude-sonnet-4.5'],
-  polza: ['google/gemini-2.5-pro', 'openai/gpt-5-mini', 'anthropic/claude-sonnet-4.5'],
-  openrouter: ['openai/gpt-5-mini', 'anthropic/claude-sonnet-4.5', 'google/gemini-2.5-pro'],
-  aihubmix: ['gemini-3-pro-preview', 'gemini-3-flash-preview', 'gpt-4.1'],
-  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  neuroapi: ['gpt-5-mini'],
+  polza: ['google/gemini-2.5-flash-lite-preview-09-2025'],
+  openrouter: ['openai/gpt-oss-20b:free'],
+  aihubmix: ['gemini-3-flash-preview-free'],
+  gemini: ['gemini-2.5-flash-lite'],
 };
 
 export const DEFAULT_CONFIG: Partial<PipelineConfig> = {
