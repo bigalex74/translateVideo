@@ -300,5 +300,89 @@ class CancelPipelineTest(unittest.TestCase):
         self.assertFalse(ctx2.cancel_event.is_set(), "cancel_event должны быть независимыми объектами")
 
 
+class DedupStageRunsTest(unittest.TestCase):
+    """TVIDEO-088c/d: тесты функции _dedup_stage_runs.
+
+    Проверяет корректное схлопывание дубликатов stage_runs
+    с приоритетом completed над running (но не над failed).
+    """
+
+    def _run(self, *entries):
+        """Создать список StageRun из кортежей (stage, status)."""
+        from translate_video.pipeline.runner import _dedup_stage_runs
+        runs = [StageRun(stage=stage, status=status) for stage, status in entries]
+        return _dedup_stage_runs(runs)
+
+    def test_no_duplicates_unchanged(self):
+        """Без дублей список не изменяется."""
+        result = self._run(
+            (Stage.TRANSCRIBE, JobStatus.COMPLETED),
+            (Stage.TRANSLATE, JobStatus.FAILED),
+        )
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].stage, Stage.TRANSCRIBE)
+        self.assertEqual(result[0].status, JobStatus.COMPLETED)
+        self.assertEqual(result[1].stage, Stage.TRANSLATE)
+        self.assertEqual(result[1].status, JobStatus.FAILED)
+
+    def test_running_replaced_by_completed(self):
+        """Дубль running → берём предыдущий completed (рестарт контейнера)."""
+        result = self._run(
+            (Stage.TRANSCRIBE, JobStatus.COMPLETED),
+            (Stage.TRANSCRIBE, JobStatus.RUNNING),  # зависший после рестарта
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].stage, Stage.TRANSCRIBE)
+        self.assertEqual(result[0].status, JobStatus.COMPLETED,
+                         "running должен откатиться до completed")
+
+    def test_failed_not_replaced_by_completed(self):
+        """completed → failed: оставляем failed (реальная ошибка → перезапуск)."""
+        result = self._run(
+            (Stage.TRANSCRIBE, JobStatus.COMPLETED),
+            (Stage.TRANSCRIBE, JobStatus.FAILED),
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].status, JobStatus.FAILED,
+                         "failed после completed должен оставаться failed")
+
+    def test_order_preserved(self):
+        """Порядок этапов в результате = первое вхождение."""
+        result = self._run(
+            (Stage.EXTRACT_AUDIO, JobStatus.COMPLETED),
+            (Stage.TRANSCRIBE,    JobStatus.COMPLETED),
+            (Stage.REGROUP,       JobStatus.COMPLETED),
+            (Stage.EXTRACT_AUDIO, JobStatus.RUNNING),  # дубль
+            (Stage.TRANSCRIBE,    JobStatus.RUNNING),  # дубль
+        )
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0].stage, Stage.EXTRACT_AUDIO)
+        self.assertEqual(result[1].stage, Stage.TRANSCRIBE)
+        self.assertEqual(result[2].stage, Stage.REGROUP)
+        # Оба running → откат к completed
+        self.assertEqual(result[0].status, JobStatus.COMPLETED)
+        self.assertEqual(result[1].status, JobStatus.COMPLETED)
+
+    def test_empty_list(self):
+        """Пустой список → пустой результат."""
+        from translate_video.pipeline.runner import _dedup_stage_runs
+        self.assertEqual(_dedup_stage_runs([]), [])
+
+    def test_single_entry_unchanged(self):
+        """Одна запись → без изменений."""
+        result = self._run((Stage.TRANSLATE, JobStatus.FAILED))
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].status, JobStatus.FAILED)
+
+    def test_multiple_running_no_completed_keeps_last(self):
+        """Несколько running без completed → берём последний running."""
+        result = self._run(
+            (Stage.TTS, JobStatus.RUNNING),
+            (Stage.TTS, JobStatus.RUNNING),
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].status, JobStatus.RUNNING)
+
+
 if __name__ == "__main__":
     unittest.main()
