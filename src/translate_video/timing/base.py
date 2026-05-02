@@ -31,5 +31,9 @@ class TimingRewriter(Protocol):
         source_text: str,
         max_chars: int,
         attempt: int,
+        segment: Segment | None = None,
+        context_before: list[Segment] | None = None,
+        context_after: list[Segment] | None = None,
+        config=None,
     ) -> str:
         """Вернуть более короткую фразу или исходный текст, если сокращение рискованно."""

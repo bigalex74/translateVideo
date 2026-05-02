@@ -118,6 +118,27 @@ class PipelineConfig:
     allow_timeline_shift: bool = True
     max_timeline_shift: float = 1.5
 
+    # ── Облачный LLM-перевод (TVIDEO-059) ───────────────────────────────────
+    # Если ключей или лимитов не хватает, перевод падает обратно на Google
+    # Translate. Платный Polza.ai включается только явным флагом.
+    use_cloud_translation: bool = True
+    translation_provider_order: list[str] = field(
+        default_factory=lambda: ["gemini", "aihubmix", "openrouter", "polza", "google"]
+    )
+    translation_provider_timeout: float = 15.0
+    translation_provider_disable_on_quota: bool = True
+    translation_provider_rpm: dict[str, float] = field(
+        default_factory=lambda: {
+            "gemini": 5.0,
+            "openrouter": 5.0,
+            "aihubmix": 5.0,
+            "polza": 30.0,
+        }
+    )
+    translation_provider_cooldown_seconds: float = 75.0
+    translation_provider_wait_for_rate_limit: bool = True
+    translation_allow_paid_fallback: bool = False
+
     # ── Адаптивный rate TTS (явный fast-режим, не дефолт) ────────────────────
     tts_base_rate: int = 0          # базовый rate TTS в %; 0 = естественная скорость
     tts_max_rate: int = 0           # 0 = адаптивное ускорение выключено
@@ -195,6 +216,34 @@ class PipelineConfig:
                 "allow_render_audio_speedup": bool(data.get("allow_render_audio_speedup", False)),
                 "allow_timeline_shift": bool(data.get("allow_timeline_shift", True)),
                 "max_timeline_shift": float(data.get("max_timeline_shift", 1.5)),
+                "use_cloud_translation": bool(data.get("use_cloud_translation", True)),
+                "translation_provider_order": list(
+                    data.get(
+                        "translation_provider_order",
+                        ["gemini", "aihubmix", "openrouter", "polza", "google"],
+                    )
+                ),
+                "translation_provider_timeout": float(
+                    data.get("translation_provider_timeout", 15.0)
+                ),
+                "translation_provider_disable_on_quota": bool(
+                    data.get("translation_provider_disable_on_quota", True)
+                ),
+                "translation_provider_rpm": dict(
+                    data.get(
+                        "translation_provider_rpm",
+                        {"gemini": 5.0, "openrouter": 5.0, "aihubmix": 5.0, "polza": 30.0},
+                    )
+                ),
+                "translation_provider_cooldown_seconds": float(
+                    data.get("translation_provider_cooldown_seconds", 75.0)
+                ),
+                "translation_provider_wait_for_rate_limit": bool(
+                    data.get("translation_provider_wait_for_rate_limit", True)
+                ),
+                "translation_allow_paid_fallback": bool(
+                    data.get("translation_allow_paid_fallback", False)
+                ),
                 # Адаптивный TTS rate — только для явного fast-режима
                 "tts_base_rate": int(data.get("tts_base_rate", 0)),
                 "tts_max_rate": int(data.get("tts_max_rate", 0)),

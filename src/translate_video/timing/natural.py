@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from translate_video.core.log import Timer, get_logger
+from translate_video.core.prompting import context_window
 from translate_video.core.schemas import Segment, VideoProject
 from translate_video.timing.base import TimingProgressCallback, TimingRewriter
 
@@ -67,6 +68,8 @@ class NaturalVoiceTimingFitter:
                     index=index,
                     total_segments=total_segments,
                     project_id=project.id,
+                    segments=segments,
+                    config=cfg,
                 )
                 if was_rewritten or failed:
                     needs_rewrite += 1
@@ -102,6 +105,8 @@ class NaturalVoiceTimingFitter:
         index: int,
         total_segments: int,
         project_id: str,
+        segments: list[Segment],
+        config,
     ) -> tuple[bool, bool]:
         """Подогнать один сегмент и вернуть признаки изменения/неудачи."""
 
@@ -129,6 +134,7 @@ class NaturalVoiceTimingFitter:
         )
 
         candidate = text
+        context_before, context_after = context_window(segments, index - 1, size=2)
         for attempt in range(1, max_attempts + 1):
             with Timer() as rewrite_timer:
                 rewritten = rewriter.rewrite(
@@ -136,6 +142,10 @@ class NaturalVoiceTimingFitter:
                     source_text=segment.source_text,
                     max_chars=max_chars,
                     attempt=attempt,
+                    segment=segment,
+                    context_before=context_before,
+                    context_after=context_after,
+                    config=config,
                 ).strip()
             _log.info(
                 "timing_fit.rewrite_attempt",
@@ -209,6 +219,10 @@ class RuleBasedTimingRewriter:
         source_text: str,
         max_chars: int,
         attempt: int,
+        segment: Segment | None = None,
+        context_before: list[Segment] | None = None,
+        context_after: list[Segment] | None = None,
+        config=None,
     ) -> str:
         """Вернуть сокращённый вариант без жёсткой обрезки."""
 

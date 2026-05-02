@@ -1,5 +1,22 @@
 # Журнал Изменений
 
+## 1.14.0 - 2026-05-02 - FEAT - TVIDEO-059
+
+### LLM-перевод с контекстом и улучшенный prompt `timing_fit`
+
+- Добавлен `CloudFallbackSegmentTranslator`: первичный перевод теперь может
+  идти через облачные LLM-провайдеры с fallback на Google Translate.
+- Порядок LLM-перевода по умолчанию:
+  `gemini → aihubmix → openrouter → polza → google`.
+- LLM-перевод получает 2 предыдущих и 2 следующих сегмента, стиль перевода,
+  уровень адаптации, аудиторию, предметную область, глоссарий и
+  `do_not_translate`.
+- Polza.ai для перевода включается только при
+  `TRANSLATION_ALLOW_PAID_FALLBACK=true`.
+- Prompt сокращения в `timing_fit` больше не жёстко EN→RU: языки берутся из
+  конфигурации проекта. В prompt добавлены стиль, глоссарий и соседние сегменты.
+- Обновлены `.env.example`, документация и unit-тесты.
+
 ## 1.13.4 - 2026-05-02 - PATCH
 
 ### Обновлён рейтинг OpenRouter в `timing_fit`
