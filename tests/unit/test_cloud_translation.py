@@ -183,7 +183,7 @@ class TranslationProviderPayloadTest(unittest.TestCase):
         self.assertEqual(calls[0][2]["Authorization"], "Bearer secret")
 
     def test_build_translation_prompt_contains_style_glossary_and_context(self):
-        """Промпт перевода содержит стиль, глоссарий и соседние сегменты."""
+        """Промпт professional-перевода содержит стиль, адаптацию, глоссарий и соседние сегменты."""
 
         with tempfile.TemporaryDirectory() as temp_dir:
             glossary = Path(temp_dir) / "glossary.md"
@@ -191,8 +191,10 @@ class TranslationProviderPayloadTest(unittest.TestCase):
             config = PipelineConfig(
                 source_language="en",
                 target_language="ru",
+                translation_quality="professional",  # ← стиль/адаптация только для pro
                 translation_style=TranslationStyle.EDUCATIONAL,
                 adaptation_level=AdaptationLevel.LOCALIZED,
+                profanity_policy="asterisk",
                 glossary_path=glossary,
                 do_not_translate=["Google Antigravity"],
             )
@@ -205,11 +207,33 @@ class TranslationProviderPayloadTest(unittest.TestCase):
             )
 
         self.assertIn("Целевой язык: русский", prompt)
-        self.assertIn("объясняющий", prompt)
+        self.assertIn("объясняющий", prompt)           # стиль educational
+        self.assertIn("локализовать", prompt)           # адаптация localized
+        self.assertIn("звёздочками", prompt)            # profanity=asterisk
         self.assertIn("Antigravity = Антигравити", prompt)
         self.assertIn("Google Antigravity", prompt)
         self.assertIn("Before context", prompt)
         self.assertIn("After context", prompt)
+
+    def test_amateur_prompt_has_no_style_directives(self):
+        """В amateur-режиме промпт не содержит стиль/адаптацию/ненормативную лексику."""
+
+        config = PipelineConfig(
+            source_language="en",
+            target_language="ru",
+            # translation_quality дефолт = 'amateur'
+            translation_style=TranslationStyle.EDUCATIONAL,
+        )
+        prompt = build_translation_prompt(
+            Segment(start=0, end=1, source_text="Hello."),
+            config=config,
+        )
+
+        self.assertIn("Целевой язык: русский", prompt)
+        self.assertNotIn("объясняющий", prompt)    # стиль скрыт в amateur
+        self.assertNotIn("Адаптация", prompt)       # адаптация скрыта
+        self.assertNotIn("Ненормативная", prompt)   # лексика скрыта
+        self.assertIn("Переводи точно", prompt)     # минимальная директива
 
     def test_provider_defaults_match_free_models(self):
         """Дефолтные модели перевода используют бесплатные/выбранные пользователем варианты."""

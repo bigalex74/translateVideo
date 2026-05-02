@@ -1,5 +1,31 @@
 # Журнал Изменений
 
+## 1.19.0 - 2026-05-02 - FEAT - TVIDEO-066
+
+### Скроллбар + разделение промтов amateur/professional
+
+**Скроллбар в Workspace** (панель настроек с боковой кнопки ⚙️):
+- adv-scroll-wrap добавлен в Workspace.tsx, CSS в Workspace.css.
+- max-height: 62vh, webkit 5px фиолетовый scrollbar.
+
+**Промты — разделение amateur/professional**:
+- Professional: все директивы (стиль, адаптация, ненормативная лексика,
+  аудитория, единицы измерения, preserve_names, preserve_brands).
+- Amateur: только языки + "Переводи точно" — не перегружаем бесплатные модели.
+- Profanity policy теперь описывается человекочитаемо:
+  keep → «сохранять», remove → «заменять нейтральными», asterisk → «звёздочки».
+
+**Rewriter prompt — before/after контекст**:
+- context_window(size=2) уже передавался → подтверждено тестами.
+- Добавлены ассерты на «до»/«после» (переведённый контекст) в тесте.
+
+**Тесты** (303 Python + 32 Vitest):
+- test_build_translation_prompt_contains_style_glossary_and_context:
+  добавлен professional quality + profanity=asterisk + новые assertIn.
+- test_amateur_prompt_has_no_style_directives: новый тест.
+- test_prompt_contains_character_limit_style_glossary_and_context:
+  professional quality + profanity=remove + context translation assertIn.
+
 ## 1.18.0 - 2026-05-02 - FEAT - TVIDEO-065
 
 ### UI: профессиональные настройки и скроллбар
