@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig } from '../api/client';
+import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline } from '../api/client';
 import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -31,6 +31,7 @@ const API_VIDEO = '/api/v1/video';
 
 export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale }) => {
   const [project, setProject] = useState<VideoProject | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [videoTab, setVideoTab] = useState<'source' | 'translated'>('source');
   const [rightTab, setRightTab] = useState<RightTab>('status');
   const [dirty, setDirty] = useState(false);
@@ -203,6 +204,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       await runPipeline(projectId, force);
       // Оптимистично переключаем статус — поллинг подхватит реальный
       setProject(prev => prev ? { ...prev, status: 'running' } : prev);
+      setCancelling(false);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : t('workspace.runError', locale));
     }
@@ -251,7 +253,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
         <div className="running-overlay" role="status" aria-live="polite">
           <div className="running-card">
             <Loader2 size={40} className="animate-spin running-spinner" />
-            <h3>{t('workspace.running', locale)}</h3>
+            <h3>{cancelling ? 'Отмена перевода…' : t('workspace.running', locale)}</h3>
             {runningStage && (
               <p className="running-stage">
                 ⚙️ {stageLabel(runningStage.stage, locale)}
@@ -311,6 +313,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             <p className="running-hint">
               {t('workspace.runningHint', locale)}
             </p>
+
+            {/* ── Кнопка отмены ── */}
+            <button
+              id="cancel-pipeline-btn"
+              className={`running-cancel-btn ${cancelling ? 'running-cancel-btn--cancelling' : ''}`}
+              disabled={cancelling}
+              onClick={async () => {
+                if (!window.confirm('Отменить перевод? Текущий этап будет завершён, потом пайплайн остановится.')) return;
+                setCancelling(true);
+                try {
+                  await cancelPipeline(projectId);
+                } catch (e) {
+                  console.error('cancel error', e);
+                  setCancelling(false);
+                }
+              }}
+            >
+              {cancelling ? (
+                <><Loader2 size={13} className="animate-spin" /> Отмена…</>
+              ) : (
+                <><X size={13} /> Отменить перевод</>
+              )}
+            </button>
           </div>
         </div>
       )}
