@@ -23,6 +23,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from translate_video.core.log import get_logger
+from translate_video.tts.normalize import normalize
 
 if TYPE_CHECKING:
     pass
@@ -83,6 +84,9 @@ def process(text: str, *, model_size: str = "tiny2") -> str:
     """
     if not text or not text.strip():
         return text
+
+    # Нормализация: 24/7 → «двадцать четыре на семь», % / $ / ИИ и др.
+    text = normalize(text)
 
     if not _check_available():
         return text
