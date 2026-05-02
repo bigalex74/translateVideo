@@ -213,12 +213,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
 
   // ─── Run ──────────────────────────────────────────────────────────────────
 
-  const handleRunConfirmed = async (force: boolean) => {
+  const handleRunConfirmed = async (force: boolean, fromStage: string | null) => {
     setConfirm(null);
     setMessage('');
     setRightTab('status');
     try {
-      await runPipeline(projectId, force);
+      await runPipeline(projectId, force, undefined, undefined, fromStage);
       // Оптимистично переключаем статус — поллинг подхватит реальный
       setProject(prev => prev ? { ...prev, status: 'running' } : prev);
       setCancelling(false);
@@ -788,7 +788,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           isForce={confirm.force}
           segments={segments}
           locale={locale}
-          onConfirm={() => handleRunConfirmed(confirm.force)}
+          stageRuns={project.stage_runs ?? []}
+          onConfirm={(fromStage) => handleRunConfirmed(confirm.force, fromStage)}
           onCancel={() => setConfirm(null)}
         />
       )}

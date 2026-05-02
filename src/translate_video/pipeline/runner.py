@@ -31,9 +31,16 @@ class PipelineStage(Protocol):
 class PipelineRunner:
     """Запускает этапы последовательно и останавливается на первой ошибке."""
 
-    def __init__(self, stages: list[PipelineStage], *, force: bool = False) -> None:
+    def __init__(
+        self,
+        stages: list[PipelineStage],
+        *,
+        force: bool = False,
+        from_stage: str | None = None,
+    ) -> None:
         self.stages = stages
         self.force = force
+        self.from_stage = from_stage
 
     def run(self, context: StageContext) -> list[StageRun]:
         """Выполнить настроенные этапы по порядку.
@@ -59,6 +66,15 @@ class PipelineRunner:
             context.project.stage_runs = []
             context.project.billing_snapshots = {}  # чистим старые снапшоты
             _log.info("pipeline.stage_runs_reset", project=project_id)
+        elif self.from_stage:
+            # Сбрасываем указанный этап и все последующие — они будут перезапущены.
+            # Предшествующие completed-этапы остаются нетронутыми (будут пропущены).
+            self._reset_from(context, self.from_stage)
+            _log.info(
+                "pipeline.stage_runs_reset_from",
+                project=project_id,
+                from_stage=self.from_stage,
+            )
         context.store.save_project(context.project)
 
         # ── Снапшот баланса ДО запуска этапов ──────────────────────────────
@@ -156,6 +172,27 @@ class PipelineRunner:
             None,
         )
         return last is not None and last.status == JobStatus.COMPLETED
+
+    def _reset_from(self, context: StageContext, from_stage_value: str) -> None:
+        """Удалить stage_runs начиная с from_stage и все последующие.
+
+        Порядок стадий берётся из РЕАЛЬНОГО пайплайна (self.stages),
+        а не из Stage-enum (порядок в котором может не совпадать с реальным).
+        Предшествующие completed-записи остаются нетронутыми.
+        """
+        pipeline_order = [s.stage.value for s in self.stages]
+        try:
+            from_idx = pipeline_order.index(from_stage_value)
+        except ValueError:
+            # Неизвестный этап — не трогаем ничего
+            return
+
+        stages_to_reset = set(pipeline_order[from_idx:])
+        # Оставляем только записи для этапов ПЕРЕД from_stage
+        context.project.stage_runs = [
+            r for r in context.project.stage_runs
+            if r.stage.value not in stages_to_reset
+        ]
 
 
 def _elapsed_from_run(run: StageRun) -> float | None:
