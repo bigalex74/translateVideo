@@ -1,5 +1,54 @@
 # Журнал Изменений
 
+## 1.22.21 - 2026-05-02 - FEAT - TVIDEO-090
+
+### Полный список голосов Yandex SpeechKit (20 голосов)
+
+**Проблема**: в UI и API было только 9 голосов из 20 доступных в Yandex SpeechKit.
+
+**Решение**: проверил все голоса через live API, добавил 11 новых премиум-голосов:
+`julia`, `lera`, `marina`, `alexander`, `kirill`, `anton`, `masha`, `zhanar`, `saule`, `yulduz`, `zamira`
+
+Каждый голос получил точный список поддерживаемых `roles[]` (tested via API).
+Добавлено поле `tier`: `"standard"` / `"premium"`.
+`_VOICE_POOL` для per-speaker теперь предпочитает premium-голоса.
+Новые роли: `strict`, `whisper` (дополнительно к `neutral`/`good`/`evil`).
+
+**Тесты** (test_speechkit_voices.py): 8 тестов — структура, роли, tier, дедуп пула.
+Итого: 427 Python + 101 Vitest.
+
+---
+
+## 1.22.20 - 2026-05-02 - FIX - TVIDEO-088d
+
+### Дедупликация stage_runs: prefer completed over running
+
+**Проблема**: `_dedup_stage_runs` брал ПОСЛЕДНЮЮ запись для каждого этапа.
+При рестарте контейнера статус оставался `running` → стадия перезапускалась.
+
+**Решение**: если последняя запись — `running` (зависший статус от рестарта),
+ищем последний `completed`. Если `failed` (реальная ошибка) — оставляем.
+
+**Тесты** (test_pipeline_runner.py): проверяет running→fallback-to-completed.
+Итого: 419 Python + 101 Vitest.
+
+---
+
+## 1.22.19 - 2026-05-02 - FIX - TVIDEO-088c
+
+### Дедупликация stage_runs перед сбросом в PipelineRunner
+
+**Проблема**: после нескольких запусков в `stage_runs` накапливались дубли.
+`_already_completed()` видел последнюю запись (running/failed) → все стадии перезапускались.
+
+**Решение**: `_dedup_stage_runs()` вызывается в начале `run()` до любого сброса.
+Оставляет одну запись на стадию, предпочитая `completed` над `running`.
+
+**Тесты**: regression-тест в test_pipeline_runner.py.
+Итого: 419 Python + 101 Vitest.
+
+---
+
 ## 1.22.18 - 2026-05-02 - FEAT - TVIDEO-089
 
 ### Нормализация текста перед синтезом речи
