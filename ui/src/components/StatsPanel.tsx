@@ -48,14 +48,13 @@ interface StatsData {
   };
   billing: {
     dominant_translation_provider: string;
-    rewrite_provider: string | null;
-    estimated_input_tokens: number;
-    estimated_output_tokens: number;
-    estimated_cost_usd: number;
-    estimated_cost_translate_usd: number;
-    estimated_cost_rewrite_usd: number;
-    price_per_1m_in_usd: number;
-    price_per_1m_out_usd: number;
+    polza_before: number | null;
+    polza_after: number | null;
+    polza_spent_rub: number | null;
+    neuroapi_before: number | null;
+    neuroapi_after: number | null;
+    neuroapi_spent_usd: number | null;
+    has_real_data: boolean;
     note: string;
   } | null;
 }
@@ -407,50 +406,60 @@ export const StatsPanel: React.FC<Props> = ({ projectId }) => {
             <DollarSign size={13} />
             Стоимость перевода
           </div>
-          <div className="stats-billing-total">
-            <span className="stats-billing-amount">
-              ${billing.estimated_cost_usd.toFixed(4)}
-            </span>
-            <span className="stats-billing-approx">≈ оценка</span>
-          </div>
-          <div className="stats-kv-group">
-            <div className="stats-kv">
-              <span>Провайдер перевода</span>
-              <strong className="stats-billing-provider">{billing.dominant_translation_provider}</strong>
-            </div>
-            {billing.rewrite_provider && (
+
+          {billing.has_real_data ? (
+            <>
+              {/* Polza */}
+              {billing.polza_spent_rub != null && (
+                <div className="stats-billing-block">
+                  <div className="stats-billing-block-header">
+                    <span className="stats-billing-provider-label">Polza</span>
+                    <span className="stats-billing-currency">RUB</span>
+                  </div>
+                  <div className="stats-billing-amount-row">
+                    <span className="stats-billing-spent">
+                      {billing.polza_spent_rub >= 0
+                        ? `−${billing.polza_spent_rub.toFixed(2)} ₽`
+                        : `+${Math.abs(billing.polza_spent_rub).toFixed(2)} ₽`}
+                    </span>
+                  </div>
+                  <div className="stats-billing-balance-row">
+                    <span>{billing.polza_before?.toFixed(2)} → {billing.polza_after?.toFixed(2)} ₽</span>
+                  </div>
+                </div>
+              )}
+
+              {/* NeuroAPI */}
+              {billing.neuroapi_spent_usd != null && (
+                <div className="stats-billing-block">
+                  <div className="stats-billing-block-header">
+                    <span className="stats-billing-provider-label">NeuroAPI</span>
+                    <span className="stats-billing-currency">USD</span>
+                  </div>
+                  <div className="stats-billing-amount-row">
+                    <span className="stats-billing-spent">
+                      {billing.neuroapi_spent_usd >= 0
+                        ? `−$${billing.neuroapi_spent_usd.toFixed(4)}`
+                        : `+$${Math.abs(billing.neuroapi_spent_usd).toFixed(4)}`}
+                    </span>
+                  </div>
+                  <div className="stats-billing-balance-row">
+                    <span>${billing.neuroapi_before?.toFixed(4)} → ${billing.neuroapi_after?.toFixed(4)}</span>
+                  </div>
+                </div>
+              )}
+
               <div className="stats-kv">
-                <span>Провайдер rewrite</span>
-                <strong className="stats-billing-provider">{billing.rewrite_provider}</strong>
+                <span>Провайдер</span>
+                <strong className="stats-billing-provider">{billing.dominant_translation_provider}</strong>
               </div>
-            )}
-            <div className="stats-kv">
-              <span>Токены (вход / выход)</span>
-              <strong>
-                {billing.estimated_input_tokens.toLocaleString()} / {billing.estimated_output_tokens.toLocaleString()}
-              </strong>
+            </>
+          ) : (
+            <div className="stats-billing-no-data">
+              <span>📭</span>
+              <span>{billing.note}</span>
             </div>
-          </div>
-          {/* Разбивка по статьям */}
-          <div className="stats-billing-breakdown">
-            <div className="stats-billing-row">
-              <span>Перевод</span>
-              <span className="stats-billing-val">${billing.estimated_cost_translate_usd.toFixed(4)}</span>
-            </div>
-            {billing.estimated_cost_rewrite_usd > 0 && (
-              <div className="stats-billing-row">
-                <span>Timing rewrite</span>
-                <span className="stats-billing-val">${billing.estimated_cost_rewrite_usd.toFixed(4)}</span>
-              </div>
-            )}
-            <div className="stats-billing-row stats-billing-price-row">
-              <span>Цена (1M tok in/out)</span>
-              <span className="stats-billing-val">
-                ${billing.price_per_1m_in_usd.toFixed(2)} / ${billing.price_per_1m_out_usd.toFixed(2)}
-              </span>
-            </div>
-          </div>
-          <div className="stats-billing-note">{billing.note}</div>
+          )}
         </div>
       )}
 
