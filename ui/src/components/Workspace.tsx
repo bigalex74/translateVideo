@@ -764,7 +764,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
 
           {/* Вкладка: Статистика */}
           {rightTab === 'stats' && (
-            <div className="right-tab-content right-tab-content--flush">
+            <div className="right-tab-content right-tab-content--flush right-tab-content--stats">
               <StatsPanel projectId={projectId} />
             </div>
           )}

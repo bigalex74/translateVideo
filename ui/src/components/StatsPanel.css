@@ -6,6 +6,18 @@
   gap: 0;
   font-size: 0.8rem;
   color: var(--text-primary);
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Скролл внутри .right-tab-content--flush который имеет overflow: hidden */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 35%, transparent) transparent;
+}
+.stats-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.stats-panel::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 99px;
 }
 
 /* ── Header ── */
@@ -324,3 +336,85 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1s linear infinite; }
+
+/* ══ Billing ═══════════════════════════════════════════════════════ */
+
+.stats-billing-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+
+.stats-billing-amount {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, #34d399, #10b981);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+.stats-billing-approx {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.stats-billing-provider {
+  color: #a78bfa;
+  font-size: 0.78rem;
+}
+
+.stats-billing-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 7px 9px;
+  margin-top: 4px;
+}
+
+.stats-billing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  padding: 2px 0;
+}
+
+.stats-billing-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.76rem;
+}
+
+.stats-billing-price-row {
+  border-top: 1px solid rgba(255,255,255,0.05);
+  margin-top: 3px;
+  padding-top: 5px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.stats-billing-price-row .stats-billing-val {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 0.7rem;
+}
+
+.stats-billing-note {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+  margin-top: 4px;
+  opacity: 0.7;
+}
