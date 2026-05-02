@@ -1,5 +1,36 @@
 # Журнал Изменений
 
+## 1.22.8 - 2026-05-02 - TEST DEBT
+
+### Написаны пропущенные тесты для TVIDEO-080 и TVIDEO-081
+
+**Долг**: правки v1.22.6 и v1.22.7 были задеплоены без необходимого покрытия тестами.
+
+**TVIDEO-080 (3 теста в test_video_stream.py)**:
+- test_vtt_subtitle_returns_200_with_correct_mime: .vtt → 200 + text/vtt MIME
+- test_srt_subtitle_returns_200: .srt → 200
+- test_vtt_mime_is_not_octet_stream: не application/octet-stream
+
+**TVIDEO-080 (8 тестов в test_export_subtitles_stage.py)**:
+- stage_creates_vtt_file: VTT файл создан
+- stage_creates_srt_file: SRT файл создан
+- vtt_contains_translated_text: текст совпадает с translated_text
+- subtitles_artifact_registered: artifact зарегистрирован в проекте
+- srt_overwrites_vtt_artifact_with_last_call: artifact указывает на формат
+- stage_does_not_fail_with_empty_segments: пустые сегменты не роняют стадию
+- vtt_contains_webvtt_header: VTT начинается с WEBVTT
+- run_status_is_completed_not_failed: статус COMPLETED
+
+**TVIDEO-081 (5 тестов в test_professional_rewriter_graceful.py)**:
+- no_raise_when_all_providers_fail_in_professional_mode: не бросает
+- qa_flag_added_on_professional_rewriter_failure: флаг добавлен
+- qa_flag_absent_when_rewrite_succeeds: флаг не добавлен при успехе
+- rewrite_provider_failed_flag_present_before_no_timing_fit: оба флага
+- pipeline_continues_after_timing_fit_with_failed_rewriter: e2e — COMPLETED
+
+Итого: +16 тестов. Добавлен TESTING_RULES.md.
+351 Python + 101 Vitest ✅
+
 ## 1.22.7 - 2026-05-02 - FIX - TVIDEO-081
 
 ### professional rewriter провал роняет весь pipeline

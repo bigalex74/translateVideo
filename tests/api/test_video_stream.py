@@ -110,3 +110,39 @@ class VideoStreamTest(TestCase):
         """TVIDEO-025: path traversal через подпапку → 400."""
         r = self.client.get("/api/v1/video/test_proj/output/../../etc/passwd")
         self.assertIn(r.status_code, [400, 404, 422])
+
+    # ─── TVIDEO-080: субтитры .vtt и .srt через video route ─────────────────
+
+    def test_vtt_subtitle_returns_200_with_correct_mime(self):
+        """TVIDEO-080: .vtt должен отдаваться с text/vtt — без этого <track> в плеере не работает.
+
+        До фикса: .vtt не было в _ALLOWED_EXTS → 400 → браузер не загружал субтитры.
+        """
+        subs_dir = self.project_dir / "subtitles"
+        subs_dir.mkdir()
+        vtt = subs_dir / "translated.vtt"
+        vtt.write_text("WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nТест субтитра\n", encoding="utf-8")
+
+        r = self.client.get("/api/v1/video/test_proj/subtitles/translated.vtt")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/vtt", r.headers["content-type"])
+
+    def test_srt_subtitle_returns_200(self):
+        """TVIDEO-080: .srt должен отдаваться без ошибки."""
+        subs_dir = self.project_dir / "subtitles"
+        subs_dir.mkdir()
+        srt = subs_dir / "translated.srt"
+        srt.write_text("1\n00:00:01,000 --> 00:00:03,000\nТест субтитра\n", encoding="utf-8")
+
+        r = self.client.get("/api/v1/video/test_proj/subtitles/translated.srt")
+        self.assertEqual(r.status_code, 200)
+
+    def test_vtt_mime_is_not_octet_stream(self):
+        """TVIDEO-080: Content-Type .vtt не должен быть application/octet-stream."""
+        subs_dir = self.project_dir / "subtitles"
+        subs_dir.mkdir()
+        vtt = subs_dir / "translated.vtt"
+        vtt.write_text("WEBVTT\n", encoding="utf-8")
+
+        r = self.client.get("/api/v1/video/test_proj/subtitles/translated.vtt")
+        self.assertNotIn("octet-stream", r.headers.get("content-type", ""))
