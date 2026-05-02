@@ -6,9 +6,13 @@
   gap: 0;
   font-size: 0.8rem;
   color: var(--text-primary);
+  /* Критично для скролла в flex-контейнере:
+     flex:1 занимает всё доступное место, min-height:0 позволяет
+     flex-дочернему быть короче контента → overflow-y:auto срабатывает */
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Скролл внутри .right-tab-content--flush который имеет overflow: hidden */
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--accent) 35%, transparent) transparent;
 }
