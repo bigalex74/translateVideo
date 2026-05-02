@@ -66,6 +66,7 @@ export async function runPipeline(
     force: boolean = false,
     provider?: string,
     webhookUrl?: string,
+    from_stage?: string | null,
 ): Promise<{status: string, message: string}> {
     // Читаем сохранённые настройки если не переданы явно
     const effectiveProvider = provider ?? localStorage.getItem('tv_default_provider') ?? 'legacy';
@@ -76,10 +77,13 @@ export async function runPipeline(
         headers["X-Webhook-Url"] = effectiveWebhook;
     }
 
+    const body: Record<string, unknown> = { force, provider: effectiveProvider };
+    if (from_stage) body.from_stage = from_stage;
+
     const res = await fetch(`${API_BASE}/projects/${project_id}/run`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ force, provider: effectiveProvider })
+        body: JSON.stringify(body)
     });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();

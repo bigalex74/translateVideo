@@ -108,3 +108,60 @@
   padding: 16px 24px 20px;
   border-top: 1px solid var(--border);
 }
+
+/* ── Stage selector (from_stage) ─────────────────────────────────── */
+
+.modal-from-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.modal-from-stage-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.modal-from-stage-select {
+  width: 100%;
+  padding: 7px 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: #e5e7eb;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.modal-from-stage-select:hover,
+.modal-from-stage-select:focus {
+  border-color: rgba(167,139,250,0.5);
+  outline: none;
+}
+
+.modal-from-stage-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: #a78bfa;
+  line-height: 1.4;
+}
+
+.modal-from-stage-note svg { flex-shrink: 0; margin-top: 2px; }
+
+.modal-from-stage-note--warn {
+  color: #fbbf24;
+}
