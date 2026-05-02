@@ -60,21 +60,21 @@ class PipelineRunner:
         )
 
         context.project.status = ProjectStatus.RUNNING
-        if self.force:
-            # При force-запуске чистим историю этапов — чтобы UI показывал
-            # только текущий прогон, а не артефакты предыдущих.
-            context.project.stage_runs = []
-            context.project.billing_snapshots = {}  # чистим старые снапшоты
-            _log.info("pipeline.stage_runs_reset", project=project_id)
-        elif self.from_stage:
-            # Сбрасываем указанный этап и все последующие — они будут перезапущены.
-            # Предшествующие completed-этапы остаются нетронутыми (будут пропущены).
+        if self.from_stage:
+            # from_stage имеет приоритет над force: сбрасываем указанный этап и последующие,
+            # предыдущие completed-этапы остаются нетронутыми (будут пропущены).
             self._reset_from(context, self.from_stage)
             _log.info(
                 "pipeline.stage_runs_reset_from",
                 project=project_id,
                 from_stage=self.from_stage,
+                force=self.force,
             )
+        elif self.force:
+            # При force без from_stage — чистим всю историю.
+            context.project.stage_runs = []
+            context.project.billing_snapshots = {}
+            _log.info("pipeline.stage_runs_reset", project=project_id)
         context.store.save_project(context.project)
 
         # ── Снапшот баланса ДО запуска этапов ──────────────────────────────
