@@ -3,6 +3,8 @@ import type {
     PipelineConfig,
     PipelineConfigDraft,
     PreflightReport,
+    ProviderBalance,
+    ProviderModel,
     Segment,
     VideoProject,
 } from "../types/schemas";
@@ -118,6 +120,19 @@ export async function preflightVideo(input_video: string, provider: string = "fa
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input_video, provider })
     });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export async function fetchProviderModels(provider: string): Promise<ProviderModel[]> {
+    const res = await fetch(`${API_BASE}/providers/${encodeURIComponent(provider)}/models`);
+    if (!res.ok) throw new Error(await readError(res));
+    const data = await res.json() as { models: ProviderModel[] };
+    return data.models;
+}
+
+export async function fetchProviderBalance(provider: string): Promise<ProviderBalance> {
+    const res = await fetch(`${API_BASE}/providers/${encodeURIComponent(provider)}/balance`);
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }

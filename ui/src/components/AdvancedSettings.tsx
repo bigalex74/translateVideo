@@ -1,5 +1,6 @@
 import React from 'react';
-import type { PipelineConfig } from '../types/schemas';
+import { fetchProviderBalance, fetchProviderModels } from '../api/client';
+import type { PipelineConfig, ProviderBalance } from '../types/schemas';
 import {
   ADAPTATION_LABELS,
   DEFAULT_CONFIG,
@@ -45,12 +46,70 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
 
   const translationProvider = c.professional_translation_provider ?? 'neuroapi';
   const rewriteProvider = c.professional_rewrite_provider ?? 'neuroapi';
+  const [modelsByProvider, setModelsByProvider] = React.useState<Record<string, string[]>>({});
+  const [modelErrors, setModelErrors] = React.useState<Record<string, string>>({});
+  const [balances, setBalances] = React.useState<Record<string, ProviderBalance>>({});
+  const [balanceErrors, setBalanceErrors] = React.useState<Record<string, string>>({});
+  const requestedModels = React.useRef(new Set<string>());
+  const requestedBalances = React.useRef(new Set<string>());
+
+  React.useEffect(() => {
+    if (!professional) return;
+    const providers = Array.from(new Set([translationProvider, rewriteProvider]));
+    for (const provider of providers) {
+      if (!provider || modelsByProvider[provider] || requestedModels.current.has(provider)) continue;
+      requestedModels.current.add(provider);
+      fetchProviderModels(provider)
+        .then(models => {
+          setModelsByProvider(prev => ({
+            ...prev,
+            [provider]: models.map(model => model.id),
+          }));
+          setModelErrors(prev => {
+            const next = { ...prev };
+            delete next[provider];
+            return next;
+          });
+        })
+        .catch(error => {
+          setModelErrors(prev => ({
+            ...prev,
+            [provider]: error instanceof Error ? error.message : String(error),
+          }));
+        });
+    }
+  }, [professional, translationProvider, rewriteProvider, modelsByProvider]);
+
+  React.useEffect(() => {
+    if (!professional) return;
+    const providers = Array.from(new Set([translationProvider, rewriteProvider]));
+    for (const provider of providers) {
+      if (!provider || balances[provider] || requestedBalances.current.has(provider)) continue;
+      requestedBalances.current.add(provider);
+      fetchProviderBalance(provider)
+        .then(balance => {
+          setBalances(prev => ({ ...prev, [provider]: balance }));
+          setBalanceErrors(prev => {
+            const next = { ...prev };
+            delete next[provider];
+            return next;
+          });
+        })
+        .catch(error => {
+          setBalanceErrors(prev => ({
+            ...prev,
+            [provider]: error instanceof Error ? error.message : String(error),
+          }));
+        });
+    }
+  }, [professional, translationProvider, rewriteProvider, balances]);
+
   const translationModels = withCurrentModel(
-    PROFESSIONAL_MODEL_OPTIONS[translationProvider] ?? [],
+    modelsByProvider[translationProvider] ?? PROFESSIONAL_MODEL_OPTIONS[translationProvider] ?? [],
     c.professional_translation_model,
   );
   const rewriteModels = withCurrentModel(
-    PROFESSIONAL_MODEL_OPTIONS[rewriteProvider] ?? [],
+    modelsByProvider[rewriteProvider] ?? PROFESSIONAL_MODEL_OPTIONS[rewriteProvider] ?? [],
     c.professional_rewrite_model,
   );
 
@@ -113,6 +172,12 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                   <option key={model} value={model}>{model}</option>
                 ))}
               </select>
+              <ProviderMeta
+                provider={translationProvider}
+                modelError={modelErrors[translationProvider]}
+                balance={balances[translationProvider]}
+                balanceError={balanceErrors[translationProvider]}
+              />
             </div>
             <div className="adv-field">
               <label className="adv-label" htmlFor="adv-pro-rewrite-provider">Провайдер сокращения</label>
@@ -147,6 +212,12 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                   <option key={model} value={model}>{model}</option>
                 ))}
               </select>
+              <ProviderMeta
+                provider={rewriteProvider}
+                modelError={modelErrors[rewriteProvider]}
+                balance={balances[rewriteProvider]}
+                balanceError={balanceErrors[rewriteProvider]}
+              />
             </div>
           </div>
         )}
@@ -278,8 +349,42 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   );
 };
 
+function ProviderMeta({
+  provider,
+  modelError,
+  balance,
+  balanceError,
+}: {
+  provider: string;
+  modelError?: string;
+  balance?: ProviderBalance;
+  balanceError?: string;
+}) {
+  const parts: string[] = [];
+  if (modelError) parts.push(`модели: ${modelError}`);
+  if (balanceError) parts.push(`баланс: ${balanceError}`);
+  if (balance) {
+    if (!balance.configured) {
+      parts.push(balance.message ?? `ключ ${provider} не настроен`);
+    } else if (typeof balance.balance === 'number') {
+      parts.push(`остаток: ${formatMoney(balance.balance, balance.currency)}`);
+    } else if (typeof balance.used === 'number') {
+      parts.push(`расход: ${formatMoney(balance.used, balance.currency)}`);
+    } else if (balance.message) {
+      parts.push(balance.message);
+    }
+  }
+  if (parts.length === 0) return null;
+  return <span className="adv-hint">{parts.join(' · ')}</span>;
+}
+
 function withCurrentModel(options: string[], current?: string): string[] {
   const value = current?.trim();
   if (!value || options.includes(value)) return options;
   return [value, ...options];
+}
+
+function formatMoney(value: number, currency?: string | null): string {
+  const suffix = currency ? ` ${currency}` : '';
+  return `${value.toFixed(2)}${suffix}`;
 }

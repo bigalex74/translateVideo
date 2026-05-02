@@ -127,3 +127,18 @@ export interface PreflightReport {
     duration_seconds?: number | null;
     checks: PreflightCheck[];
 }
+
+export interface ProviderModel {
+    id: string;
+    name: string;
+}
+
+export interface ProviderBalance {
+    provider: string;
+    configured: boolean;
+    balance?: number | null;
+    currency?: string | null;
+    used?: number | null;
+    source?: string | null;
+    message?: string | null;
+}

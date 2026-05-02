@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { runPipeline } from './client';
+import { fetchProviderBalance, fetchProviderModels, runPipeline } from './client';
 
 describe('api/client runPipeline', () => {
   beforeEach(() => {
@@ -43,5 +43,33 @@ describe('api/client runPipeline', () => {
     expect(headers['X-Webhook-Url']).toBe('https://n8n.example.com/webhook/demo');
     expect(body).toEqual({ force: true, provider: 'legacy' });
     expect(body).not.toHaveProperty('webhook_url');
+  });
+
+  it('загружает модели провайдера через backend API', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ models: [{ id: 'gpt-5-mini', name: 'gpt-5-mini' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ));
+
+    const models = await fetchProviderModels('neuroapi');
+
+    expect(models[0].id).toBe('gpt-5-mini');
+    expect(vi.mocked(fetch).mock.calls[0][0]).toContain('/providers/neuroapi/models');
+  });
+
+  it('загружает баланс провайдера через backend API', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ provider: 'neuroapi', configured: true, used: 12.34, currency: 'USD' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ));
+
+    const balance = await fetchProviderBalance('neuroapi');
+
+    expect(balance.used).toBe(12.34);
+    expect(vi.mocked(fetch).mock.calls[0][0]).toContain('/providers/neuroapi/balance');
   });
 });
