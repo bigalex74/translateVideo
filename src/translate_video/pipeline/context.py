@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 
 from translate_video.core.schemas import VideoProject
 from translate_video.core.store import ProjectStore
@@ -14,3 +15,4 @@ class StageContext:
 
     project: VideoProject
     store: ProjectStore
+    cancel_event: threading.Event = field(default_factory=threading.Event)

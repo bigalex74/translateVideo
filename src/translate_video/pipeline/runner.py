@@ -12,6 +12,10 @@ from translate_video.pipeline.context import StageContext
 _log = get_logger(__name__)
 
 
+class PipelineCancelledError(Exception):
+    """Пайплайн прерван по запросу пользователя."""
+
+
 class PipelineStage(Protocol):
     """Перезапускаемая единица работы пайплайна."""
 
@@ -32,6 +36,8 @@ class PipelineRunner:
         """Выполнить настроенные этапы по порядку.
 
         Ранее завершённые этапы пропускаются, если ``force`` не установлен.
+        Проверяет `context.cancel_event` между этапами — если установлен,
+        выбрасывает `PipelineCancelledError`.
         """
         project_id = context.project.id
         stage_names = [s.stage.value for s in self.stages]
@@ -49,6 +55,18 @@ class PipelineRunner:
 
         with Timer() as total:
             for stage in self.stages:
+                # ── Проверка отмены ПЕРЕД каждым этапом ──────────────────────
+                if context.cancel_event.is_set():
+                    _log.info(
+                        "pipeline.cancelled",
+                        project=project_id,
+                        stage=stage.stage.value,
+                        reason="cancel_requested",
+                    )
+                    raise PipelineCancelledError(
+                        f"Pipeline cancelled before stage {stage.stage.value}"
+                    )
+
                 if not self.force and self._already_completed(context, stage.stage):
                     skipped = StageRun(
                         stage=stage.stage,
