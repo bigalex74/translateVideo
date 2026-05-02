@@ -188,9 +188,16 @@ class ProjectStore:
         return None
 
     def record_stage_run(self, project: VideoProject, run: StageRun) -> None:
-        """Вставить или заменить запись запуска этапа по ID."""
+        """Вставить или заменить запись запуска этапа по СТАДИИ (upsert).
 
-        project.stage_runs = [existing for existing in project.stage_runs if existing.id != run.id]
+        Ранее фильтрация была по run.id, что приводило к накоплению дублей:
+        каждый новый StageRun имеет новый UUID → старая запись оставалась.
+        Теперь в stage_runs всегда максимум одна запись на каждую стадию.
+        """
+        project.stage_runs = [
+            existing for existing in project.stage_runs
+            if existing.stage != run.stage   # ← фильтр по stage, не по id
+        ]
         project.stage_runs.append(run)
         self.save_project(project)
 
