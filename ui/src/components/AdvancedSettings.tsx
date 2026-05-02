@@ -269,128 +269,127 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
         )}
       </div>
 
-      {/* Стиль перевода */}
-      <div className="adv-field">
-        <label className="adv-label" htmlFor="adv-style">Стиль перевода</label>
-        <select
-          id="adv-style"
-          className="adv-select"
-          value={c.translation_style ?? 'neutral'}
-          onChange={e => onChange({ translation_style: e.target.value })}
-          disabled={disabled}
-        >
-          {Object.entries(STYLE_LABELS).map(([val, label]) => (
-            <option key={val} value={val}>{label}</option>
-          ))}
-        </select>
-      </div>
+      {/* Дополнительные настройки — только в профессиональном режиме */}
+      {professional && (
+        <div className="adv-section">
+          <div className="adv-section-title">Дополнительные настройки</div>
 
-      {/* Степень адаптации */}
-      <div className="adv-field">
-        <label className="adv-label" htmlFor="adv-adaptation">Адаптация</label>
-        <select
-          id="adv-adaptation"
-          className="adv-select"
-          value={c.adaptation_level ?? 'natural'}
-          onChange={e => onChange({ adaptation_level: e.target.value })}
-          disabled={disabled}
-        >
-          {Object.entries(ADAPTATION_LABELS).map(([val, label]) => (
-            <option key={val} value={val}>{label}</option>
-          ))}
-        </select>
-      </div>
+          {/* Стиль перевода */}
+          <div className="adv-field">
+            <label className="adv-label" htmlFor="adv-style">Стиль перевода</label>
+            <select
+              id="adv-style"
+              className="adv-select"
+              value={c.translation_style ?? 'neutral'}
+              onChange={e => onChange({ translation_style: e.target.value })}
+              disabled={disabled}
+            >
+              {Object.entries(STYLE_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
 
-      {/* Стратегия голосов */}
-      <div className="adv-field">
-        <label className="adv-label" htmlFor="adv-voice">Голоса</label>
-        <select
-          id="adv-voice"
-          className="adv-select"
-          value={c.voice_strategy ?? 'single'}
-          onChange={e => onChange({ voice_strategy: e.target.value })}
-          disabled={disabled}
-        >
-          {Object.entries(VOICE_LABELS).map(([val, label]) => (
-            <option key={val} value={val}>{label}</option>
-          ))}
-        </select>
-      </div>
+          {/* Степень адаптации */}
+          <div className="adv-field">
+            <label className="adv-label" htmlFor="adv-adaptation">Адаптация</label>
+            <select
+              id="adv-adaptation"
+              className="adv-select"
+              value={c.adaptation_level ?? 'natural'}
+              onChange={e => onChange({ adaptation_level: e.target.value })}
+              disabled={disabled}
+            >
+              {Object.entries(ADAPTATION_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
 
-      {/* Обсценная лексика */}
-      <div className="adv-field">
-        <label className="adv-label" htmlFor="adv-profanity">Ненормативная лексика</label>
-        <select
-          id="adv-profanity"
-          className="adv-select"
-          value={c.profanity_policy ?? 'keep'}
-          onChange={e => onChange({ profanity_policy: e.target.value })}
-          disabled={disabled}
-        >
-          {Object.entries(PROFANITY_LABELS).map(([val, label]) => (
-            <option key={val} value={val}>{label}</option>
-          ))}
-        </select>
-      </div>
+          {/* Стратегия голосов */}
+          <div className="adv-field">
+            <label className="adv-label" htmlFor="adv-voice">Голоса</label>
+            <select
+              id="adv-voice"
+              className="adv-select"
+              value={c.voice_strategy ?? 'single'}
+              onChange={e => onChange({ voice_strategy: e.target.value })}
+              disabled={disabled}
+            >
+              {Object.entries(VOICE_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
 
-      {/* Сохранять имена */}
-      <div className="adv-field adv-field--toggle">
-        <label className="adv-label" htmlFor="adv-names">Сохранять имена собственные</label>
-        <button
-          id="adv-names"
-          type="button"
-          className={`adv-toggle ${c.preserve_names ? 'adv-toggle--on' : ''}`}
-          onClick={() => onChange({ preserve_names: !c.preserve_names })}
-          disabled={disabled}
-          aria-pressed={c.preserve_names}
-        >
-          {c.preserve_names ? 'Вкл' : 'Выкл'}
-        </button>
-      </div>
+          {/* Обсценная лексика */}
+          <div className="adv-field">
+            <label className="adv-label" htmlFor="adv-profanity">Ненормативная лексика</label>
+            <select
+              id="adv-profanity"
+              className="adv-select"
+              value={c.profanity_policy ?? 'keep'}
+              onChange={e => onChange({ profanity_policy: e.target.value })}
+              disabled={disabled}
+            >
+              {Object.entries(PROFANITY_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
 
-      {/* Не переводить */}
-      <div className="adv-field">
-        <label className="adv-label">Не переводить (слова/термины)</label>
-        <div className="adv-tags">
-          {tags.map(word => (
-            <span key={word} className="adv-tag">
-              {word}
+          {/* Сохранять имена */}
+          <div className="adv-field adv-field--toggle">
+            <label className="adv-label" htmlFor="adv-names">Сохранять имена собственные</label>
+            <button
+              id="adv-names"
+              type="button"
+              className={`adv-toggle ${c.preserve_names ? 'adv-toggle--on' : ''}`}
+              onClick={() => onChange({ preserve_names: !c.preserve_names })}
+              disabled={disabled}
+              aria-pressed={c.preserve_names}
+            >
+              {c.preserve_names ? 'Вкл' : 'Выкл'}
+            </button>
+          </div>
+
+          {/* Не переводить */}
+          <div className="adv-field">
+            <label className="adv-label">Не переводить (слова/термины)</label>
+            <div className="adv-tags">
+              {tags.map(word => (
+                <span key={word} className="adv-tag">
+                  {word}
+                  <button
+                    type="button"
+                    className="adv-tag-remove"
+                    onClick={() => removeTag(word)}
+                    disabled={disabled}
+                    aria-label={`Удалить ${word}`}
+                  >×</button>
+                </span>
+              ))}
+              <input
+                id="adv-tag-input"
+                className="adv-tag-input"
+                type="text"
+                value={tagInput}
+                placeholder="Слово или бренд..."
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } }}
+                disabled={disabled}
+              />
               <button
                 type="button"
-                className="adv-tag-remove"
-                onClick={() => removeTag(word)}
-                disabled={disabled}
-                aria-label={`Удалить ${word}`}
-              >×</button>
-            </span>
-          ))}
-          <input
-            id="adv-tag-input"
-            className="adv-tag-input"
-            type="text"
-            value={tagInput}
-            placeholder="Слово или бренд..."
-            onChange={e => setTagInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } }}
-            disabled={disabled}
-          />
-          <button
-            type="button"
-            className="adv-tag-add"
-            onClick={addTag}
-            disabled={disabled || !tagInput.trim()}
-          >+</button>
+                className="adv-tag-add"
+                onClick={addTag}
+                disabled={disabled || !tagInput.trim()}
+              >+</button>
+            </div>
+            <span className="adv-hint">Нажмите Enter или «+» для добавления</span>
+          </div>
         </div>
-        <span className="adv-hint">Нажмите Enter или «+» для добавления</span>
-      </div>
-
-      <div className="adv-section adv-section--muted">
-        <div className="adv-section-title">Озвучка: следующий этап</div>
-        <span className="adv-hint">
-          Для TTS будет такая же структура: любительский режим на бесплатных/дешёвых голосах
-          и профессиональный режим с выбором платной модели, провайдера и голоса.
-        </span>
-      </div>
+      )}
     </div>
   );
 };
