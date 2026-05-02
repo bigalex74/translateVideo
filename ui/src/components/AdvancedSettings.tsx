@@ -48,6 +48,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   const rewriteProvider = c.professional_rewrite_provider ?? 'neuroapi';
   const [modelsByProvider, setModelsByProvider] = React.useState<Record<string, string[]>>({});
   const [modelErrors, setModelErrors] = React.useState<Record<string, string>>({});
+  const [loadingModels, setLoadingModels] = React.useState<Set<string>>(new Set());
   const [balances, setBalances] = React.useState<Record<string, ProviderBalance>>({});
   const [balanceErrors, setBalanceErrors] = React.useState<Record<string, string>>({});
   const requestedModels = React.useRef(new Set<string>());
@@ -59,6 +60,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
     for (const provider of providers) {
       if (!provider || modelsByProvider[provider] || requestedModels.current.has(provider)) continue;
       requestedModels.current.add(provider);
+      setLoadingModels(prev => new Set(prev).add(provider));
       fetchProviderModels(provider)
         .then(models => {
           setModelsByProvider(prev => ({
@@ -76,6 +78,13 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
             ...prev,
             [provider]: error instanceof Error ? error.message : String(error),
           }));
+        })
+        .finally(() => {
+          setLoadingModels(prev => {
+            const next = new Set(prev);
+            next.delete(provider);
+            return next;
+          });
         });
     }
   }, [professional, translationProvider, rewriteProvider, modelsByProvider]);
@@ -147,9 +156,15 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                 value={translationProvider}
                 onChange={e => {
                   const provider = e.target.value;
+                  // Берём первую уже загруженную динамическую модель,
+                  // иначе первую из статического fallback
+                  const firstModel =
+                    modelsByProvider[provider]?.[0] ??
+                    PROFESSIONAL_MODEL_OPTIONS[provider]?.[0] ??
+                    '';
                   onChange({
                     professional_translation_provider: provider,
-                    professional_translation_model: PROFESSIONAL_MODEL_OPTIONS[provider]?.[0] ?? '',
+                    professional_translation_model: firstModel,
                   });
                 }}
                 disabled={disabled}
@@ -166,11 +181,15 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                 className="adv-select"
                 value={c.professional_translation_model ?? translationModels[0] ?? ''}
                 onChange={e => onChange({ professional_translation_model: e.target.value })}
-                disabled={disabled}
+                disabled={disabled || loadingModels.has(translationProvider)}
               >
-                {translationModels.map(model => (
-                  <option key={model} value={model}>{model}</option>
-                ))}
+                {loadingModels.has(translationProvider) ? (
+                  <option value="">Загрузка моделей…</option>
+                ) : (
+                  translationModels.map(model => (
+                    <option key={model} value={model}>{model}</option>
+                  ))
+                )}
               </select>
               <ProviderMeta
                 provider={translationProvider}
@@ -187,9 +206,15 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                 value={rewriteProvider}
                 onChange={e => {
                   const provider = e.target.value;
+                  // Берём первую уже загруженную динамическую модель,
+                  // иначе первую из статического fallback
+                  const firstModel =
+                    modelsByProvider[provider]?.[0] ??
+                    PROFESSIONAL_MODEL_OPTIONS[provider]?.[0] ??
+                    '';
                   onChange({
                     professional_rewrite_provider: provider,
-                    professional_rewrite_model: PROFESSIONAL_MODEL_OPTIONS[provider]?.[0] ?? '',
+                    professional_rewrite_model: firstModel,
                   });
                 }}
                 disabled={disabled}
@@ -206,11 +231,15 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                 className="adv-select"
                 value={c.professional_rewrite_model ?? rewriteModels[0] ?? ''}
                 onChange={e => onChange({ professional_rewrite_model: e.target.value })}
-                disabled={disabled}
+                disabled={disabled || loadingModels.has(rewriteProvider)}
               >
-                {rewriteModels.map(model => (
-                  <option key={model} value={model}>{model}</option>
-                ))}
+                {loadingModels.has(rewriteProvider) ? (
+                  <option value="">Загрузка моделей…</option>
+                ) : (
+                  rewriteModels.map(model => (
+                    <option key={model} value={model}>{model}</option>
+                  ))
+                )}
               </select>
               <ProviderMeta
                 provider={rewriteProvider}

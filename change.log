@@ -1,5 +1,23 @@
 # Журнал Изменений
 
+## 1.16.1 - 2026-05-02 - FIX - TVIDEO-062
+
+### Фикс выбора модели при смене провайдера (NeuroAPI и др.)
+
+Баг: при смене провайдера в настройках Professional-режима модель сбрасывалась
+на первую из статического PROFESSIONAL_MODEL_OPTIONS, игнорируя уже загруженный
+динамический список моделей провайдера.
+
+Исправлено в AdvancedSettings.tsx:
+- onChange провайдера теперь берёт первую модель из modelsByProvider[provider]
+  (если уже загружена) или из PROFESSIONAL_MODEL_OPTIONS (fallback).
+- Добавлено loadingModels состояние — select показывает «Загрузка моделей…»
+  и блокируется пока идёт запрос к /api/v1/providers/{provider}/models.
+- .finally() очищает loadingModels — ранее индикатор мог зависнуть на ошибке.
+
+.env: добавлены недостающие GEMINI_TRANSLATION_MODEL, OPENROUTER_TRANSLATION_MODEL,
+AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
+
 ## 1.16.0 - 2026-05-02 - FEAT - TVIDEO-061
 
 ### Динамические модели и финансовая сводка провайдеров
