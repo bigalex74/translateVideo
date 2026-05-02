@@ -242,7 +242,7 @@ class ProviderPayloadTest(unittest.TestCase):
         self.assertEqual(calls[0][2]["Authorization"], "Bearer secret")
 
     def test_prompt_contains_character_limit_style_glossary_and_context(self):
-        """Промпт содержит лимит, стиль, глоссарий и соседние сегменты."""
+        """Промпт professional-rewriter содержит лимит, стиль, глоссарий и соседние сегменты."""
 
         with tempfile.TemporaryDirectory() as temp_dir:
             glossary = Path(temp_dir) / "glossary.md"
@@ -250,8 +250,10 @@ class ProviderPayloadTest(unittest.TestCase):
             config = PipelineConfig(
                 source_language="en",
                 target_language="ru",
+                translation_quality="professional",  # ← стиль только в pro
                 translation_style=TranslationStyle.CINEMATIC,
                 adaptation_level=AdaptationLevel.SHORTENED_FOR_TIMING,
+                profanity_policy="remove",
                 glossary_path=glossary,
                 do_not_translate=["Codex"],
             )
@@ -274,15 +276,18 @@ class ProviderPayloadTest(unittest.TestCase):
                 config=config,
             )
 
-        self.assertIn("42 символов", prompt)          # лимит упоминается
-        self.assertIn("31 до 42", prompt)              # целевой диапазон (75–100%)
-        self.assertIn("только готовая фраза", prompt)  # запрет пояснений
-        self.assertIn("НЕ обрезай", prompt)            # запрет жёсткой обрезки
-        self.assertIn("кинематографичный", prompt)
+        self.assertIn("42 символов", prompt)           # лимит упоминается
+        self.assertIn("31 до 42", prompt)               # целевой диапазон (75–100%)
+        self.assertIn("только готовая фраза", prompt)   # запрет пояснений
+        self.assertIn("НЕ обрезай", prompt)             # запрет жёсткой обрезки
+        self.assertIn("кинематографичный", prompt)      # стиль cinematic
+        self.assertIn("нейтральными эквивалентами", prompt)  # profanity=remove
         self.assertIn("Antigravity = Антигравити", prompt)
         self.assertIn("Codex", prompt)
-        self.assertIn("before", prompt)
-        self.assertIn("after", prompt)
+        self.assertIn("before", prompt)                 # before_context
+        self.assertIn("after", prompt)                  # after_context
+        self.assertIn("до", prompt)                     # переведённый before_context
+        self.assertIn("после", prompt)                  # переведённый after_context
 
     def test_openrouter_default_model_is_configured(self):
         """OpenRouter по умолчанию использует правильный ID модели с префиксом и суффиксом :free."""

@@ -67,28 +67,57 @@ def adaptation_label(level: AdaptationLevel | str) -> str:
     return _ADAPTATION_LABELS[normalized]
 
 
+_PROFANITY_LABELS = {
+    "keep": "сохранять нецензурную и грубую лексику без изменений",
+    "remove": "заменять нецензурные слова нейтральными эквивалентами",
+    "asterisk": "заменять нецензурные слова звёздочками (****)",
+}
+
+
+def profanity_label(policy: str) -> str:
+    """Вернуть описание политики нецензурной лексики для промпта."""
+    return _PROFANITY_LABELS.get((policy or "").strip().lower(), f"политика: {policy}")
+
+
 def build_project_directives(config: PipelineConfig) -> str:
-    """Собрать проектные требования: языки, стиль, аудитория и термины."""
+    """Собрать проектные требования: языки, стиль, аудитория и термины.
+
+    Для профессионального режима включает полные директивы по стилю,
+    адаптации, ненормативной лексике и аудитории.
+    Для любительского режима — только языки и список «не переводить»,
+    чтобы не перегружать промпт бесплатных моделей лишними инструкциями.
+    """
 
     source = language_label(config.source_language)
     target = language_label(config.target_language)
     lines = [
         f"- Исходный язык: {source}.",
         f"- Целевой язык: {target}.",
-        f"- Стиль: {style_label(config.translation_style)}.",
-        f"- Адаптация: {adaptation_label(config.adaptation_level)}.",
-        f"- Предметная область: {config.terminology_domain}.",
-        f"- Целевая аудитория: {config.target_audience}.",
-        f"- Нецензурная лексика: {config.profanity_policy}.",
-        f"- Единицы измерения: {config.units_policy}.",
     ]
-    if config.preserve_names:
-        lines.append("- Имена людей и персонажей сохранять без искажений.")
-    if config.preserve_brand_names:
-        lines.append("- Названия брендов и продуктов сохранять без искажений.")
+
+    is_professional = getattr(config, "translation_quality", "amateur") == "professional"
+
+    if is_professional:
+        lines += [
+            f"- Стиль: {style_label(config.translation_style)}.",
+            f"- Адаптация: {adaptation_label(config.adaptation_level)}.",
+            f"- Предметная область: {config.terminology_domain}.",
+            f"- Целевая аудитория: {config.target_audience}.",
+            f"- Ненормативная лексика: {profanity_label(config.profanity_policy)}.",
+            f"- Единицы измерения: {config.units_policy}.",
+        ]
+        if config.preserve_names:
+            lines.append("- Имена людей и персонажей сохранять без искажений.")
+        if config.preserve_brand_names:
+            lines.append("- Названия брендов и продуктов сохранять без искажений.")
+    else:
+        # Amateur: минимальные директивы — только языки и термины
+        lines.append("- Переводи точно, сохраняй смысл и естественность речи.")
+
     if config.do_not_translate:
         terms = ", ".join(config.do_not_translate)
         lines.append(f"- Не переводить эти термины и имена: {terms}.")
+
     return "\n".join(lines)
 
 

@@ -747,3 +747,35 @@
     max-width: 280px;
     line-height: 1.5;
 }
+
+/* ── Скролл-обёртка для панели настроек ─────────────────────────────────── */
+.adv-scroll-wrap {
+  max-height: 62vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  margin-right: -6px;
+}
+
+.adv-scroll-wrap::-webkit-scrollbar {
+  width: 5px;
+}
+
+.adv-scroll-wrap::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 99px;
+}
+
+.adv-scroll-wrap::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 99px;
+}
+
+.adv-scroll-wrap::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
+.adv-scroll-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 45%, transparent) transparent;
+}
