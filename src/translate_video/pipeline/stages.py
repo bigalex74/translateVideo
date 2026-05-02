@@ -209,6 +209,25 @@ class TranslateStage(BaseStage):
             if not context.project.segments:
                 raise ValueError("исходный transcript не содержит сегментов")
 
+            # Накапливаем переведённые сегменты для live-обновления.
+            partial_translated: list = []
+
+            def on_segment(segment) -> None:
+                """Вызывается после каждого переведённого сегмента.
+
+                Обновляет project.segments в памяти и сохраняет на диск чтобы
+                UI мог видеть qa_flags в реальном времени через polling.
+                """
+                partial_translated.append(segment)
+                # Обновляем сегменты в памяти: заменяем по индексу
+                idx = next(
+                    (i for i, s in enumerate(context.project.segments) if s.id == segment.id),
+                    None,
+                )
+                if idx is not None:
+                    context.project.segments[idx] = segment
+                context.store.save_project(context.project)
+
             def on_progress(current: int, total: int, message: str | None) -> None:
                 """Сохранить прогресс перевода для UI и API-поллинга.
 
@@ -237,6 +256,7 @@ class TranslateStage(BaseStage):
                 context.project.segments,
                 context.project.config,
                 progress_callback=on_progress,
+                segment_callback=on_segment,
             )
             for segment in translated_segments:
                 segment.status = SegmentStatus.TRANSLATED
@@ -378,14 +398,24 @@ def _required_artifact(context: StageContext, kind: ArtifactKind):
     return record
 
 
-def _translate_with_progress(translator, segments, config, *, progress_callback):
-    """Вызвать переводчик с прогрессом, сохранив совместимость со старыми адаптерами."""
+def _translate_with_progress(translator, segments, config, *, progress_callback, segment_callback=None):
+    """Вызвать переводчик с прогрессом, сохранив совместимость со старыми адаптерами.
+
+    segment_callback(segment) — вызывается после каждого переведённого сегмента
+    для live-обновления qa_flags в UI через polling.
+    """
 
     try:
-        return translator.translate(segments, config, progress_callback=progress_callback)
+        return translator.translate(
+            segments,
+            config,
+            progress_callback=progress_callback,
+            segment_callback=segment_callback,
+        )
     except TypeError as exc:
         if "unexpected keyword" not in str(exc):
             raise
+        # Старый адаптер не принимает keyword-аргументы — fallback без live QA.
         progress_callback(0, len(segments), "Перевод сегментов")
         result = translator.translate(segments, config)
         progress_callback(len(segments), len(segments), "Перевод готов")

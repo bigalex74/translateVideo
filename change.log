@@ -1,5 +1,50 @@
 # Журнал Изменений
 
+## 1.22.5 - 2026-05-02 - FIX - TVIDEO-079
+
+### Исправлены: HTTP 500 в Stats + пропущенный i18n ключ
+
+**Баг 1: HTTP 500 на вкладке Stats**
+- stats.py использовал JobStatus.DONE — которого нет в StrEnum (есть COMPLETED).
+- AttributeError на строке: if run.status in (JobStatus.DONE, "done").
+- Исправлено: JobStatus.COMPLETED + "completed" в обоих местах (строки 58 и 198).
+
+**Баг 2: qa.flag.rewrite_provider_rate_limited показывался как raw-ключ**
+- Ключ отсутствовал в i18n.ts (RU и EN).
+- Добавлено: RU — «rewrite-провайдер ограничен по частоте запросов»,
+  EN — «rewrite provider is rate-limited».
+
+**Тесты (+6 Python в test_stats.py)**:
+- no_attributeerror_with_completed_runs: нет AttributeError с COMPLETED
+- stage_times_computed_for_completed_runs: время считается для COMPLETED
+- failed_runs_not_in_stage_times: FAILED не попадает в stage_times
+- stages_done_counts_completed: stages_done считает COMPLETED
+- empty_project_no_crash: пустой проект не падает
+- qa_flags_distribution: флаги считаются правильно
+335 Python + 101 Vitest ✅
+
+## 1.22.4 - 2026-05-02 - FIX - TVIDEO-078
+
+### Live QA флаги в overlay — появляются в реальном времени
+
+**Проблема**: qa_flags были пустыми во время перевода т.к. save_segments()
+вызывался только ПОСЛЕ перевода всех 47 сегментов. UI polling не видел флаги.
+
+**Исправление**:
+- cloud.py translate(): добавлен segment_callback(segment), вызывается после
+  каждого переведённого сегмента. Exception в callback поглощается.
+- stages.py TranslateStage: on_segment() сохраняет сегмент в project и
+  вызывает save_project() — polling видит qa_flags сразу.
+- stages.py _translate_with_progress: пробрасывает segment_callback в translator.
+
+**Тесты** (+5 Python в test_live_qa_segment_callback.py):
+- segment_callback пробрасывается в translator (1)
+- backward compat без callback (1)
+- CloudFallbackSegmentTranslator вызывает callback для каждого сегмента (1)
+- Exception в callback не прерывает перевод (1)
+- Без callback работает штатно (1)
+329 Python + 101 Vitest ✅
+
 ## 1.22.3 - 2026-05-02 - FIX - TVIDEO-077
 
 ### ConfirmRunModal: убрано предупреждение о сегментах при force-запуске
@@ -10,7 +55,7 @@
 пересчитываются, статус сегментов устаревший и вводит в заблуждение.
 
 Исправление: блок reviewCount показывается только при resume (isForce=False).
-324 Python + 93 Vitest ✅
+324 Python + 101 Vitest ✅ (+8 тестов confirm_run_modal.test.ts)
 
 ## 1.22.2 - 2026-05-02 - FIX - TVIDEO-076
 

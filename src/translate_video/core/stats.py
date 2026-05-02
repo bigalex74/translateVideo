@@ -55,7 +55,7 @@ def compute_project_stats(project: VideoProject) -> dict[str, Any]:
     # ── Временны́е метрики ────────────────────────────────────────────────────
     stage_times: dict[str, float] = {}
     for run in runs:
-        if run.status in (JobStatus.DONE, "done"):
+        if run.status in (JobStatus.COMPLETED, "completed"):
             t = _elapsed(run.started_at, run.finished_at)
             if t is not None:
                 stage_times[run.stage if isinstance(run.stage, str) else run.stage.value] = t
@@ -195,7 +195,7 @@ def compute_project_stats(project: VideoProject) -> dict[str, Any]:
         "project_status": (
             project.status if isinstance(project.status, str) else project.status.value
         ),
-        "stages_done": status_counts.get("done", 0),
+        "stages_done": status_counts.get("completed", 0),
         "stages_failed": status_counts.get("failed", 0),
         "failed_stages": failed_stages,
         "translation_quality": getattr(project.config, "translation_quality", "amateur"),
