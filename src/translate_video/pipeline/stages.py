@@ -203,13 +203,30 @@ class TranslateStage(BaseStage):
         self.translator = translator
 
     def run(self, context: StageContext) -> StageRun:
-        def action(_run: StageRun) -> tuple[list[str], list[str]]:
+        def action(run: StageRun) -> tuple[list[str], list[str]]:
             source_transcript = _required_artifact(context, ArtifactKind.SOURCE_TRANSCRIPT)
             if not context.project.segments:
                 raise ValueError("исходный transcript не содержит сегментов")
-            translated_segments = self.translator.translate(
+
+            def on_progress(current: int, total: int, message: str | None) -> None:
+                """Сохранить прогресс перевода для UI и API-поллинга."""
+
+                run.progress_current = current
+                run.progress_total = total
+                run.progress_message = message
+                context.store.update_stage_progress(
+                    context.project,
+                    run.id,
+                    current=current,
+                    total=total,
+                    message=message,
+                )
+
+            translated_segments = _translate_with_progress(
+                self.translator,
                 context.project.segments,
                 context.project.config,
+                progress_callback=on_progress,
             )
             for segment in translated_segments:
                 segment.status = SegmentStatus.TRANSLATED
@@ -344,3 +361,17 @@ def _required_artifact(context: StageContext, kind: ArtifactKind):
     if record is None:
         raise ValueError(f"обязательный артефакт отсутствует: {kind.value}")
     return record
+
+
+def _translate_with_progress(translator, segments, config, *, progress_callback):
+    """Вызвать переводчик с прогрессом, сохранив совместимость со старыми адаптерами."""
+
+    try:
+        return translator.translate(segments, config, progress_callback=progress_callback)
+    except TypeError as exc:
+        if "unexpected keyword" not in str(exc):
+            raise
+        progress_callback(0, len(segments), "Перевод сегментов")
+        result = translator.translate(segments, config)
+        progress_callback(len(segments), len(segments), "Перевод готов")
+        return result

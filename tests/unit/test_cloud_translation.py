@@ -72,6 +72,59 @@ class CloudFallbackSegmentTranslatorTest(unittest.TestCase):
         self.assertEqual(result[0].translated_text, "резервный перевод")
         self.assertIn("translation_google_fallback", result[0].qa_flags)
 
+    def test_progress_callback_receives_translation_progress(self):
+        """LLM-перевод отдаёт прогресс по сегментам для UI."""
+
+        translator = CloudFallbackSegmentTranslator(
+            providers=[_RecordingProvider("gemini", "перевод")],
+            rate_limits_rpm={},
+        )
+        events = []
+
+        translator.translate(
+            [
+                Segment(id="s1", start=0, end=1, source_text="one"),
+                Segment(id="s2", start=1, end=2, source_text="two"),
+            ],
+            PipelineConfig(),
+            progress_callback=lambda current, total, message: events.append(
+                (current, total, message)
+            ),
+        )
+
+        self.assertEqual(events[0], (0, 2, "Подготовка LLM-перевода"))
+        self.assertIn((1, 2, "Готово 1/2"), events)
+        self.assertEqual(events[-1], (2, 2, "Готово 2/2"))
+
+    def test_professional_profile_uses_only_selected_paid_provider(self):
+        """Профессиональный профиль собирает один выбранный провайдер и модель."""
+
+        config = PipelineConfig(
+            translation_quality="professional",
+            professional_translation_provider="neuroapi",
+            professional_translation_model="gpt-5",
+        )
+        with patch("translate_video.translation.cloud.load_env_file", lambda: None), \
+                patch.dict("os.environ", {"NEUROAPI_API_KEY": "secret"}, clear=True):
+            translator = CloudFallbackSegmentTranslator.from_config(config)
+
+        self.assertEqual([provider.name for provider in translator.providers or []], ["neuroapi"])
+        self.assertEqual(translator.providers[0].model, "gpt-5")
+
+    def test_professional_profile_does_not_fallback_to_google_when_provider_missing(self):
+        """Профессиональный профиль должен явно падать, а не менять качество на Google."""
+
+        config = PipelineConfig(
+            translation_quality="professional",
+            professional_translation_provider="neuroapi",
+        )
+        with patch("translate_video.translation.cloud.load_env_file", lambda: None), \
+                patch.dict("os.environ", {}, clear=True):
+            translator = CloudFallbackSegmentTranslator.from_config(config)
+
+        with self.assertRaises(ValueError):
+            translator.translate([Segment(id="s1", start=0, end=1, source_text="hello")], config)
+
 
 class TranslationProviderPayloadTest(unittest.TestCase):
     """Проверяет payload провайдеров без реальной сети."""
@@ -167,10 +220,14 @@ class TranslationProviderPayloadTest(unittest.TestCase):
             aihubmix = OpenAICompatibleTranslationProvider.aihubmix_from_env()
         with patch.dict("os.environ", {"POLZA_API_KEY": "secret"}, clear=True):
             polza = OpenAICompatibleTranslationProvider.polza_from_env()
+        with patch.dict("os.environ", {"NEUROAPI_API_KEY": "secret"}, clear=True):
+            neuroapi = OpenAICompatibleTranslationProvider.neuroapi_from_env()
 
         self.assertEqual(openrouter.model, "openai/gpt-oss-20b:free")
         self.assertEqual(aihubmix.model, "gemini-3-flash-preview-free")
         self.assertEqual(polza.model, "google/gemini-2.5-flash-lite-preview-09-2025")
+        self.assertEqual(neuroapi.base_url, "https://neuroapi.host/v1")
+        self.assertEqual(neuroapi.model, "gpt-5-mini")
 
 
 class _RecordingProvider:

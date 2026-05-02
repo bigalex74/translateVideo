@@ -7,6 +7,7 @@ export interface PipelineConfig {
     source_language: string;
     target_language: string;
     translation_mode: string;
+    translation_quality: string;
     translation_style: string;
     adaptation_level: string;
     voice_strategy: string;
@@ -26,6 +27,14 @@ export interface PipelineConfig {
     timing_fit_max_rewrites: number;
     use_cloud_timing_rewriter: boolean;
     rewrite_provider_order: string[];
+    use_cloud_translation: boolean;
+    translation_provider_order: string[];
+    translation_provider_timeout: number;
+    translation_allow_paid_fallback: boolean;
+    professional_translation_provider: string;
+    professional_translation_model: string;
+    professional_rewrite_provider: string;
+    professional_rewrite_model: string;
     allow_tts_rate_adaptation: boolean;
     allow_render_audio_speedup: boolean;
     allow_timeline_shift: boolean;
