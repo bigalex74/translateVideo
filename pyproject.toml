@@ -1,6 +1,6 @@
 [project]
 name = "translate-video"
-version = "1.22.14"
+version = "1.22.15"
 description = "Движок ИИ-перевода видео с CLI и UI-интерфейсами."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,6 +14,7 @@ dependencies = [
     "uvicorn",
     "httpx",
     "python-multipart",
+    "ruaccent",
 ]
 
 [project.optional-dependencies]
