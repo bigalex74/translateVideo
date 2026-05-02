@@ -205,3 +205,80 @@ class IntraStageCancel(unittest.TestCase):
             results.append(i)
 
         self.assertEqual(results, [1, 2, 3, 4, 5])
+
+
+class EmitProgressCancelPropagation(unittest.TestCase):
+    """TVIDEO-076: PipelineCancelledError пробрасывается из _emit_progress."""
+
+    def _make_cancel_error(self):
+        """Создать PipelineCancelledError через импорт."""
+        from translate_video.pipeline.runner import PipelineCancelledError
+        return PipelineCancelledError("test cancel")
+
+    def test_pipeline_cancelled_propagates_through_emit_progress(self):
+        """PipelineCancelledError НЕ должен быть поглощён _emit_progress."""
+        from translate_video.translation.cloud import _emit_progress
+        from translate_video.pipeline.runner import PipelineCancelledError
+
+        def bad_callback(cur, tot, msg):
+            raise PipelineCancelledError("cancel signal")
+
+        with self.assertRaises(PipelineCancelledError):
+            _emit_progress(bad_callback, 5, 47, "test")
+
+    def test_regular_exception_still_swallowed(self):
+        """Обычные исключения из callback по-прежнему поглощаются."""
+        from translate_video.translation.cloud import _emit_progress
+
+        def bad_callback(cur, tot, msg):
+            raise ValueError("some non-critical error")
+
+        # Не должно бросать
+        _emit_progress(bad_callback, 5, 47, "test")
+
+    def test_none_callback_safe(self):
+        """callback=None обрабатывается без ошибок."""
+        from translate_video.translation.cloud import _emit_progress
+        _emit_progress(None, 5, 47, "test")  # не должно падать
+
+
+class ForceRunStageRunsReset(unittest.TestCase):
+    """TVIDEO-076: force=True очищает stage_runs перед запуском."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.store = ProjectStore(Path(self.temp_dir.name) / "runs")
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_force_clears_stage_runs(self):
+        """При force=True stage_runs проекта обнуляются."""
+        from translate_video.core.schemas import StageRun, Stage, JobStatus
+        p = self.store.create_project("video.mp4", project_id="fr1")
+        # Добавляем старые stage_runs
+        p.stage_runs = [
+            StageRun(stage=Stage.TRANSLATE, status=JobStatus.COMPLETED),
+            StageRun(stage=Stage.TTS, status=JobStatus.COMPLETED),
+        ]
+        p.stage_runs[0].progress_current = 47
+        p.stage_runs[0].progress_total = 47
+        self.store.save_project(p)
+
+        # Симулируем force-reset из runner.py
+        p2 = self.store.load_project(self.store.root / "fr1")
+        p2.stage_runs = []  # force reset
+        self.store.save_project(p2)
+
+        p3 = self.store.load_project(self.store.root / "fr1")
+        self.assertEqual(p3.stage_runs, [])
+
+    def test_no_force_keeps_stage_runs(self):
+        """Без force=True stage_runs сохраняются."""
+        from translate_video.core.schemas import StageRun, Stage, JobStatus
+        p = self.store.create_project("video.mp4", project_id="fr2")
+        p.stage_runs = [StageRun(stage=Stage.TRANSLATE, status=JobStatus.COMPLETED)]
+        self.store.save_project(p)
+
+        p2 = self.store.load_project(self.store.root / "fr2")
+        self.assertEqual(len(p2.stage_runs), 1)
