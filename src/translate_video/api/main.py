@@ -81,6 +81,7 @@ app.add_middleware(
 
 app.include_router(projects.router)
 app.include_router(pipeline.router)
+app.include_router(pipeline.tts_router)
 app.include_router(preflight.router)
 app.include_router(providers.router)
 app.include_router(video.router)

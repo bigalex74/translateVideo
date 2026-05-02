@@ -64,4 +64,8 @@ export const DEFAULT_CONFIG: Partial<PipelineConfig> = {
   professional_translation_model: 'gpt-5-mini',
   professional_rewrite_provider: 'neuroapi',
   professional_rewrite_model: 'gpt-5-mini',
+  professional_tts_provider: '',
+  professional_tts_model: 'tts-1',
+  professional_tts_voice: 'nova',
+  professional_tts_voice_2: 'onyx',
 };

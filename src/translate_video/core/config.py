@@ -151,6 +151,16 @@ class PipelineConfig:
     professional_rewrite_provider: str = "neuroapi"
     professional_rewrite_model: str = "gpt-5-mini"
 
+    # ── Профессиональный TTS (TVIDEO-085) ───────────────────────────────────
+    # Используется в professional режиме; "Обычный" режим — Edge TTS (бесплатный).
+    # Провайдер: polza | neuroapi (поддерживают OpenAI-совместимый /audio/speech).
+    # Модель: tts-1 | tts-1-hd | gpt-4o-mini-tts.
+    # Голоса: alloy, echo, fable, onyx, nova, shimmer.
+    professional_tts_provider: str = ""           # "” = использовать Edge TTS
+    professional_tts_model: str = "tts-1"         # tts-1 | tts-1-hd | gpt-4o-mini-tts
+    professional_tts_voice: str = "nova"          # голос 1 / единственный
+    professional_tts_voice_2: str = "onyx"        # голос 2 для two_voices / per_speaker
+
     # ── Адаптивный rate TTS (явный fast-режим, не дефолт) ────────────────────
     tts_base_rate: int = 0          # базовый rate TTS в %; 0 = естественная скорость
     tts_max_rate: int = 0           # 0 = адаптивное ускорение выключено
@@ -276,6 +286,11 @@ class PipelineConfig:
                 "professional_rewrite_model": str(
                     data.get("professional_rewrite_model", "gpt-5-mini")
                 ),
+                # Профессиональный TTS (TVIDEO-085)
+                "professional_tts_provider": str(data.get("professional_tts_provider", "")),
+                "professional_tts_model": str(data.get("professional_tts_model", "tts-1")),
+                "professional_tts_voice": str(data.get("professional_tts_voice", "nova")),
+                "professional_tts_voice_2": str(data.get("professional_tts_voice_2", "onyx")),
                 # Адаптивный TTS rate — только для явного fast-режима
                 "tts_base_rate": int(data.get("tts_base_rate", 0)),
                 "tts_max_rate": int(data.get("tts_max_rate", 0)),
