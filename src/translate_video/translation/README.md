@@ -11,7 +11,10 @@
   целевую аудиторию, `do_not_translate` и глоссарий;
 - пробует провайдеры в порядке
   `gemini → aihubmix → openrouter → polza → google`;
-- отправляет Polza.ai только если явно включён `TRANSLATION_ALLOW_PAID_FALLBACK`;
+- в любительском режиме отправляет Polza.ai/NeuroAPI только если явно включён
+  `TRANSLATION_ALLOW_PAID_FALLBACK`;
+- в профессиональном режиме использует только выбранные
+  `professional_translation_provider` и `professional_translation_model`;
 - при лимитах, timeout или ошибках провайдера падает обратно на Google Translate.
 
 `legacy.py` содержит адаптер `deep-translator` для GoogleTranslator. Он остаётся

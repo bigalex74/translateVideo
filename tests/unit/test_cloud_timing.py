@@ -54,6 +54,32 @@ class CloudFallbackTimingRewriterTest(unittest.TestCase):
         names = [provider.name for provider in router.providers]
         self.assertEqual(names, ["gemini", "aihubmix", "openrouter", "polza"])
 
+    def test_professional_profile_uses_selected_rewrite_provider(self):
+        """Профессиональный профиль использует одну выбранную модель для сокращения."""
+
+        config = PipelineConfig(
+            translation_quality="professional",
+            professional_rewrite_provider="neuroapi",
+            professional_rewrite_model="gpt-5",
+        )
+        with patch("translate_video.timing.cloud.load_env_file", lambda: None), \
+                patch.dict("os.environ", {"NEUROAPI_API_KEY": "secret"}, clear=True):
+            router = CloudFallbackTimingRewriter.from_config(config)
+
+        self.assertEqual([provider.name for provider in router.providers], ["neuroapi"])
+        self.assertEqual(router.providers[0].model, "gpt-5")
+
+    def test_professional_profile_does_not_use_rule_based_fallback(self):
+        """Профессиональный rewriter должен явно падать, если платная модель недоступна."""
+
+        router = CloudFallbackTimingRewriter(
+            providers=[],
+            allow_rule_based_fallback=False,
+        )
+
+        with self.assertRaises(RewriteProviderError):
+            router.rewrite("длинный текст", source_text="source", max_chars=5, attempt=1)
+
     def test_router_falls_back_after_provider_error(self):
         """Ошибка первого провайдера переключает роутер на следующий."""
 
@@ -295,6 +321,15 @@ class ProviderPayloadTest(unittest.TestCase):
             provider = OpenAICompatibleRewriteProvider.polza_from_env()
 
         self.assertEqual(provider.model, "google/gemini-2.5-flash-lite-preview-09-2025")
+
+    def test_neuroapi_default_model_is_configured(self):
+        """NeuroAPI использует OpenAI-compatible endpoint и профессиональную модель."""
+
+        with patch.dict("os.environ", {"NEUROAPI_API_KEY": "secret"}, clear=True):
+            provider = OpenAICompatibleRewriteProvider.neuroapi_from_env()
+
+        self.assertEqual(provider.base_url, "https://neuroapi.host/v1")
+        self.assertEqual(provider.model, "gpt-5-mini")
 
 
 class _StaticProvider:

@@ -8,6 +8,7 @@ from translate_video.core.config import (
     PipelineConfig,
     QualityGate,
     TimingPolicy,
+    TranslationQualityProfile,
     TranslationMode,
     TranslationStyle,
     VoiceStrategy,
@@ -24,6 +25,7 @@ class PipelineConfigTest(unittest.TestCase):
             source_language="en",
             target_language="ru",
             translation_mode=TranslationMode.DUB,
+            translation_quality=TranslationQualityProfile.PROFESSIONAL,
             translation_style=TranslationStyle.HUMOROUS,
             adaptation_level=AdaptationLevel.SHORTENED_FOR_TIMING,
             voice_strategy=VoiceStrategy.PER_SPEAKER,
@@ -37,6 +39,7 @@ class PipelineConfigTest(unittest.TestCase):
         self.assertEqual(restored.source_language, "en")
         self.assertEqual(restored.target_language, "ru")
         self.assertEqual(restored.translation_mode, TranslationMode.DUB)
+        self.assertEqual(restored.translation_quality, TranslationQualityProfile.PROFESSIONAL)
         self.assertEqual(restored.translation_style, TranslationStyle.HUMOROUS)
         self.assertEqual(restored.adaptation_level, AdaptationLevel.SHORTENED_FOR_TIMING)
         self.assertEqual(restored.voice_strategy, VoiceStrategy.PER_SPEAKER)
@@ -54,6 +57,7 @@ class PipelineConfigTest(unittest.TestCase):
         self.assertEqual(restored.tts_max_rate, 0)
         self.assertTrue(restored.use_cloud_timing_rewriter)
         self.assertTrue(restored.use_cloud_translation)
+        self.assertEqual(restored.translation_quality, TranslationQualityProfile.AMATEUR)
         self.assertEqual(
             restored.translation_provider_order,
             ["gemini", "aihubmix", "openrouter", "polza", "google"],
@@ -64,6 +68,10 @@ class PipelineConfigTest(unittest.TestCase):
         self.assertEqual(restored.translation_provider_cooldown_seconds, 75.0)
         self.assertTrue(restored.translation_provider_wait_for_rate_limit)
         self.assertFalse(restored.translation_allow_paid_fallback)
+        self.assertEqual(restored.professional_translation_provider, "neuroapi")
+        self.assertEqual(restored.professional_translation_model, "gpt-5-mini")
+        self.assertEqual(restored.professional_rewrite_provider, "neuroapi")
+        self.assertEqual(restored.professional_rewrite_model, "gpt-5-mini")
         self.assertEqual(
             restored.rewrite_provider_order,
             ["gemini", "aihubmix", "openrouter", "polza", "rule_based"],
