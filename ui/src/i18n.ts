@@ -180,6 +180,11 @@ const TEXT: LocaleMap = {
     'qa.flag.translation_provider_polza': 'перевод выполнен через Polza.ai',
     'qa.flag.translation_provider_neuroapi': 'перевод выполнен через NeuroAPI',
     'qa.flag.translation_google_fallback': 'перевод выполнен через резервный Google Translate',
+    'qa.flag.rewrite_provider_quota_limited': 'rewrite-провайдер исчерпал квоту, временно отключён',
+    'qa.flag.rewrite_provider_cooldown': 'rewrite-провайдер на паузе после превышения лимита',
+    'qa.flag.rewrite_provider_skipped': 'rewrite-провайдер пропущен (на паузе или квота)',
+    'qa.flag.translation_provider_quota_limited': 'переводчик исчерпал квоту, временно отключён',
+    'qa.flag.translation_provider_cooldown': 'переводчик на паузе после превышения лимита',
 
     'artifact.copyApiUrl': 'Скопировать URL API',
     'artifact.copyApiUrlAria': 'Скопировать URL для API',
@@ -376,6 +381,11 @@ const TEXT: LocaleMap = {
     'qa.flag.translation_provider_polza': 'translation used Polza.ai',
     'qa.flag.translation_provider_neuroapi': 'translation used NeuroAPI',
     'qa.flag.translation_google_fallback': 'translation used Google Translate fallback',
+    'qa.flag.rewrite_provider_quota_limited': 'rewrite provider hit quota limit and was temporarily disabled',
+    'qa.flag.rewrite_provider_cooldown': 'rewrite provider is on cooldown after exceeding rate limit',
+    'qa.flag.rewrite_provider_skipped': 'rewrite provider was skipped (cooldown or quota)',
+    'qa.flag.translation_provider_quota_limited': 'translation provider hit quota limit and was temporarily disabled',
+    'qa.flag.translation_provider_cooldown': 'translation provider is on cooldown after exceeding rate limit',
 
     'artifact.copyApiUrl': 'Copy API URL',
     'artifact.copyApiUrlAria': 'Copy API URL',

@@ -1,5 +1,20 @@
 # Журнал Изменений
 
+## 1.20.1 - 2026-05-02 - FIX - TVIDEO-068
+
+### QA Panel: цветовая дифференциация + привязка к сегментам
+
+- 4 уровня опасности с цветовым кодированием:
+  🔴 Критично (красный) — translation_empty, tts_invalid_slot, timeline_audio_extends_video
+  🟠 Ошибка (оранжевый) — translation_fallback_source, tts_overflow_after_rate, timing_fit_failed, render_audio_trimmed
+  🟡 Предупреждение (жёлтый) — tts_overflow_natural_rate, render_audio_overflow, rewrite_provider_failed, timeline_shifted и др.
+  🔵 Информация (синий) — rewrite_provider_used, translation_llm, render_audio_speedup и др.
+- Каждый флаг раскрывается: показывает список сегментов с номером (#), временем (сек) и текстом
+- Строка severity-summary: счётчики по каждому уровню
+- Информационные флаги скрыты под кнопкой (не засоряют экран)
+- Добавлены i18n-строки для 5 ранее нераспознанных флагов (quota_limited, cooldown, skipped)
+- 32 Vitest ✅
+
 ## 1.20.0 - 2026-05-02 - FEAT - TVIDEO-067
 
 ### Dev Mode + Statistics Panel
