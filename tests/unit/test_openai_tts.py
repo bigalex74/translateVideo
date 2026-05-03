@@ -15,6 +15,11 @@ from translate_video.core.schemas import Segment, SegmentStatus, VideoProject
 from translate_video.tts.openai_tts import OpenAITTSProvider, build_openai_tts_provider
 
 
+def _noop_mp3_to_wav(mp3_bytes: bytes, wav_path) -> None:
+    """Тестовый заменитель: пишем fake-байты в wav_path без вызова ffmpeg."""
+    wav_path.write_bytes(mp3_bytes)
+
+
 def _make_project(
     work_dir: Path,
     voice_strategy: str = "single",
@@ -52,8 +57,13 @@ class OpenAITTSProviderTest(unittest.TestCase):
         self._tmpdir = tempfile.TemporaryDirectory()
         self.work_dir = Path(self._tmpdir.name)
         (self.work_dir / "tts").mkdir(parents=True, exist_ok=True)
+        self._mp3_to_wav_patcher = patch(
+            "translate_video.tts.openai_tts._mp3_to_wav", side_effect=_noop_mp3_to_wav
+        )
+        self._mp3_to_wav_patcher.start()
 
     def tearDown(self):
+        self._mp3_to_wav_patcher.stop()
         self._tmpdir.cleanup()
 
     def _make_provider(self, voice_1="nova", voice_2="onyx", http_post=None):
@@ -97,7 +107,7 @@ class OpenAITTSProviderTest(unittest.TestCase):
         self.assertEqual(payload["response_format"], "mp3")
 
     def test_synth_creates_mp3_file(self):
-        """synthesize() создаёт mp3 файл и устанавливает tts_path."""
+        """synthesize() создаёт wav файл и устанавливает tts_path."""
         provider, _ = self._make_provider()
         project = _make_project(self.work_dir)
         seg = _make_segment(0, "Создание файла")
@@ -106,9 +116,9 @@ class OpenAITTSProviderTest(unittest.TestCase):
         provider.synthesize(project, project.segments)
 
         self.assertIsNotNone(seg.tts_path)
-        mp3 = self.work_dir / seg.tts_path
-        self.assertTrue(mp3.exists())
-        self.assertEqual(mp3.read_bytes(), b"fake_mp3")
+        wav = self.work_dir / seg.tts_path
+        self.assertTrue(wav.exists())
+        self.assertTrue(seg.tts_path.endswith(".wav"))
 
     def test_empty_text_skipped(self):
         """Сегменты с пустым текстом пропускаются."""
@@ -251,8 +261,13 @@ class OpenAIQaFlagsResetTest(unittest.TestCase):
         self._tmpdir = tempfile.TemporaryDirectory()
         self.work_dir = Path(self._tmpdir.name)
         (self.work_dir / "tts").mkdir(parents=True, exist_ok=True)
+        self._mp3_to_wav_patcher = patch(
+            "translate_video.tts.openai_tts._mp3_to_wav", side_effect=_noop_mp3_to_wav
+        )
+        self._mp3_to_wav_patcher.start()
 
     def tearDown(self):
+        self._mp3_to_wav_patcher.stop()
         self._tmpdir.cleanup()
 
     def _provider(self) -> OpenAITTSProvider:

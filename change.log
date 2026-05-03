@@ -1,5 +1,28 @@
 # Журнал Изменений
 
+## 1.31.1 - 2026-05-03 - FIX - TVIDEO-130
+
+### OpenAI TTS: кряк из-за неверного sample rate в MoviePy
+
+Корень проблемы: OpenAI gpt-4o-mini-tts возвращает MP3 с sample_rate=24000Hz.
+MoviePy v1.x (AudioFileClip) читает такой файл как 44100Hz → скорость ×1.84
+→ звук ускорен до одного щелчка/кряка.
+
+Диагностика подтверждена:
+  ffprobe:  sample_rate=24000, duration=4.8s
+  MoviePy:  fps=44100, duration=5.81s (неверно!)
+
+Исправление:
+- _mp3_to_wav(bytes, path): конвертирует MP3 → WAV 44100Hz через ffmpeg
+  перед сохранением в папку tts/
+- TTS-файлы теперь сохраняются как .wav (не .mp3)
+- tts_path содержит путь к .wav
+
+Тесты (test_openai_tts.py):
+- setUp: patch _mp3_to_wav → _noop (write bytes без ffmpeg)
+- tearDown: patcher.stop()
+- test_synth_creates_mp3_file → test_synth_creates_wav_file
+
 ## 1.31.0 - 2026-05-03 - FIX - TVIDEO-129
 
 ### OpenAI TTS: кряк вместо речи при наличии Яндекс TTS-разметки

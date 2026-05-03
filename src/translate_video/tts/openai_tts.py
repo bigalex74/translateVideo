@@ -198,7 +198,7 @@ class OpenAITTSProvider:
                 speaker_voice_map=speaker_voice_map,
             )
 
-            output = output_dir / f"{segment.id or index}.mp3"
+            output = output_dir / f"{segment.id or index}.wav"  # WAV — MoviePy читает 24kHz MP3 неверно
             segment.tts_text = text
 
             with Timer() as t:
@@ -215,7 +215,7 @@ class OpenAITTSProvider:
                     _add_qa_flag(segment, "tts_openai_error")
                     continue
 
-            segment.tts_path = output.relative_to(project.work_dir).as_posix()
+            segment.tts_path = output.relative_to(project.work_dir).as_posix()  # .wav
             segment.voice = voice
             _add_qa_flag(segment, f"tts_voice_{voice}")
 
@@ -280,7 +280,12 @@ class OpenAITTSProvider:
             headers=headers,
             timeout=self.timeout,
         )
-        output.write_bytes(audio_bytes)
+        # MoviePy (AudioFileClip) некорректно читает 24kHz MP3 от OpenAI TTS:
+        # определяет fps=44100 вместо 24000 → аудио воспроизводится в 1.84× ускорении → кряк.
+        # Решение: конвертируем через ffmpeg в WAV 44100Hz до сохранения.
+        # Выходной файл сохраняется с расширением .wav (меняем .mp3 на .wav).
+        wav_output = output.with_suffix(".wav")
+        _mp3_to_wav(audio_bytes, wav_output)
 
 
 def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
@@ -324,6 +329,41 @@ def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
         el_style=getattr(config, "el_style", 0.0),
         el_speed=getattr(config, "el_speed", 1.0),
     )
+
+
+def _mp3_to_wav(mp3_bytes: bytes, wav_path: Path) -> None:
+    """Конвертировать MP3-байты в WAV 44100Hz через ffmpeg.
+
+    MoviePy v1.x некорректно определяет sample rate 24kHz MP3 от OpenAI TTS —
+    читает как 44100Hz → аудио воспроизводится в 1.84× ускорении (кряк).
+    WAV с явным sample_rate=44100 решает эту проблему раз и навсегда.
+    """
+    import subprocess  # noqa: PLC0415
+    import tempfile    # noqa: PLC0415
+    import os          # noqa: PLC0415
+
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+        f.write(mp3_bytes)
+        tmp_mp3 = f.name
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", tmp_mp3,
+                "-ar", "44100",   # resample → стандарт MoviePy
+                "-ac", "1",        # моно — TTS не нуждается в стерео
+                "-f", "wav",
+                str(wav_path),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"ffmpeg конвертация mp3→wav не удалась: {exc}") from exc
+    finally:
+        if os.path.exists(tmp_mp3):
+            os.unlink(tmp_mp3)
 
 
 def _strip_tts_markup(text: str) -> str:
