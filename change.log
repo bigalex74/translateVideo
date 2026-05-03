@@ -1,3 +1,12 @@
+## 1.30.5 - 2026-05-03 - FIX - TVIDEO-124
+
+### Hotfix: откат Яндекс-правок не обновлял UI
+
+Workspace.tsx:
+- Добавлен setProject(prev => {{ ...prev, segments: nextSegs }}) после pushHistory
+- Без этого history обновлялась, но segments (из project.segments) оставались старыми
+- Теперь **гениальнешая** и аналогичные Яндекс-overrides сразу исчезают из textarea
+
 ## 1.30.4 - 2026-05-03 - FEAT - TVIDEO-124
 
 ### Предупреждение о несовместимых правках при смене провайдера TTS

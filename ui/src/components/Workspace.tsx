@@ -1045,6 +1045,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     return s;
                   });
                   pushHistory(nextSegs);
+                  setProject(prev => prev ? { ...prev, segments: nextSegs } : prev);
                   setDirty(true);
                   setConfigPatch(prev => ({ ...prev, ...yandexRevertModal.pendingPatch }));
                   setYandexRevertModal(null);
