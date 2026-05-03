@@ -58,7 +58,8 @@ class ArtifactKind(StrEnum):
     SOURCE_TRANSCRIPT = "source_transcript"
     TRANSLATED_TRANSCRIPT = "translated_transcript"
     SPEAKERS = "speakers"
-    SUBTITLES = "subtitles"
+    SUBTITLES = "subtitles"          # SRT (для скачивания, embed в ffmpeg)
+    SUBTITLES_VTT = "subtitles_vtt"  # WebVTT (для браузерного <track>)
     TTS_AUDIO = "tts_audio"
     FINAL_AUDIO = "final_audio"
     OUTPUT_VIDEO = "output_video"

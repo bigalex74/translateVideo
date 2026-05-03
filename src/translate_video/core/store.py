@@ -245,10 +245,12 @@ class ProjectStore:
             content = segments_to_srt(project.segments)
             relative = self.SRT_FILE
             content_type = "text/srt"
+            kind = ArtifactKind.SUBTITLES          # SRT → скачивание + ffmpeg embed
         elif fmt == "vtt":
             content = segments_to_vtt(project.segments)
             relative = self.VTT_FILE
             content_type = "text/vtt"
+            kind = ArtifactKind.SUBTITLES_VTT      # VTT → браузерный <track>
         else:
             raise ValueError(f"неподдерживаемый формат субтитров: {fmt}")
 
@@ -259,7 +261,7 @@ class ProjectStore:
 
         self.add_artifact(
             project,
-            kind=ArtifactKind.SUBTITLES,
+            kind=kind,
             path=output,
             stage=Stage.EXPORT,
             content_type=content_type,

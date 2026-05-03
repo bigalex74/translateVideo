@@ -309,6 +309,13 @@ class E2EExportCommandsTest(unittest.TestCase):
         kinds = [a["kind"] for a in art_result["artifacts"]]
         self.assertIn("subtitles", kinds)
 
+    def test_subtitles_vtt_registered_as_artifact(self):
+        """После pipeline run артефакт subtitles_vtt (WebVTT для браузера) регистрируется."""
+        art_result = _run_cli("artifacts", self.work_dir)
+        kinds = [a["kind"] for a in art_result["artifacts"]]
+        # VTT регистрируется ExportSubtitlesStage во время pipeline run
+        self.assertIn("subtitles_vtt", kinds)
+
 
 if __name__ == "__main__":
     unittest.main()

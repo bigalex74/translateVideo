@@ -321,7 +321,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     project.artifact_records?.find(r => r.kind === kind);
 
   const downloadableArtifacts = [
-    { kind: 'subtitles',              label: '📄 Субтитры (SRT/VTT)' },
+    { kind: 'subtitles',              label: '📄 Субтитры (SRT)' },
+    { kind: 'subtitles_vtt',          label: '📄 Субтитры (VTT)' },
     { kind: 'output_video',           label: '🎬 Готовое видео' },
     { kind: 'output_video_with_subs', label: '🎬💬 Видео с субтитрами' },
     { kind: 'qa_report',              label: '✅ QA-отчёт' },
@@ -655,12 +656,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   setActiveSegId(active?.id ?? null);
                 }}
               >
-                {project.artifacts['subtitles'] && (
+                {/* WebVTT-субтитры — браузер понимает только VTT, не SRT */}
+                {project.artifacts['subtitles_vtt'] && (
                   <track
                     kind="subtitles"
-                    src={`${API_VIDEO}/${projectId}/${project.artifacts['subtitles']}`}
-                    srcLang="ru"
-                    label="Русский"
+                    src={`${API_VIDEO}/${projectId}/${project.artifacts['subtitles_vtt']}`}
+                    srcLang={project.config?.target_language ?? 'ru'}
+                    label="Субтитры"
                     default
                   />
                 )}

@@ -1,3 +1,29 @@
+## 1.30.8 - 2026-05-03 - FIX - TVIDEO-127
+
+### Bugfix: CC-субтитры в браузерном плеере не отображались
+
+Причина: ExportSubtitlesStage вызывает export_subtitles(vtt) затем
+export_subtitles(srt) — оба регистрировали ArtifactKind.SUBTITLES, второй
+перезаписывал первый. В результате artifacts["subtitles"] = "translated.srt".
+Браузер понимает только WebVTT, не SRT → CC-кнопка молчала.
+
+core/schemas.py:
+- ArtifactKind.SUBTITLES_VTT — новый ключ для WebVTT-файла
+
+core/store.py — export_subtitles():
+- fmt="vtt" → kind=SUBTITLES_VTT  (subtitles_vtt = "subtitles/translated.vtt")
+- fmt="srt" → kind=SUBTITLES      (subtitles = "subtitles/translated.srt")
+- Два независимых ключа, не перезаписывают друг друга
+
+ui/src/components/Workspace.tsx:
+- <track> теперь берёт artifacts["subtitles_vtt"] (VTT, не SRT)
+- srcLang динамически берётся из project.config.target_language
+- Скачивание: отдельные кнопки «SRT» и «VTT»
+
+Тесты:
+- test_export_subtitles_stage.py: заменён test_srt_overwrites → test_vtt_and_srt_separate
+- test_e2e_gate.py: добавлен test_subtitles_vtt_registered_as_artifact
+
 ## 1.30.7 - 2026-05-03 - FEAT - TVIDEO-126
 
 ### Встраивание субтитров в выходное видео
