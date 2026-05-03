@@ -324,5 +324,212 @@ class BuildSpeechKitProviderTest(unittest.TestCase):
         self.assertEqual(provider.role_1, "good")
 
 
+class StaleTTSPathGuardTest(unittest.TestCase):
+    """TVIDEO-097: tts_path сбрасывается до None в начале synthesize().
+
+    Без этого: если синтез провалится, tts_path остаётся от СТАРОЙ озвучки.
+    Рендер читает tts_path → берёт старый mp3 → в видео чужой голос.
+    """
+
+    def setUp(self):
+        import tempfile
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.work_dir = Path(self._tmpdir.name)
+        (self.work_dir / "tts").mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def _make_seg_with_old_path(self, i: int, old_path: str) -> Segment:
+        """Сегмент с tts_path от предыдущей озвучки (stale)."""
+        s = _make_segment(i, "Привет мир")
+        s.tts_path = old_path  # устаревший путь от старого голоса
+        return s
+
+    def test_tts_path_reset_to_none_at_start(self):
+        """tts_path сбрасывается до None в начале synthesize(), до любых вызовов API."""
+        def always_fail(*a, **kw):
+            raise RuntimeError("API unavailable")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test", voice_1="alena", voice_2="filipp",
+            http_post=always_fail,
+        )
+        project = _make_project(self.work_dir)
+        seg = self._make_seg_with_old_path(0, "tts/old_kirill_voice.mp3")
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        self.assertIsNone(project.segments[0].tts_path,
+            "tts_path должен быть None после ошибки синтеза, не указывать на старый mp3")
+
+    def test_tts_path_set_after_successful_synth(self):
+        """При успешном синтезе tts_path обновляется на новый файл."""
+        fake_response = _make_streaming_response(b"new_audio")
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test", voice_1="alena", voice_2="filipp",
+            http_post=lambda *a, **kw: fake_response,
+        )
+        project = _make_project(self.work_dir)
+        seg = self._make_seg_with_old_path(0, "tts/old_kirill_voice.mp3")
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        # tts_path обновился — больше не указывает на старый файл
+        new_path = project.segments[0].tts_path
+        self.assertIsNotNone(new_path)
+        self.assertNotEqual(new_path, "tts/old_kirill_voice.mp3",
+            "tts_path должен указывать на новый mp3, не на старый")
+
+    def test_multiple_segments_all_paths_reset(self):
+        """Все сегменты с устаревшим tts_path сбрасываются до None."""
+        def always_fail(*a, **kw):
+            raise RuntimeError("down")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test", voice_1="alena", voice_2="filipp",
+            http_post=always_fail,
+        )
+        project = _make_project(self.work_dir)
+        project.segments = [
+            self._make_seg_with_old_path(i, f"tts/old_{i}.mp3")
+            for i in range(3)
+        ]
+
+        provider.synthesize(project, project.segments)
+
+        for i, seg in enumerate(project.segments):
+            self.assertIsNone(seg.tts_path,
+                f"Сегмент {i}: tts_path должен быть None, не '{seg.tts_path}'")
+
+
+class SSMLFallbackTest(unittest.TestCase):
+    """TVIDEO-097: при HTTP 400 Empty Utterance с SSML → retry с plain text.
+
+    Без фикса: все сегменты падали, tts_path не обновлялся, рендер
+    брал старые mp3, в видео был старый голос.
+    С фиксом: _synth_plain() вызывается автоматически → синтез проходит.
+    """
+
+    def setUp(self):
+        import tempfile
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.work_dir = Path(self._tmpdir.name)
+        (self.work_dir / "tts").mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def _ssml_400_then_plain_ok(self):
+        """HTTP post: SSML → 400, plain text → OK."""
+        call_count = [0]
+        fake_ok = _make_streaming_response(b"plain_audio")
+
+        def post(url, payload, **kw):
+            call_count[0] += 1
+            if "ssml" in payload:
+                raise RuntimeError(
+                    "SpeechKit HTTP 400: b'{\"error\":{\"message\":\"Empty Utterance argument\"}}'")
+            return fake_ok
+
+        return post, call_count
+
+    def test_ssml_fallback_retries_with_plain_text(self):
+        """SSML HTTP 400 → автоматический retry с plain text → синтез проходит."""
+        post_fn, call_count = self._ssml_400_then_plain_ok()
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test",
+            voice_1="alena",
+            voice_2="filipp",
+            emotion_level=2,   # SSML включён
+            http_post=post_fn,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "Привет мир")
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        # API должен был вызваться дважды: 1 SSML (fail) + 1 plain (ok)
+        self.assertEqual(call_count[0], 2,
+            "Должен быть 1 SSML вызов (ошибка) + 1 plain text retry")
+        # tts_path обновлён — синтез прошёл
+        self.assertIsNotNone(project.segments[0].tts_path,
+            "tts_path должен быть установлен после успешного fallback")
+
+    def test_ssml_fallback_no_error_qa_flag(self):
+        """Успешный SSML fallback не добавляет tts_speechkit_error флаг."""
+        post_fn, _ = self._ssml_400_then_plain_ok()
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test",
+            voice_1="alena",
+            voice_2="filipp",
+            emotion_level=1,
+            http_post=post_fn,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "Тест")
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        self.assertNotIn("tts_speechkit_error", project.segments[0].qa_flags,
+            "Успешный fallback не должен добавлять флаг ошибки")
+
+    def test_non_ssml_400_does_not_trigger_fallback(self):
+        """HTTP 400 не от Empty Utterance → fallback НЕ вызывается, флаг ошибки добавляется."""
+        call_count = [0]
+
+        def post(url, payload, **kw):
+            call_count[0] += 1
+            raise RuntimeError("SpeechKit HTTP 400: b'Unknown voice'")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test",
+            voice_1="alena",
+            voice_2="filipp",
+            emotion_level=2,
+            http_post=post,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "Тест")
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        # Только 1 вызов — без retry
+        self.assertEqual(call_count[0], 1,
+            "Ошибка не от Empty Utterance → retry не должен вызываться")
+        self.assertIn("tts_speechkit_error", project.segments[0].qa_flags)
+
+    def test_emotion_level_0_no_fallback_on_400(self):
+        """Без SSML (emotion_level=0) HTTP 400 не вызывает fallback — нет смысла."""
+        call_count = [0]
+
+        def post(url, payload, **kw):
+            call_count[0] += 1
+            raise RuntimeError("SpeechKit HTTP 400: b'Empty Utterance argument'")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test",
+            voice_1="alena",
+            voice_2="filipp",
+            emotion_level=0,  # SSML отключён
+            http_post=post,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "Тест")
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        # При emotion_level=0 SSML не используется → fallback не нужен
+        self.assertEqual(call_count[0], 1,
+            "emotion_level=0: fallback не нужен, только 1 вызов")
+        self.assertIn("tts_speechkit_error", project.segments[0].qa_flags)
+
+
 if __name__ == "__main__":
     unittest.main()

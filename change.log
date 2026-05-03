@@ -1,5 +1,24 @@
 # Журнал Изменений
 
+## 1.23.4 - 2026-05-03 - TEST - TVIDEO-097b
+
+### Тесты для TVIDEO-097 (stale tts_path + SSML fallback)
+
+**StaleTTSPathGuardTest** (3 теста) в test_speechkit_tts.py:
+- tts_path сбрасывается до None при ошибке синтеза (не остаётся старый mp3)
+- tts_path обновляется на новый файл при успешном синтезе
+- Все сегменты получают None если API недоступен
+
+**SSMLFallbackTest** (4 теста) в test_speechkit_tts.py:
+- HTTP 400 Empty Utterance + SSML → retry с plain text → синтез проходит (2 вызова)
+- Успешный fallback не добавляет tts_speechkit_error QA-флаг
+- HTTP 400 не от Empty Utterance → fallback НЕ вызывается (1 вызов)
+- emotion_level=0 → fallback не нужен даже при Empty Utterance (1 вызов)
+
+Нарушение правила TESTING_RULES.md зафиксировано: v1.23.3 был задеплоен без тестов.
+
+Итого: 497 Python (+7) + 101 Vitest.
+
 ## 1.23.3 - 2026-05-03 - FIX - TVIDEO-097
 
 ### Старая озвучка в видео после смены голоса
