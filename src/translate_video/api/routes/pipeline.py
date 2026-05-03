@@ -373,10 +373,16 @@ def tts_preview(
         if provider_name == "yandex":
             from translate_video.tts.speechkit_tts import YandexSpeechKitTTSProvider
             from translate_video.tts.speechkit_tts import ssml_enhance, EMOTION_OFF
+            from translate_video.core.env import load_env_file
+            load_env_file()
 
-            api_key = os.getenv("SPEECHKIT_API_KEY") or os.getenv("YANDEX_TTS_API_KEY", "")
+            api_key = (
+                os.getenv("YANDEX_SPEECHKIT_API_KEY")
+                or os.getenv("SPEECHKIT_API_KEY")
+                or os.getenv("YANDEX_TTS_API_KEY", "")
+            ).strip()
             if not api_key:
-                raise HTTPException(status_code=503, detail="SPEECHKIT_API_KEY не настроен")
+                raise HTTPException(status_code=503, detail="YANDEX_SPEECHKIT_API_KEY не настроен")
 
             voice = getattr(cfg, "professional_tts_voice", "alena")
             emotion_level = int(getattr(cfg, "tts_emotion_level", 0))

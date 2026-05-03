@@ -1,5 +1,35 @@
 # Журнал Изменений
 
+## 1.27.2 - 2026-05-03 - FIX - TVIDEO-105
+
+### Верстка panel-header + фикс Прослушать (API key)
+
+**Верстка: «Редактор перевода» и «Несохранённые правки» на 2 строки**
+
+Корень проблемы: panel-header имел только align-items:center без
+ограничений на min-width дочерних элементов. При узкой панели h3
+сжимался до 0 и span переносился.
+
+Исправления:
+- panel-header: padding 16px→10px, добавлены gap:8px + min-width:0
+- .panel-header h3: min-width:0 + flex:1 (растягивается, не выталкивает)
+- Новый класс .panel-header-meta: flex-shrink:0 + white-space:nowrap
+  (счётчик сегментов и статус никогда не переносятся)
+- JSX: className text-sm text-muted → panel-header-meta
+
+**Баг: «Прослушать» — ошибка «SPEECHKIT_API_KEY не настроен»**
+
+Env-переменная в pipeline: YANDEX_SPEECHKIT_API_KEY.
+В tts-preview endpoint было: os.getenv("SPEECHKIT_API_KEY") — неправильно.
+
+Исправление: ищем по убыванию приоритета:
+  1. YANDEX_SPEECHKIT_API_KEY (основная)
+  2. SPEECHKIT_API_KEY (legacy)
+  3. YANDEX_TTS_API_KEY (legacy)
+Также добавлен вызов load_env_file() перед чтением env (как в build_speechkit_tts_provider).
+
+503 Python + 131 Vitest.
+
 ## 1.27.1 - 2026-05-03 - FIX - TVIDEO-104
 
 ### SSMLToolbar: UX-правки по фидбеку

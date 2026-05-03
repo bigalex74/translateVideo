@@ -640,9 +640,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           {/* Редактор сегментов */}
           <div className="panel segments-panel glass-panel">
             <div className="panel-header">
-              <h3><AlignLeft size={16} /> {t('workspace.translationEditor', locale)}</h3>
-              <span className="text-sm text-muted">
-                {segments.length} сегментов
+              <h3 style={{minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}><AlignLeft size={16} /> {t('workspace.translationEditor', locale)}</h3>
+              <span className="panel-header-meta">
+                {segments.length} {t('workspace.segments', locale) || 'сегм.'}
                 {dirty && <span className="dirty-indicator"> · {t('workspace.unsaved', locale)}</span>}
               </span>
             </div>

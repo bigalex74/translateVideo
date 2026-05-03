@@ -151,12 +151,14 @@
 }
 
 .panel-header {
-    padding: 16px 20px;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--border-color);
     background: rgba(0,0,0,0.2);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
 
 .panel-header h3 {
@@ -165,6 +167,19 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
+}
+
+/* Правая часть шапки — счётчик + статус, никогда не переносится */
+.panel-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.45);
 }
 
 /* Video Panel */
