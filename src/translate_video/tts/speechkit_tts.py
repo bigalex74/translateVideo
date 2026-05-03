@@ -44,7 +44,7 @@ import urllib.request
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import Segment
 from translate_video.tts import stress as _stress
-from translate_video.tts.ssml_enhance import EMOTION_OFF, enhance as ssml_enhance
+from translate_video.tts.ssml_enhance import EMOTION_OFF, enhance as ssml_enhance, enhance_tts_v3
 
 _log = get_logger(__name__)
 
@@ -287,21 +287,23 @@ class YandexSpeechKitTTSProvider:
         voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
         supports_role = bool(voice_meta and voice_meta.get("roles"))
 
+        # API v3 НЕ поддерживает поле "ssml" (HTTP 400 Bad Request).
+        # При emotion_level > 0 используем enhance_tts_v3() → TTS-разметка + speed_factor.
+        # speed_factor умножается на базовую скорость и передаётся через hints.
+        if self.emotion_level > EMOTION_OFF:
+            enhanced_text, spd_factor = enhance_tts_v3(text, self.emotion_level)
+            text_payload = {"text": enhanced_text}
+            effective_speed = max(0.1, min(10.0, speed * spd_factor))
+        else:
+            text_payload = {"text": text}
+            effective_speed = max(0.1, min(10.0, speed))
+
         hints: list[dict] = [{"voice": voice}]
         if supports_role:
             hints.append({"role": role})
-        hints.append({"speed": max(0.1, min(10.0, speed))})
+        hints.append({"speed": effective_speed})
         if pitch != 0:
             hints.append({"pitchShift": max(-1000, min(1000, pitch))})
-
-        # SSML-эмоции: если emotion_level > 0 — конвертируем текст в SSML
-        # и отправляем в поле "ssml" вместо "text".
-        # TTS-разметка пользователя (tts_ssml_override) идёт в "text" — не в "ssml".
-        if self.emotion_level > EMOTION_OFF:
-            enhanced = ssml_enhance(text, self.emotion_level)
-            text_payload = {"ssml": enhanced}
-        else:
-            text_payload = {"text": text}
 
         payload = {
             **text_payload,

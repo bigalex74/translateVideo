@@ -398,13 +398,20 @@ def tts_preview(
             import re as _re_tts
             tts_text = _re_tts.sub(r'\*\*([^*]+)\*\*', r'\1', text)
 
-            # TTS-разметка пользователя → поле "text" (sil<[300]>, [[фонемы]], +ударения)
-            # SSML-эмоции (emotion_level>0) → ssml_enhance → поле "ssml"
+            from translate_video.tts.ssml_enhance import enhance_tts_v3 as _enhance_tts_v3
+            speed = float(getattr(cfg, "professional_tts_speed", 1.0))
+
+            # API v3 НЕ принимает поле "ssml" — возвращает HTTP 400.
+            # Всегда используем поле "text" с TTS-разметкой Яндекс.
+            # При emotion_level > 0 → enhance_tts_v3() добавляет sil<[ms]> паузы
+            # и возвращает speed_factor для умножения на базовую скорость.
             if emotion_level > EMOTION_OFF:
-                synth_text = ssml_enhance(tts_text, emotion_level)
-                payload_text = {"ssml": synth_text}
+                tts_text_final, spd_factor = _enhance_tts_v3(tts_text, emotion_level)
+                effective_speed = max(0.1, min(10.0, speed * spd_factor))
             else:
-                payload_text = {"text": tts_text}
+                tts_text_final = tts_text
+                effective_speed = speed
+            payload_text = {"text": tts_text_final}
 
             from translate_video.tts.speechkit_tts import SPEECHKIT_TTS_URL, _post_streaming, SPEECHKIT_VOICES
             voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
@@ -413,8 +420,7 @@ def tts_preview(
             hints = [{"voice": voice}]
             if voice_meta and voice_meta.get("roles"):
                 hints.append({"role": role})
-            speed = float(getattr(cfg, "professional_tts_speed", 1.0))
-            hints.append({"speed": speed})
+            hints.append({"speed": effective_speed})
 
             payload = {
                 **payload_text,
@@ -447,7 +453,7 @@ def tts_preview(
                 # Retry без voice hint (причина тишины), но со speed
                 nohint_payload = {
                     **payload_text,
-                    "hints": [{"speed": speed}],
+                    "hints": [{"speed": effective_speed}],
                     "outputAudioSpec": {"containerAudio": {"containerAudioType": "MP3"}},
                     "unsafeMode": True,
                 }

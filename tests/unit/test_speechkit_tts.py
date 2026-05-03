@@ -406,11 +406,12 @@ class StaleTTSPathGuardTest(unittest.TestCase):
 
 
 class SSMLFallbackTest(unittest.TestCase):
-    """TVIDEO-097: при HTTP 400 Empty Utterance с SSML → retry с plain text.
+    """TVIDEO-097 / TVIDEO-114: API v3 НЕ принимает поле "ssml" (HTTP 400).
 
-    Без фикса: все сегменты падали, tts_path не обновлялся, рендер
-    брал старые mp3, в видео был старый голос.
-    С фиксом: _synth_plain() вызывается автоматически → синтез проходит.
+    После фикса (TVIDEO-114):
+    - emotion_level > 0 → enhance_tts_v3() → поле "text" с TTS-разметкой
+    - Поле "ssml" больше НИКОГДА не отправляется в v3
+    - Только 1 вызов API (без retry из-за ssml-400)
     """
 
     def setUp(self):
@@ -422,52 +423,78 @@ class SSMLFallbackTest(unittest.TestCase):
     def tearDown(self):
         self._tmpdir.cleanup()
 
-    def _ssml_400_then_plain_ok(self):
-        """HTTP post: SSML → 400, plain text → OK."""
+    def test_emotion_level_uses_text_not_ssml(self):
+        """emotion_level > 0 → поле 'text' с TTS-паузами, НЕ 'ssml' (HTTP 400 в v3)."""
+        received = {}
         call_count = [0]
-        fake_ok = _make_streaming_response(b"plain_audio")
 
         def post(url, payload, **kw):
             call_count[0] += 1
-            if "ssml" in payload:
-                raise RuntimeError(
-                    "SpeechKit HTTP 400: b'{\"error\":{\"message\":\"Empty Utterance argument\"}}'")
-            return fake_ok
+            received.update(payload)
+            return _make_streaming_response(b"audio")
 
-        return post, call_count
-
-    def test_ssml_fallback_retries_with_plain_text(self):
-        """SSML HTTP 400 → автоматический retry с plain text → синтез проходит."""
-        post_fn, call_count = self._ssml_400_then_plain_ok()
         provider = YandexSpeechKitTTSProvider(
             api_key="test",
             voice_1="alena",
             voice_2="filipp",
-            emotion_level=2,   # SSML включён
-            http_post=post_fn,
+            emotion_level=2,  # эмоции включены
+            http_post=post,
         )
         project = _make_project(self.work_dir)
-        seg = _make_segment(0, "Привет мир")
+        seg = _make_segment(0, "Привет мир!")
         project.segments = [seg]
 
         provider.synthesize(project, project.segments)
 
-        # API должен был вызваться дважды: 1 SSML (fail) + 1 plain (ok)
-        self.assertEqual(call_count[0], 2,
-            "Должен быть 1 SSML вызов (ошибка) + 1 plain text retry")
-        # tts_path обновлён — синтез прошёл
+        # Только 1 вызов — retry больше не нужен (нет ssml-400)
+        self.assertEqual(call_count[0], 1,
+            "API v3 emotion: только 1 вызов, ssml-retry больше не нужен")
+        # Поле "ssml" никогда не отправляется в v3
+        self.assertNotIn("ssml", received,
+            "API v3 НЕ должен получать поле 'ssml' — HTTP 400")
+        # Поле "text" содержит TTS-разметку (sil-паузы от emotion)
+        self.assertIn("text", received,
+            "emotion_level > 0 должен передавать поле 'text' с TTS-разметкой")
+        # tts_path обновлён
         self.assertIsNotNone(project.segments[0].tts_path,
-            "tts_path должен быть установлен после успешного fallback")
+            "tts_path должен быть установлен")
 
-    def test_ssml_fallback_no_error_qa_flag(self):
-        """Успешный SSML fallback не добавляет tts_speechkit_error флаг."""
-        post_fn, _ = self._ssml_400_then_plain_ok()
+    def test_emotion_level_adds_sil_pauses(self):
+        """emotion_level > 0 → текст содержит sil<[ms]> паузы (TTS-разметка Яндекс)."""
+        received = {}
+
+        def post(url, payload, **kw):
+            received.update(payload)
+            return _make_streaming_response(b"audio")
+
         provider = YandexSpeechKitTTSProvider(
             api_key="test",
             voice_1="alena",
             voice_2="filipp",
             emotion_level=1,
-            http_post=post_fn,
+            http_post=post,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "Привет мир.")  # точка → должна добавить паузу
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        text_sent = received.get("text", "")
+        self.assertIn("sil<[", text_sent,
+            "emotion_level > 0 должен добавлять sil<[ms]> паузы в текст")
+
+    def test_ssml_fallback_no_error_qa_flag(self):
+        """emotion_level > 0 без ошибки → нет флага tts_speechkit_error."""
+        def post(url, payload, **kw):
+            return _make_streaming_response(b"audio")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test",
+            voice_1="alena",
+            voice_2="filipp",
+            emotion_level=1,
+            http_post=post,
         )
         project = _make_project(self.work_dir)
         seg = _make_segment(0, "Тест")
@@ -476,7 +503,7 @@ class SSMLFallbackTest(unittest.TestCase):
         provider.synthesize(project, project.segments)
 
         self.assertNotIn("tts_speechkit_error", project.segments[0].qa_flags,
-            "Успешный fallback не должен добавлять флаг ошибки")
+            "Успешный синтез не должен добавлять флаг ошибки")
 
     def test_non_ssml_400_does_not_trigger_fallback(self):
         """HTTP 400 не от Empty Utterance → fallback НЕ вызывается, флаг ошибки добавляется."""
@@ -504,31 +531,32 @@ class SSMLFallbackTest(unittest.TestCase):
             "Ошибка не от Empty Utterance → retry не должен вызываться")
         self.assertIn("tts_speechkit_error", project.segments[0].qa_flags)
 
-    def test_emotion_level_0_no_fallback_on_400(self):
-        """Без SSML (emotion_level=0) HTTP 400 не вызывает fallback — нет смысла."""
-        call_count = [0]
+    def test_emotion_level_0_no_sil_pauses(self):
+        """emotion_level=0 → текст отправляется как есть, без sil-пауз."""
+        received = {}
 
         def post(url, payload, **kw):
-            call_count[0] += 1
-            raise RuntimeError("SpeechKit HTTP 400: b'Empty Utterance argument'")
+            received.update(payload)
+            return _make_streaming_response(b"audio")
 
         provider = YandexSpeechKitTTSProvider(
             api_key="test",
             voice_1="alena",
             voice_2="filipp",
-            emotion_level=0,  # SSML отключён
+            emotion_level=0,
             http_post=post,
         )
         project = _make_project(self.work_dir)
-        seg = _make_segment(0, "Тест")
+        seg = _make_segment(0, "Тест без пауз.")
         project.segments = [seg]
 
         provider.synthesize(project, project.segments)
 
-        # При emotion_level=0 SSML не используется → fallback не нужен
-        self.assertEqual(call_count[0], 1,
-            "emotion_level=0: fallback не нужен, только 1 вызов")
-        self.assertIn("tts_speechkit_error", project.segments[0].qa_flags)
+        text_sent = received.get("text", "")
+        self.assertNotIn("sil<[", text_sent,
+            "emotion_level=0 не должен добавлять sil-паузы")
+        self.assertNotIn("ssml", received,
+            "emotion_level=0 не должен использовать ssml")
 
 
 class SSMLOverrideTest(unittest.TestCase):

@@ -1,5 +1,34 @@
 # Журнал Изменений
 
+## 1.28.8 - 2026-05-03 - FIX - TVIDEO-114
+
+### Критический баг: SSML отправлялся в API v3 → HTTP 400
+
+По документации Яндекс:
+- API v1: поддерживает поле 'ssml' с тегами <speak>
+- API v3 (utteranceSynthesis): НЕ поддерживает 'ssml' → HTTP 400 Bad Request
+- API v3: любой текст в поле 'text' считается TTS-размеченным
+
+Ошибка: при emotion_level > 0 код отправлял {"ssml": "<speak>...</speak>"}
+в endpoint API v3 → HTTP 400 → синтез падал с ошибкой.
+
+Фикс:
+- Добавлена enhance_tts_v3() в ssml_enhance.py:
+  * Возвращает (tts_text, speed_factor) вместо SSML
+  * Паузы: sil<[ms]> вместо <break time="ms"/>
+  * speed_factor для умножения на базовую скорость (через hints)
+- speechkit_tts._synth() и preview endpoint:
+  * emotion_level > 0 → enhance_tts_v3() → {"text": tts_text}
+  * speed hint = base_speed * speed_factor
+- Поле "ssml" больше никогда не отправляется в v3
+
+Также добавлены тесты:
+- test_emotion_level_uses_text_not_ssml
+- test_emotion_level_adds_sil_pauses  
+- test_emotion_level_0_no_sil_pauses
+
+504 Python.
+
 ## 1.28.7 - 2026-05-03 - FIX - TVIDEO-113
 
 ### Скорость не учитывалась в preview
