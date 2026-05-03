@@ -1,5 +1,27 @@
 # Журнал Изменений
 
+## 1.22.28 - 2026-05-03 - TEST - TVIDEO-093b
+
+### Тесты для критического фикса from_stage + metadata
+
+**FromStageTest** (9 тестов) — покрывают баг TVIDEO-093:
+- from_stage='tts' + force=True → extract/transcribe пропущены (КЛЮЧЕВОЙ ТЕСТ)
+- from_stage='tts' + force=False → то же поведение
+- from_stage='extract_audio' → все этапы выполняются
+- from_stage=unknown → _is_before не ломает пайплайн, все запускаются
+- from_stage=None + force=True → все перезапускаются
+- from_stage=None + force=False → completed пропускаются (resume-режим)
+- _is_before: extract_audio < tts → True
+- _is_before: tts < extract_audio → False
+- _is_before: один и тот же этап → False
+
+**StageRunMetadataTest** (3 теста):
+- Новый StageRun по умолчанию имеет пустой metadata
+- metadata сохраняется через to_dict/from_dict (tts_speed_1/2)
+- Старые JSON без поля metadata десериализуются без ошибок
+
+Итого: 459 Python (+12) + 101 Vitest.
+
 ## 1.22.27 - 2026-05-02 - FIX - TVIDEO-093
 
 ### КРИТИЧНО: from_stage игнорировался при force=True — пайплайн стартовал заново
