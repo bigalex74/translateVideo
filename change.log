@@ -1,5 +1,37 @@
 # Журнал Изменений
 
+## 1.30.9 - 2026-05-03 - FEAT - TVIDEO-128
+
+### Выбор режима пайплайна: Дубляж / Субтитры / Дубляж+Субтитры
+
+config.py:
+- TranslationMode.VOICEOVER_SUBTITLES = "voiceover_and_subtitles" — новый режим
+
+pipeline/utils.py — build_stages():
+- subtitles: [Extract, Transcribe, Regroup, Translate, Export] — без TTS/Render
+- voiceover: [... TTS, Render, Embed] — без Export (дефолт)
+- voiceover_and_subtitles: [... TTS, Render, Export, Embed] — всё включено
+
+cli.py:
+- _build_stages() теперь принимает config и передаёт в build_stages_impl
+- project.config корректно влияет на набор этапов при CLI run
+
+UI — NewProject.tsx:
+- Режим-select заменён на PIPELINE_MODES карточки
+- 3 варианта: 🎙️ Дубляж / 💬 Субтитры / 🎙️💬 Дубляж+субтитры
+
+UI — AdvancedSettings.tsx:
+- isSubtitlesOnly = c.translation_mode === "subtitles"
+- При subtitles: синий info-баннер + TTS/тайминги скрыты
+
+UI — CSS:
+- .mode-cards: 3-колоночная сетка с hover/active анимацией
+- .adv-section--info: голубой информационный блок
+
+Тесты:
+- test_build_stages_by_mode.py: 11 тестов по всем 3 режимам
+- change.log: структура восстановлена, дубликат заголовка удалён
+
 ## 1.30.8 - 2026-05-03 - FIX - TVIDEO-127
 
 ### Bugfix: CC-субтитры в браузерном плеере не отображались

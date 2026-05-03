@@ -24,6 +24,14 @@
   opacity: 0.78;
 }
 
+.adv-section--info {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 14px;
+  background: rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
 .adv-section-title {
   color: var(--text-primary);
   font-size: 0.9rem;

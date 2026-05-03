@@ -333,6 +333,72 @@
 .preset-label { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
 .preset-desc { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.3; }
 
+/* ── Mode cards (Что делать с видео?) ──────────────────────────────────── */
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .mode-cards { grid-template-columns: 1fr; }
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 14px;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top, rgba(139,92,246,0.08), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.mode-card:hover { border-color: rgba(139,92,246,0.5); transform: translateY(-2px); }
+.mode-card:hover::before { opacity: 1; }
+
+.mode-card--active {
+  border-color: var(--accent);
+  background: rgba(139,92,246,0.1);
+  box-shadow: 0 0 0 3px rgba(139,92,246,0.18);
+}
+
+.mode-card--active::before { opacity: 1; }
+
+.mode-card__icon {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(139,92,246,0.35));
+}
+
+.mode-card__label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.mode-card__desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 /* ── Скролл-обёртка для шага 2 (расширенные настройки) ─────────────────── */
 .adv-scroll-wrap {
   max-height: 58vh;

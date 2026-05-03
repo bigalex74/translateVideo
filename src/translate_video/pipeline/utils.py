@@ -95,15 +95,55 @@ class FakeRenderer:
 
 
 def build_stages(provider: str, project_config=None) -> list:
-    """Создать этапы пайплайна для выбранного набора провайдеров.
+    """Создать этапы пайплайна для выбранного провайдера и режима перевода.
 
     Поддерживаемые провайдеры:
-    - ``fake`` — имитационные провайдеры без внешних зависимостей.
-    - ``legacy`` — реальные провайдеры (moviepy, faster-whisper, edge-tts).
-    ``project_config`` — PipelineConfig проекта (нужен для выбора TTS-провайдера).
+    - ``fake``   — имитационные провайдеры без внешних зависимостей.
+    - ``legacy`` — реальные провайдеры (ffmpeg, faster-whisper, edge-tts).
+
+    Режим определяется через ``project_config.translation_mode``:
+    - ``voiceover`` / ``dub`` / ``dual_audio`` / ``learning``
+        → полный пайплайн: Transcribe → Translate → TimingFit → TTS → Render → Embed
+    - ``subtitles``
+        → только субтитры: Transcribe → Translate → Export (без TTS и Render)
+    - ``voiceover_and_subtitles``
+        → дубляж + субтитры: полный пайплайн + ExportSubtitlesStage + Embed
     """
+    from translate_video.core.config import TranslationMode  # noqa: PLC0415
+
+    mode = TranslationMode.VOICEOVER
+    if project_config is not None:
+        mode = TranslationMode(project_config.translation_mode)
+
+    # ── Режим «только субтитры» ───────────────────────────────────────────────
+    # Пропускаем TimingFit, TTS, Render — экономим время и деньги.
+    if mode == TranslationMode.SUBTITLES:
+        if provider == "fake":
+            return [
+                ExtractAudioStage(FakeMediaProvider()),
+                TranscribeStage(FakeTranscriber()),
+                RegroupStage(),
+                TranslateStage(FakeTranslator()),
+                ExportSubtitlesStage(),
+            ]
+        if provider == "legacy":
+            from translate_video.media import LegacyMoviePyMediaProvider  # noqa: PLC0415
+            from translate_video.speech import FasterWhisperTranscriber  # noqa: PLC0415
+            from translate_video.translation import CloudFallbackSegmentTranslator, GoogleSegmentTranslator  # noqa: PLC0415
+            return [
+                ExtractAudioStage(LegacyMoviePyMediaProvider()),
+                TranscribeStage(FasterWhisperTranscriber()),
+                RegroupStage(),
+                TranslateStage(CloudFallbackSegmentTranslator(fallback=GoogleSegmentTranslator())),
+                ExportSubtitlesStage(),
+            ]
+
+    # ── Режимы с озвучкой ─────────────────────────────────────────────────────
+    # voiceover / voiceover_and_subtitles / dub / dual_audio / learning
+    with_export = mode == TranslationMode.VOICEOVER_SUBTITLES
+
     if provider == "fake":
-        return [
+        stages = [
             ExtractAudioStage(FakeMediaProvider()),
             TranscribeStage(FakeTranscriber()),
             RegroupStage(),
@@ -111,18 +151,20 @@ def build_stages(provider: str, project_config=None) -> list:
             TimingFitStage(FakeTimingFitter()),
             TTSStage(FakeTTSProvider()),
             RenderStage(FakeRenderer()),
-            ExportSubtitlesStage(),
-            EmbedSubtitlesStage(),
         ]
-    if provider == "legacy":
-        from translate_video.media import LegacyMoviePyMediaProvider
-        from translate_video.render import MoviePyVoiceoverRenderer
-        from translate_video.speech import FasterWhisperTranscriber
-        from translate_video.timing import NaturalVoiceTimingFitter
-        from translate_video.translation import CloudFallbackSegmentTranslator, GoogleSegmentTranslator
-        from translate_video.tts import EdgeTTSProvider, build_openai_tts_provider, build_speechkit_tts_provider
+        if with_export:
+            stages.append(ExportSubtitlesStage())
+        stages.append(EmbedSubtitlesStage())
+        return stages
 
-        # Профессиональный TTS: Yandex SpeechKit → OpenAI-совместимый → Edge TTS (бесплатный)
+    if provider == "legacy":
+        from translate_video.media import LegacyMoviePyMediaProvider  # noqa: PLC0415
+        from translate_video.render import MoviePyVoiceoverRenderer  # noqa: PLC0415
+        from translate_video.speech import FasterWhisperTranscriber  # noqa: PLC0415
+        from translate_video.timing import NaturalVoiceTimingFitter  # noqa: PLC0415
+        from translate_video.translation import CloudFallbackSegmentTranslator, GoogleSegmentTranslator  # noqa: PLC0415
+        from translate_video.tts import EdgeTTSProvider, build_openai_tts_provider, build_speechkit_tts_provider  # noqa: PLC0415
+
         tts_provider = None
         if project_config is not None:
             tts_provider = (
@@ -131,7 +173,7 @@ def build_stages(provider: str, project_config=None) -> list:
             )
         tts_provider = tts_provider or EdgeTTSProvider()
 
-        return [
+        stages = [
             ExtractAudioStage(LegacyMoviePyMediaProvider()),
             TranscribeStage(FasterWhisperTranscriber()),
             RegroupStage(),
@@ -139,9 +181,12 @@ def build_stages(provider: str, project_config=None) -> list:
             TimingFitStage(NaturalVoiceTimingFitter()),
             TTSStage(tts_provider),
             RenderStage(MoviePyVoiceoverRenderer()),
-            ExportSubtitlesStage(),
-            EmbedSubtitlesStage(),
         ]
+        if with_export:
+            stages.append(ExportSubtitlesStage())
+        stages.append(EmbedSubtitlesStage())
+        return stages
+
     raise ValueError(f"неподдерживаемый провайдер: {provider!r}")
 
 

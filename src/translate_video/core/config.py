@@ -11,11 +11,12 @@ from typing import Any
 class TranslationMode(StrEnum):
     """Способ доставки переведенного контента в итоговом экспорте."""
 
-    VOICEOVER = "voiceover"
-    DUB = "dub"
-    SUBTITLES = "subtitles"
-    DUAL_AUDIO = "dual_audio"
-    LEARNING = "learning"
+    VOICEOVER             = "voiceover"              # дубляж, без субтитров (дефолт)
+    VOICEOVER_SUBTITLES   = "voiceover_and_subtitles" # дубляж + SRT/VTT файлы
+    SUBTITLES             = "subtitles"              # только субтитры, без TTS/Render
+    DUB                   = "dub"
+    DUAL_AUDIO            = "dual_audio"
+    LEARNING              = "learning"
 
 
 class TranslationStyle(StrEnum):

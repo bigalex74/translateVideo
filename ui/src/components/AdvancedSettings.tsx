@@ -76,6 +76,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
 }) => {
   const c = { ...DEFAULT_CONFIG, ...config };
   const professional = c.translation_quality === 'professional';
+  const isSubtitlesOnly = c.translation_mode === 'subtitles';
 
   // Управление тегами do_not_translate
   const [tagInput, setTagInput] = React.useState('');
@@ -366,8 +367,23 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
         )}
       </div>
 
+      {/* Режим «только субтитры» — TTS/Render недоступны */}
+      {isSubtitlesOnly && (
+        <div className="adv-section adv-section--info">
+          <span style={{ fontSize: '1.5rem' }}>💬</span>
+          <div>
+            <strong>Режим «Только субтитры»</strong><br />
+            <span className="adv-hint">
+              В этом режиме TTS, тайминги и рендер не запускаются —
+              пайплайн остановится после экспорта SRT/VTT.
+              Настройки озвучки ниже неактивны.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Дополнительные настройки — только в профессиональном режиме */}
-      {professional && (
+      {professional && !isSubtitlesOnly && (
         <div className="adv-section">
           <div className="adv-section-title">Дополнительные настройки</div>
 

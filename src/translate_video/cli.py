@@ -189,7 +189,7 @@ def _handle_run(args: argparse.Namespace) -> dict:
     else:
         raise SystemExit("для run укажите input_video или --work-dir")
 
-    runner = PipelineRunner(_build_stages(args.provider), force=args.force)
+    runner = PipelineRunner(_build_stages(args.provider, project.config), force=args.force)
     runs = runner.run(StageContext(project=project, store=store))
     restored = store.load_project(project.work_dir)
     summary = _project_summary(restored)
@@ -295,9 +295,9 @@ def _config_from_args(args: argparse.Namespace) -> PipelineConfig:
     )
 
 
-def _build_stages(provider: str):
+def _build_stages(provider: str, config=None):
     """Делегировать сборку этапов в pipeline.utils."""
-    return _build_stages_impl(provider)
+    return _build_stages_impl(provider, project_config=config)
 
 
 def _project_summary(project) -> dict:

@@ -65,6 +65,29 @@ const PRESETS = [
   },
 ] as const;
 
+// ─── Режимы пайплайна ─────────────────────────────────────────────────────
+
+const PIPELINE_MODES = [
+  {
+    id: 'voiceover',
+    icon: '🎙️',
+    label: 'Дубляж',
+    description: 'Перевод + озвучка. Оригинальный звук приглушён.',
+  },
+  {
+    id: 'subtitles',
+    icon: '💬',
+    label: 'Субтитры',
+    description: 'Только SRT/VTT файлы. Без TTS и рендера — быстро и бесплатно.',
+  },
+  {
+    id: 'voiceover_and_subtitles',
+    icon: '🎙️💬',
+    label: 'Дубляж + субтитры',
+    description: 'Озвучка вшивается в видео, и дополнительно генерируются SRT/VTT.',
+  },
+] as const;
+
 // ─── Компонент ────────────────────────────────────────────────────────────
 
 export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale }) => {
@@ -363,15 +386,23 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
               </div>
             </div>
 
-            {/* Режим */}
+            {/* Режим пайплайна — карточки */}
             <div className="form-group">
-              <label>Режим перевода</label>
-              <select className="select-input" value={mode} onChange={e => setMode(e.target.value)}>
-                <option value="voiceover">🎙️ Закадровый голос (оригинал приглушён)</option>
-                <option value="dub">🗣️ Дубляж (полная замена)</option>
-                <option value="subtitles">📄 Только субтитры</option>
-                <option value="dual_audio">🔊 Двойное аудио</option>
-              </select>
+              <label>Что делать с видео?</label>
+              <div className="mode-cards">
+                {PIPELINE_MODES.map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`mode-card ${mode === m.id ? 'mode-card--active' : ''}`}
+                    onClick={() => setMode(m.id)}
+                  >
+                    <span className="mode-card__icon">{m.icon}</span>
+                    <span className="mode-card__label">{m.label}</span>
+                    <span className="mode-card__desc">{m.description}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Движок */}
