@@ -171,12 +171,14 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
 
   React.useEffect(() => {
     if (!professional || !ttsProvider) return;
-    const prov = isYandex ? 'yandex' : 'openai';
-    if (lastLoadedProvider.current === prov) return;
-    lastLoadedProvider.current = prov;
-    fetch(`/api/v1/tts/voices?provider=${prov}`).then(r => r.json()).then(d => setTtsVoices(d.voices ?? []));
+    const prov = isYandex ? 'yandex' : ttsProvider === 'polza' ? 'polza' : 'openai';
+    const key = `${prov}:${ttsModel}`;
+    if (lastLoadedProvider.current === key) return;
+    lastLoadedProvider.current = key;
+    const modelParam = prov === 'polza' ? `&model=${encodeURIComponent(ttsModel)}` : '';
+    fetch(`/api/v1/tts/voices?provider=${prov}${modelParam}`).then(r => r.json()).then(d => setTtsVoices(d.voices ?? []));
     fetch(`/api/v1/tts/models?provider=${prov}`).then(r => r.json()).then(d => setTtsModels(d.models ?? []));
-  }, [professional, ttsProvider, isYandex]);
+  }, [professional, ttsProvider, isYandex, ttsModel]);
 
   // Роли доступные для выбранного голоса (Yandex)
   const voice1Meta = ttsVoices.find(v => v.id === ttsVoice1);
@@ -404,10 +406,11 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                       // Сбрасываем голос на дефолт нового провайдера
                       onChange({
                         professional_tts_provider: p,
-                        professional_tts_voice:   p === 'yandex' ? 'alena'  : 'nova',
-                        professional_tts_voice_2: p === 'yandex' ? 'filipp' : 'onyx',
+                        professional_tts_voice:   p === 'yandex' ? 'alena'  : p === 'polza' ? 'Rachel' : 'nova',
+                        professional_tts_voice_2: p === 'yandex' ? 'filipp' : p === 'polza' ? 'Adam'   : 'onyx',
                         professional_tts_role:    'neutral',
                         professional_tts_role_2:  'neutral',
+                        professional_tts_model:   p === 'polza' ? 'openai/gpt-4o-mini-tts' : 'tts-1',
                       });
                     }}
                     disabled={disabled}
@@ -434,6 +437,13 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                         {id:'tts-1',name:'TTS-1',note:'Стандартное'},
                         {id:'tts-1-hd',name:'TTS-1 HD',note:'HD'},
                         {id:'gpt-4o-mini-tts',name:'GPT-4o Mini TTS',note:'Высокое'},
+                        ...(ttsProvider === 'polza' ? [
+                          {id:'openai/gpt-4o-mini-tts',name:'GPT-4o Mini TTS',note:'быстрый'},
+                          {id:'openai/tts-1-hd',name:'TTS-1 HD',note:'HD'},
+                          {id:'openai/tts-1',name:'TTS-1',note:'стандарт'},
+                          {id:'elevenlabs/text-to-speech-turbo-2-5',name:'ElevenLabs Turbo 2.5',note:'эмоции'},
+                          {id:'elevenlabs/text-to-speech-multilingual-v2',name:'ElevenLabs Multilingual v2',note:'многоязычный'},
+                        ] : []),
                       ]).map(m => (
                         <option key={m.id} value={m.id}>{m.name} — {m.note}</option>
                       ))}
