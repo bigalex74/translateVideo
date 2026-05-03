@@ -139,13 +139,6 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
 
   // ── Обработчики ──────────────────────────────────────────────────────────
 
-  /** Ударение +: вставить «+» в позицию курсора */
-  const doStress = () => {
-    const { start } = sel.current;
-    onChange(insertAt(currentText, start, '+'));
-    refocus(start + 1);
-  };
-
   /** Явная пауза sil<[Xms]> */
   const doSilPause = () => {
     const { start } = sel.current;
@@ -257,18 +250,6 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
   return (
     <div className="ssml-toolbar" role="toolbar" aria-label="TTS-разметка произношения">
 
-      {/* +а́ Ударение */}
-      <button
-        className="ssml-btn ssml-btn--stress"
-        title={"Ударение: вставить «+» перед ударной гласной\nПример: зам+ок, при+вет, во+да"}
-        onMouseDown={saveSel}
-        onClick={doStress}
-        type="button"
-      >
-        +а́
-      </button>
-
-      <div className="ssml-divider" />
 
       {/* Пауза явная */}
       <select ref={pauseMsRef} className="ssml-select" title="Длина явной паузы (мс)" defaultValue="300"
