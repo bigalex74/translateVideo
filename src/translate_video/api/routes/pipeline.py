@@ -414,7 +414,32 @@ def tts_preview(
                 "Authorization": f"Api-Key {api_key}",
                 "Content-Type": "application/json",
             }
+            # x-folder-id нужен для premium голосов (zamira, etc.)
+            folder_id = os.getenv("YANDEX_FOLDER_ID", "").strip()
+            if folder_id:
+                headers["x-folder-id"] = folder_id
+
             audio_bytes = _post_streaming(SPEECHKIT_TTS_URL, payload, headers=headers, timeout=15)
+
+            # Fallback: premium голос без folder_id может вернуть <5KB (усечённый ответ)
+            # В этом случае повторяем с голосом alena (стандартный, не требует folder_id)
+            TRUNCATED_THRESHOLD = 5000
+            if len(audio_bytes) < TRUNCATED_THRESHOLD and voice not in ("alena", "filipp", "zahar", "oksana"):
+                fallback_hints = [{"voice": "alena"}, {"speed": 1.0}]
+                fallback_payload = {
+                    **payload_text,
+                    "hints": fallback_hints,
+                    "outputAudioSpec": {"containerAudio": {"containerAudioType": "MP3"}},
+                    "unsafeMode": True,
+                }
+                fallback_headers = {
+                    "Authorization": f"Api-Key {api_key}",
+                    "Content-Type": "application/json",
+                }
+                audio_bytes = _post_streaming(
+                    SPEECHKIT_TTS_URL, fallback_payload,
+                    headers=fallback_headers, timeout=15
+                )
 
         else:
             # OpenAI TTS
