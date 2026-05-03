@@ -3,8 +3,9 @@ import './SSMLToolbar.css';
 
 /**
  * SSMLToolbar — компактная панель Яндекс TTS-разметки.
- * v1.28.0: компактный вид, умный акцент (определяет слово под курсором),
- *           автоскрытие ошибок, без лишних подписей групп.
+ *
+ * FIX v1.28.0: doPreview читает getTextarea().value (живое значение),
+ * а не проп currentText (может быть устаревшим между рендерами).
  */
 
 interface SSMLToolbarProps {
@@ -30,11 +31,78 @@ function wrapAt(text: string, s: number, e: number, before: string, after: strin
 /** Определить границы слова в позиции pos */
 function wordBounds(text: string, pos: number): [number, number] {
   let s = pos, e = pos;
-  // Шаг назад до начала слова
   while (s > 0 && /\S/.test(text[s - 1])) s--;
-  // Шаг вперёд до конца слова
   while (e < text.length && /\S/.test(text[e])) e++;
   return [s, e];
+}
+
+// ── TTS-preview визуализация ─────────────────────────────────────────────────
+
+/**
+ * Рендерит TTS-разметку как читаемый HTML.
+ * **слово** → <b>слово</b> (оранжевый)
+ * sil<[300]> → ⏸ 300ms
+ * <[medium]> → ⏸~medium
+ * [[ph]] → 🔤ph
+ * + (перед гласной) → <sup>+</sup> (жёлтый)
+ */
+export function renderTtsMarkup(text: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  // Паттерны обработки (порядок важен)
+  const patterns: Array<{ re: RegExp; render: (m: RegExpExecArray) => React.ReactNode }> = [
+    {
+      // **акцент**
+      re: /\*\*(.+?)\*\*/,
+      render: (m) => <strong key={key++} className="tts-accent">{m[1]}</strong>,
+    },
+    {
+      // sil<[300]>
+      re: /sil<\[(\d+)\]>/,
+      render: (m) => <span key={key++} className="tts-sil" title={`Пауза ${m[1]}мс`}>⏸{m[1]}мс</span>,
+    },
+    {
+      // <[medium]> контекстная пауза
+      re: /<\[(tiny|small|medium|large|huge)\]>/,
+      render: (m) => <span key={key++} className="tts-ctx-pause" title={`Контекстная пауза: ${m[1]}`}>⏸~{m[1]}</span>,
+    },
+    {
+      // [[фонемы]]
+      re: /\[\[(.+?)\]\]/,
+      render: (m) => <span key={key++} className="tts-phoneme" title={`Фонемы: ${m[1]}`}>🔤{m[1]}</span>,
+    },
+    {
+      // + перед гласной (ударение)
+      re: /\+([аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU])/,
+      render: (m) => <span key={key++} className="tts-stress">+{m[1]}</span>,
+    },
+  ];
+
+  while (remaining.length > 0) {
+    let earliest: { index: number; length: number; node: React.ReactNode } | null = null;
+
+    for (const p of patterns) {
+      const m = p.re.exec(remaining);
+      if (m && (earliest === null || m.index < earliest.index)) {
+        earliest = { index: m.index, length: m[0].length, node: p.render(m) };
+      }
+    }
+
+    if (!earliest) {
+      nodes.push(<span key={key++}>{remaining}</span>);
+      break;
+    }
+
+    if (earliest.index > 0) {
+      nodes.push(<span key={key++}>{remaining.slice(0, earliest.index)}</span>);
+    }
+    nodes.push(earliest.node);
+    remaining = remaining.slice(earliest.index + earliest.length);
+  }
+
+  return nodes;
 }
 
 // ── Компонент ────────────────────────────────────────────────────────────────
@@ -101,24 +169,13 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
     refocus(start + tag.length);
   };
 
-  /**
-   * Акцент **слово**:
-   * - Если есть выделение → обернуть его
-   * - Если курсор внутри слова → определить границы автоматически
-   * - Если курсор на пробеле → вставить **слово**
-   */
+  /** Акцент **слово** — определяет слово под курсором автоматически */
   const doAccent = () => {
     const { start, end } = sel.current;
-
     let wS = start, wE = end;
-
-    if (start === end) {
-      // Нет выделения — определяем слово под курсором
-      [wS, wE] = wordBounds(currentText, start);
-    }
+    if (start === end) [wS, wE] = wordBounds(currentText, start);
 
     if (wS === wE) {
-      // Курсор между пробелами — вставляем placeholder
       const tag = '**слово**';
       onChange(insertAt(currentText, start, tag));
       refocus(start + 2, start + 2 + 'слово'.length);
@@ -130,10 +187,9 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
     refocus(wS + 2, wS + 2 + (wE - wS));
   };
 
-  /** Фонемы [[...]] */
+  /** Фонемы [[...]] — определяет слово под курсором автоматически */
   const doPhoneme = () => {
     const { start, end } = sel.current;
-
     let wS = start, wE = end;
     if (start === end) [wS, wE] = wordBounds(currentText, start);
 
@@ -141,25 +197,27 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
     const ph = window.prompt('Введите фонемы через пробел (например: v a sʲ ʌ):', selected);
     if (!ph) return;
 
-    // Заменяем слово/выделение обёрткой [[фонемы]]
-    const before = '[[';
-    const after  = ']]';
-    const inner  = ph;
     const newVal = currentText.slice(0, wS < wE ? wS : start)
-      + before + inner + after
+      + '[[' + ph + ']]'
       + currentText.slice(wS < wE ? wE : start);
 
     onChange(newVal);
-    refocus((wS < wE ? wS : start) + before.length + inner.length + after.length);
+    refocus((wS < wE ? wS : start) + 2 + ph.length + 2);
   };
 
-  /** Прослушать */
+  /**
+   * Прослушать — ВАЖНО: читаем getTextarea().value (живое значение),
+   * не проп currentText (может не отражать последние правки).
+   */
   const doPreview = async () => {
-    if (previewing || !currentText.trim()) return;
+    if (previewing) return;
+    // Живое значение из textarea — самое актуальное
+    const liveText = (getTextarea()?.value ?? currentText).trim();
+    if (!liveText) return;
     setPreviewErr('');
     setPreviewing(true);
     try {
-      await onPreview(currentText.trim());
+      await onPreview(liveText);
     } catch (e) {
       showErr(e instanceof Error ? e.message.slice(0, 60) : 'Ошибка синтеза');
     } finally {
@@ -231,7 +289,7 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
       {/* Акцент **слово** */}
       <button
         className="ssml-btn ssml-btn--accent"
-        title={"Акцент: выделить слово или поставить курсор внутри\nАвтоматически определяет границы слова\nВставляет: **слово**"}
+        title={"Акцент: выделить слово или поставить курсор внутри\nАвтоматически обёртывает слово в **...**"}
         onMouseDown={saveSel}
         onClick={doAccent}
         type="button"
@@ -244,7 +302,7 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
       {/* Фонемы [[...]] */}
       <button
         className="ssml-btn ssml-btn--phoneme"
-        title={"Фонетическое произношение\nВыделите слово или поставьте курсор внутри\nПример: [[v a sʲ ʌ]] → «Вася»"}
+        title={"Фонетическое произношение\nПоставьте курсор внутри слова\nПример: [[v a sʲ ʌ]] → «Вася»"}
         onMouseDown={saveSel}
         onClick={doPhoneme}
         type="button"
@@ -272,20 +330,18 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
       {/* Прослушать */}
       <button
         className={`ssml-btn ssml-btn--preview${previewing ? ' ssml-btn--loading' : ''}`}
-        title="Синтезировать и прослушать этот фрагмент"
+        title="Синтезировать и прослушать этот фрагмент (читает текущее содержимое textarea)"
         onClick={doPreview}
-        disabled={previewing || !currentText.trim()}
+        disabled={previewing}
         type="button"
       >
         {previewing ? '⏳' : '▶'} Прослушать
       </button>
 
-      {/* Badge — только если override задан */}
       {hasOverride && (
         <span className="ssml-override-badge" title="Активна ручная TTS-разметка">✎ TTS</span>
       )}
 
-      {/* Ошибка синтеза — автоскрывается через 5с */}
       {previewErr && (
         <span className="ssml-preview-err" title={previewErr}>⚠ {previewErr}</span>
       )}

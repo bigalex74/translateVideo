@@ -174,3 +174,79 @@
   white-space: nowrap;
   flex-shrink: 1;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TTS Rich Preview — визуализация разметки под textarea
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tts-rich-preview {
+  margin-top: 4px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.80);
+  word-break: break-word;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Акцент **слово** → жирный оранжевый */
+.tts-rich-preview .tts-accent {
+  font-weight: 700;
+  color: #fb923c;
+  font-style: normal;
+}
+
+/* Пауза sil<[300]> → ⏸ тег */
+.tts-rich-preview .tts-sil {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 5px;
+  margin: 0 2px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 4px;
+  color: #c4b5fd;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+/* Контекстная пауза <[medium]> */
+.tts-rich-preview .tts-ctx-pause {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  margin: 0 2px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 4px;
+  color: #a5b4fc;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+/* Фонемы [[ph]] */
+.tts-rich-preview .tts-phoneme {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 5px;
+  margin: 0 2px;
+  background: rgba(96, 165, 250, 0.10);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  border-radius: 4px;
+  color: #93c5fd;
+  font-size: 11px;
+  font-family: monospace;
+  vertical-align: middle;
+}
+
+/* Ударение + перед гласной */
+.tts-rich-preview .tts-stress {
+  color: #fbbf24;
+  font-weight: 600;
+}

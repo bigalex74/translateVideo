@@ -11,7 +11,7 @@ import { AdvancedSettings } from './AdvancedSettings';
 import { ArtifactCard } from './ArtifactCard';
 import { StatsPanel } from './StatsPanel';
 import { DevLogPanel } from './DevLogPanel';
-import { SSMLToolbar } from './SSMLToolbar';
+import { SSMLToolbar, renderTtsMarkup } from './SSMLToolbar';
 import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
@@ -725,6 +725,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     }
                     rows={2}
                   />
+                  {/* TTS Rich Preview — визуализация разметки */}
+                  {(() => {
+                    const ov = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override;
+                    if (!ov) return null;
+                    const hasTtsMarkup = /\*\*|sil<\[|<\[(tiny|small|medium|large|huge)\]>|\[\[|\+[аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU]/i.test(ov);
+                    if (!hasTtsMarkup) return null;
+                    return (
+                      <div className="tts-rich-preview" title="Предпросмотр TTS-разметки">
+                        {renderTtsMarkup(ov)}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
               {segments.length === 0 && !isRunning && (
