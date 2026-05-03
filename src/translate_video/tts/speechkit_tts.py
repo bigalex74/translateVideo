@@ -407,26 +407,41 @@ def _post_streaming(
     headers: dict,
     timeout: float,
 ) -> bytes:
-    """POST к SpeechKit v3 — собирает streaming NDJSON-ответ в один mp3."""
+    """POST к SpeechKit v3 — собирает NDJSON-ответ в один mp3.
+
+    ВАЖНО: Яндекс SpeechKit v3 отдаёт один длинный JSON-объект без переносов
+    строк (~30-50 KB на фразу). Итерация ``for line in response`` разбивает
+    ответ по буферу urllib (~8 KB), а не по '\\n' — каждый кусок невалидный
+    JSON, все пропускаются, результат — пустой или усечённый аудио (1 буква).
+
+    Исправление: читаем весь ответ через ``response.read()`` и разбиваем
+    по b'\\n', чтобы получить полные JSON-строки.
+    """
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
         chunks: list[bytes] = []
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            for line in response:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                    b64 = (
-                        obj.get("audioChunk", {}).get("data")
-                        or obj.get("result", {}).get("audioChunk", {}).get("data")
-                    )
-                    if b64:
-                        chunks.append(base64.b64decode(b64))
-                except (json.JSONDecodeError, KeyError, ValueError):
-                    continue
+            # Читаем ВЕСЬ ответ сразу — не итерируем построчно.
+            # urllib итерирует по буферам ~8KB, а не по \n,
+            # что разрывает длинные JSON-объекты Яндекса на невалидные куски.
+            raw = response.read()
+
+        for line in raw.split(b"\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                b64 = (
+                    obj.get("audioChunk", {}).get("data")
+                    or obj.get("result", {}).get("audioChunk", {}).get("data")
+                )
+                if b64:
+                    chunks.append(base64.b64decode(b64))
+            except (json.JSONDecodeError, KeyError, ValueError):
+                continue
+
         if not chunks:
             raise RuntimeError("SpeechKit вернул пустой аудио-ответ")
         return b"".join(chunks)
