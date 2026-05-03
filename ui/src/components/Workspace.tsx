@@ -49,6 +49,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const videoRef = useRef<HTMLVideoElement>(null);
   // Ссылки на DOM-узлы карточек сегментов для авто-скролла
   const segRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  // Ref на textarea активного SSML-редактора. Нужен SSMLToolbar для работы с selection.
+  // ВАЖНО: должен быть ДО любого раннего return (Rules of Hooks).
+  const ssmlTextareaRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
 
   // Undo/redo история
   const [history, setHistory] = useState<Segment[][]>([]);
@@ -221,8 +224,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     setDirty(true);
   };
 
-  /** Ref на textarea активного SSML-редактора. Нужен SSMLToolbar для работы с selection. */
-  const ssmlTextareaRefs = React.useRef<Map<string, HTMLTextAreaElement>>(new Map());
 
   const undo = () => {
     if (historyIndex <= 0) return;
