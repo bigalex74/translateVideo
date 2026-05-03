@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline } from '../api/client';
+import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS } from '../api/client';
 import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -675,14 +675,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   <div className="seg-source">{seg.source_text}</div>
 
                   {/* SSML-тулбар — показывается только при Яндекс TTS */}
-                  {project.config?.professional_tts_provider === 'yandex' && (
-                    <SSMLToolbar
-                      hasOverride={!!((seg as Segment & { tts_ssml_override?: string }).tts_ssml_override)}
-                      onChange={(v) => handleSsmlChange(seg.id, v)}
-                      onReset={() => handleSsmlReset(seg.id)}
-                      textareaRef={{ current: ssmlTextareaRefs.current.get(seg.id) ?? null }}
-                    />
-                  )}
+                  {project.config?.professional_tts_provider === 'yandex' && (() => {
+                    const ssmlOverride = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override || '';
+                    const currentText = ssmlOverride || seg.translated_text || '';
+                    return (
+                      <SSMLToolbar
+                        getTextarea={() => ssmlTextareaRefs.current.get(seg.id) ?? null}
+                        currentText={currentText}
+                        hasOverride={!!ssmlOverride}
+                        onChange={(v) => handleSsmlChange(seg.id, v)}
+                        onReset={() => handleSsmlReset(seg.id)}
+                        onPreview={async (text, isSsml) => {
+                          const url = await previewTTS(projectId, text, isSsml);
+                          const audio = new Audio(url);
+                          audio.onended = () => URL.revokeObjectURL(url);
+                          audio.onerror = () => URL.revokeObjectURL(url);
+                          await audio.play();
+                        }}
+                      />
+                    );
+                  })()}
 
                   <textarea
                     ref={(el) => {
@@ -695,17 +707,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override ? ' seg-has-ssml' : ''
                     }`}
                     value={
-                      // Если задан override — показывать его в textarea вместо translated_text
                       (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
                         || (seg.translated_text ?? '')
                     }
                     onChange={(e) => {
                       const hasOverride = !!(seg as Segment & { tts_ssml_override?: string }).tts_ssml_override;
                       if (hasOverride) {
-                        // Редактируем SSML-override
                         handleSsmlChange(seg.id, e.target.value);
                       } else {
-                        // Редактируем translated_text (стандартный путь)
                         handleTextChange(seg.id, e.target.value);
                       }
                     }}

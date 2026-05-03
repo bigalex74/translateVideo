@@ -162,3 +162,47 @@
   white-space: nowrap;
   user-select: none;
 }
+
+/* Кнопка Прослушать */
+.ssml-btn--preview {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.25);
+  font-weight: 500;
+  gap: 4px;
+}
+.ssml-btn--preview:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+}
+.ssml-btn--preview:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ssml-btn--loading {
+  animation: ssml-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes ssml-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* Ошибка синтеза */
+.ssml-preview-err {
+  color: #f87171;
+  font-size: 10px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Подсказка для новых пользователей */
+.ssml-hint {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.30);
+  font-style: italic;
+  margin-right: 4px;
+  user-select: none;
+}

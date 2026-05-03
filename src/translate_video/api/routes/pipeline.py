@@ -332,3 +332,121 @@ def get_tts_models(provider: str = "openai"):
         ],
         "provider": "openai",
     }
+
+
+# ── TTS Preview ───────────────────────────────────────────────────────────────
+
+class TTSPreviewRequest(BaseModel):
+    """Запрос на синтез фрагмента для предпрослушивания."""
+    text: str           # plain text или SSML
+    is_ssml: bool = False  # если True — текст обёрнут в <speak>
+
+
+@router.post("/{project_id}/tts-preview")
+def tts_preview(
+    project_id: str,
+    req: TTSPreviewRequest,
+    store: ProjectStore = Depends(get_store),
+):
+    """Синтезировать короткий фрагмент текста и вернуть mp3.
+
+    Используется кнопкой «▶» в редакторе сегментов для предпрослушивания
+    без запуска полного пайплайна. Использует настройки TTS из проекта.
+    """
+    import tempfile, os
+    from pathlib import Path
+    from fastapi.responses import Response
+
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+        cfg = project.config
+
+        text = req.text.strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Текст не может быть пустым")
+        if len(text) > 2000:
+            raise HTTPException(status_code=400, detail="Текст слишком длинный (max 2000 символов)")
+
+        provider_name = getattr(cfg, "professional_tts_provider", "openai")
+
+        if provider_name == "yandex":
+            from translate_video.tts.speechkit_tts import YandexSpeechKitTTSProvider
+            from translate_video.tts.speechkit_tts import ssml_enhance, EMOTION_OFF
+
+            api_key = os.getenv("SPEECHKIT_API_KEY") or os.getenv("YANDEX_TTS_API_KEY", "")
+            if not api_key:
+                raise HTTPException(status_code=503, detail="SPEECHKIT_API_KEY не настроен")
+
+            voice = getattr(cfg, "professional_tts_voice", "alena")
+            emotion_level = int(getattr(cfg, "tts_emotion_level", 0))
+
+            # Подготовка текста для синтеза
+            if req.is_ssml and not text.startswith("<speak>"):
+                synth_text = f"<speak>{text}</speak>"
+            elif not req.is_ssml and emotion_level > EMOTION_OFF:
+                synth_text = ssml_enhance(text, emotion_level)
+            else:
+                synth_text = text
+
+            # Определяем поле (text или ssml)
+            if synth_text.startswith("<speak>") or req.is_ssml:
+                payload_text = {"ssml": synth_text}
+            else:
+                payload_text = {"text": synth_text}
+
+            from translate_video.tts.speechkit_tts import SPEECHKIT_TTS_URL, _post_streaming, SPEECHKIT_VOICES
+            voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
+            role = (voice_meta.get("roles", ["neutral"])[0] if voice_meta else "neutral")
+
+            hints = [{"voice": voice}]
+            if voice_meta and voice_meta.get("roles"):
+                hints.append({"role": role})
+            hints.append({"speed": 1.0})
+
+            payload = {
+                **payload_text,
+                "hints": hints,
+                "outputAudioSpec": {"containerAudio": {"containerAudioType": "MP3"}},
+                "unsafeMode": True,
+            }
+            headers = {
+                "Authorization": f"Api-Key {api_key}",
+                "Content-Type": "application/json",
+            }
+            audio_bytes = _post_streaming(SPEECHKIT_TTS_URL, payload, headers=headers, timeout=15)
+
+        else:
+            # OpenAI TTS
+            import re as _re
+            from translate_video.tts.openai_tts import OpenAITTSProvider
+
+            api_key = os.getenv("OPENAI_API_KEY", "")
+            if not api_key:
+                raise HTTPException(status_code=503, detail="OPENAI_API_KEY не настроен")
+
+            voice = getattr(cfg, "professional_tts_voice", "alloy")
+            # Для OpenAI стриппируем SSML если есть
+            clean_text = _re.sub(r"<[^>]+>", "", text).replace("+", "").strip()
+            if not clean_text:
+                clean_text = text
+
+            provider = OpenAITTSProvider(
+                api_key=api_key,
+                voice_1=voice,
+                voice_2=getattr(cfg, "professional_tts_voice_2", "echo"),
+            )
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_path = Path(tmp) / "preview.mp3"
+                provider._synth(clean_text, voice, tmp_path)
+                audio_bytes = tmp_path.read_bytes()
+
+        return Response(content=audio_bytes, media_type="audio/mpeg")
+
+    except HTTPException:
+        raise
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Проект не найден")
+    except Exception as exc:
+        _log.exception("tts.preview.error", project=project_id)
+        raise HTTPException(status_code=500, detail=f"Ошибка синтеза: {exc}")

@@ -153,3 +153,23 @@ export async function cancelPipeline(project_id: string): Promise<{ status: stri
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }
+
+/**
+ * Синтезировать фрагмент текста и вернуть Blob URL для воспроизведения.
+ * Используется кнопкой «▶ Прослушать» в редакторе сегментов.
+ * Caller отвечает за вызов URL.revokeObjectURL() после использования.
+ */
+export async function previewTTS(
+    project_id: string,
+    text: string,
+    is_ssml: boolean = false,
+): Promise<string> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/tts-preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, is_ssml }),
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+}
