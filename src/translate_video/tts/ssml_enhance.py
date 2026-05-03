@@ -70,6 +70,8 @@ def enhance(text: str, emotion_level: int) -> str:
         is_ellipsis = end_punct in ("…", "...")
 
         escaped = sax.escape(raw.strip())
+        if not escaped:   # пустой сегмент — пропускаем, чтобы не слать <speak></speak>
+            continue
 
         if level == 1:
             # Только пауза после предложения
@@ -117,7 +119,11 @@ def enhance(text: str, emotion_level: int) -> str:
                 part += f'<break time="{pause_ms}ms"/>'
             parts.append(part)
 
-    inner = " ".join(parts)
+    inner = " ".join(p for p in parts if p.strip())  # фильтруем пустые части
+    # Защита: если inner пустой — Яндекс вернёт HTTP 400 "Empty Utterance".
+    # Возвращаем plain text как fallback.
+    if not inner.strip():
+        return text
     return f"<speak>{inner}</speak>"
 
 

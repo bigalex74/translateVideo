@@ -79,6 +79,10 @@ class OpenAITTSProvider:
         output_dir: Path = project.work_dir / "tts"
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Сбрасываем TTS-специфичные QA-флаги от предыдущего запуска
+        for seg in segments:
+            seg.qa_flags = [f for f in seg.qa_flags if not f.startswith("tts_")]
+
         for index, segment in enumerate(segments):
             text = segment.translated_text.strip()
             if not text:

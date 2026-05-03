@@ -132,6 +132,16 @@ class YandexSpeechKitTTSProvider:
         output_dir.mkdir(parents=True, exist_ok=True)
         speaker_voice_map: dict[str, tuple[str, str]] = {}
 
+        # Сбрасываем TTS-специфичные QA-флаги от предыдущего запуска,
+        # чтобы ошибки прошлой озвучки не попадали в QA текущей.
+        # Флаги тайминга (timing_fit_*) сохраняются — они остаются актуальными.
+        _TTS_FLAG_PREFIXES = ("tts_",)
+        for seg in segments:
+            seg.qa_flags = [
+                f for f in seg.qa_flags
+                if not any(f.startswith(p) for p in _TTS_FLAG_PREFIXES)
+            ]
+
         for index, segment in enumerate(segments):
             text = segment.translated_text.strip()
             if not text:
