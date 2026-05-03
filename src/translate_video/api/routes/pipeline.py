@@ -366,8 +366,6 @@ def tts_preview(
     Используется кнопкой «▶» в редакторе сегментов для предпрослушивания
     без запуска полного пайплайна. Использует настройки TTS из проекта.
     """
-    import tempfile, os
-    from pathlib import Path
     from fastapi.responses import Response
 
     try:
@@ -490,10 +488,9 @@ def tts_preview(
                 clean_text = text
 
             voice = getattr(cfg, "professional_tts_voice", "nova")
-            with tempfile.TemporaryDirectory() as tmp:
-                tmp_path = Path(tmp) / "preview.mp3"
-                provider._synth(clean_text, voice, tmp_path)
-                audio_bytes = tmp_path.read_bytes()
+            # synth_preview() возвращает сырые MP3-байты (без WAV-конвертации):
+            # браузер играет MP3 напрямую; speed/el_speed/stability учитываются.
+            audio_bytes = provider.synth_preview(clean_text, voice)
 
         import logging as _logging
         _logging.getLogger("tts_preview").warning(

@@ -297,6 +297,39 @@ class OpenAITTSProvider:
         _mp3_to_wav(audio_bytes, wav_output)
 
 
+    def synth_preview(self, text: str, voice: str) -> bytes:
+        """Синтезировать текст и вернуть сырые MP3-байты (для превью в браузере).
+
+        В отличие от _synth(), НЕ конвертирует в WAV — браузер воспроизводит
+        MP3 напрямую. Включает все параметры: speed (OpenAI), el_speed/stability
+        (ElevenLabs) — превью точно соответствует реальной озвучке.
+        """
+        payload: dict = {
+            "model": self.model,
+            "input": text,
+            "voice": voice,
+            "response_format": "mp3",
+        }
+        if self.is_elevenlabs:
+            payload["speed"] = self.el_speed
+            payload["stability"] = self.el_stability
+            payload["similarity_boost"] = self.el_similarity_boost
+            payload["style"] = self.el_style
+        else:
+            if abs(self.openai_speed - 1.0) > 0.01:
+                payload["speed"] = self.openai_speed
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        return self._http_post(
+            f"{self.base_url}/audio/speech",
+            payload,
+            headers=headers,
+            timeout=self.timeout,
+        )
+
+
 def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
     """Создать OpenAITTSProvider из PipelineConfig.
 

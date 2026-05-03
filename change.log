@@ -1,5 +1,23 @@
 # Журнал Изменений
 
+## 1.31.4 - 2026-05-03 - FIX - TVIDEO-133
+
+### TTS превью: speed и ElevenLabs-параметры не применялись + FileNotFoundError
+
+Проблема 1: preview endpoint вызывал provider._synth() который сохраняет
+preview.wav, а затем читал preview.mp3 → FileNotFoundError.
+
+Проблема 2: speed (OpenAI) и el_speed/stability (ElevenLabs) не передавались
+в API при вызове превью.
+
+Исправление: новый метод OpenAITTSProvider.synth_preview(text, voice) → bytes:
+- возвращает сырые MP3-байты без WAV-конвертации (браузер играет MP3 нативно)
+- включает speed для OpenAI (если != 1.0)
+- включает el_speed, el_stability, el_similarity_boost, el_style для ElevenLabs
+
+pipeline.py (tts-preview endpoint):
+- убран tempfile/Path, вместо _synth() → provider.synth_preview()
+
 ## 1.31.3 - 2026-05-03 - FEAT - TVIDEO-132
 
 ### OpenAI TTS: управление скоростью речи (0.75–2.0×)
