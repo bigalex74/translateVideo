@@ -275,23 +275,45 @@ def _normalize_spaces(text: str) -> str:
 def _effective_tts_speed(config) -> float:
     """Вернуть эффективный мультипликатор скорости TTS для timing_fit.
 
-    Для режима single/per_speaker — просто speed_1.
-    Для two_voices — минимальная из двух скоростей (консервативная оценка —
-    оба голоса должны влазать, даже более медленный).
+    Для Яндекс: speed_1 (и speed_2 для two_voices).
+    Для OpenAI/ElevenLabs: эмпирический коэффициент от модели
+      → target_cps умножается на него, что уменьшает max_chars.
 
     Для Edge TTS (нет профессионального TTS) скорость = 1.0.
-    """
-    # Внешний (Edge/бесплатный) провайдер не поддерживает speed-хинт
-    provider = getattr(config, "professional_tts_provider", "").strip().lower()
-    if provider != "yandex":
-        return 1.0
 
-    speed_1 = max(0.1, float(getattr(config, "professional_tts_speed",   1.0)))
-    strategy = getattr(config, "voice_strategy", "single")
-    if strategy == "two_voices":
-        speed_2 = max(0.1, float(getattr(config, "professional_tts_speed_2", 1.0)))
-        return min(speed_1, speed_2)  # консервативно: берём минимум
-    return speed_1
+    Калибровка gpt-4o-mini-tts (замерено 2026-05-03):
+      Средний CPS = 11.1 при base=14.0 → коэффициент ≈ 0.79
+      Берём 0.78 с небольшим запасом.
+
+    Калибровка tts-1 / tts-1-hd (OpenAI):
+      Похожая скорость, коэффициент 0.82.
+
+    ElevenLabs: обычно чуть быстрее, коэффициент 0.90.
+    """
+    provider = getattr(config, "professional_tts_provider", "").strip().lower()
+
+    # Яндекс: скорость управляется явным параметром speed
+    if provider == "yandex":
+        speed_1 = max(0.1, float(getattr(config, "professional_tts_speed", 1.0)))
+        strategy = getattr(config, "voice_strategy", "single")
+        if strategy == "two_voices":
+            speed_2 = max(0.1, float(getattr(config, "professional_tts_speed_2", 1.0)))
+            return min(speed_1, speed_2)  # консервативно: берём минимум
+        return speed_1
+
+    # OpenAI / ElevenLabs через Polza или NeuroAPI:
+    # реальный темп ниже target_chars_per_second — корректируем
+    if provider in ("polza", "neuroapi", "openai"):
+        model = getattr(config, "professional_tts_model", "").lower()
+        if "gpt-4o-mini-tts" in model:
+            return 0.78   # замерено: ~11 CPS при base 14.0
+        if "elevenlabs" in model:
+            return 0.90   # ElevenLabs несколько быстрее OpenAI TTS
+        # tts-1, tts-1-hd и прочие OpenAI
+        return 0.82
+
+    # Edge TTS / нет провайдера → без корректировки
+    return 1.0
 
 
 def _add_qa_flag(segment: Segment, flag: str) -> None:

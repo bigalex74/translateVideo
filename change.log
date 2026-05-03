@@ -1,5 +1,28 @@
 # Журнал Изменений
 
+## 1.31.2 - 2026-05-03 - FIX - TVIDEO-131
+
+### TimingFit: калибровка темпа для gpt-4o-mini-tts / OpenAI TTS
+
+Проблема: озвучка накладывалась на соседние слоты — TTS говорил
+медленнее, чем расчитывал TimingFit (target_chars_per_second=14.0).
+
+Замеры реального темпа gpt-4o-mini-tts (5 типичных рус. фраз):
+  chars/sec: 11.1, 7.3, 14.6, 13.6, 8.5 → среднее 11.1 CPS
+  Vs ожидаемые 14.0 → фактор 0.79
+
+timing/natural.py — _effective_tts_speed():
+  polza/neuroapi/openai + gpt-4o-mini-tts → 0.78  (замерено)
+  polza/neuroapi/openai + elevenlabs/*    → 0.90
+  polza/neuroapi/openai + tts-1, tts-1-hd → 0.82
+  yandex → по-прежнему speed_1/speed_2 из конфига
+  Edge TTS / неизвестный → 1.0 (без изменений)
+
+Эффект: max_chars = duration × (14.0 × 0.78) = duration × 10.92
+  → TimingFit сокращает текст чтобы TTS влазал в слот.
+
+Тесты: +3 новых в EffectiveTtsSpeedTest
+
 ## 1.31.1 - 2026-05-03 - FIX - TVIDEO-130
 
 ### OpenAI TTS: кряк из-за неверного sample rate в MoviePy
