@@ -178,8 +178,17 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
     refocus(wS + 2 + word.length + 2);
   };
 
-  /** Фонетическое ударение +: ставит + перед первой гласной в слове под курсором.
-   * Яндекс TTS разметка: б+олван, пр+иятно.
+  /** Фонетическое ударение +: ставит + перед ударной гласной в слове под курсором.
+   *
+   * Логика выбора гласной:
+   * 1. Ищем первую гласную НА КУРСОРЕ или ПОСЛЕ него (внутри слова).
+   * 2. Если таких нет (курсор за последней гласной) — берём ближайшую ПЕРЕД курсором.
+   * 3. Если слова нет — вставляем + в позицию курсора.
+   *
+   * Примеры:
+   *   замок, курсор перед «а» → з+амок  (первый слог)
+   *   замок, курсор перед «о» → зам+ок  (второй слог)
+   *   молоко, курсор перед последней «о» → молок+о
    */
   const doAccent = () => {
     const { start, end } = sel.current;
@@ -193,18 +202,33 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
       return;
     }
 
-    // Слово найдено — ставим + перед первой гласной
     const VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU';
     const word = currentText.slice(wS, wE);
-    const vowelIdx = word.split('').findIndex(ch => VOWELS.includes(ch));
+
+    // Позиция курсора внутри слова (0 = начало слова)
+    const cursorInWord = Math.min(Math.max(start - wS, 0), word.length);
+
+    // 1. Ищем первую гласную на курсоре или после (в пределах слова)
+    let vowelIdx = -1;
+    for (let i = cursorInWord; i < word.length; i++) {
+      if (VOWELS.includes(word[i])) { vowelIdx = i; break; }
+    }
+
+    // 2. Если нет — берём ближайшую ПЕРЕД курсором
     if (vowelIdx === -1) {
-      // Нет гласных (аббревиатура, число) — + в начало
+      for (let i = cursorInWord - 1; i >= 0; i--) {
+        if (VOWELS.includes(word[i])) { vowelIdx = i; break; }
+      }
+    }
+
+    if (vowelIdx === -1) {
+      // Нет гласных (аббревиатура, число) — + в начало слова
       onChange(insertAt(currentText, wS, '+'));
       refocus(wS + 1);
     } else {
       const insertPos = wS + vowelIdx;
       onChange(insertAt(currentText, insertPos, '+'));
-      refocus(insertPos + 1 + (wE - wS)); // после слова
+      refocus(insertPos + 1 + (wE - (wS + vowelIdx))); // курсор после слова
     }
   };
 
@@ -298,7 +322,7 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
       {/* Акцент: + перед гласной */}
       <button
         className="ssml-btn ssml-btn--accent"
-        title={"Ударение на слове: ставит + перед первой гласной\nПример: болван → б+олван, вода → в+ода\nПоставьте курсор внутри слова или выделите его"}
+        title={"Фонетическое ударение: ставит + перед гласной ближайшей к курсору\nПоставьте курсор ПЕРЕД нужной гласной:\n  замок → курсор перед «а» → з+амок\n  замок → курсор перед «о» → зам+ок\n  молоко → курсор перед «о» → молок+о"}
         onMouseDown={saveSel}
         onClick={doAccent}
         type="button"
