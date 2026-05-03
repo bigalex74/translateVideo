@@ -413,7 +413,8 @@ def tts_preview(
             hints = [{"voice": voice}]
             if voice_meta and voice_meta.get("roles"):
                 hints.append({"role": role})
-            hints.append({"speed": 1.0})
+            speed = float(getattr(cfg, "professional_tts_speed", 1.0))
+            hints.append({"speed": speed})
 
             payload = {
                 **payload_text,
@@ -443,9 +444,10 @@ def tts_preview(
             # Это лучше чем fallback на alena: сохраняется тот же голос.
             YANDEX_SILENCE_MAX = 4000  # < 4KB = тишина / неполный ответ
             if len(audio_bytes) < YANDEX_SILENCE_MAX:
-                # Retry без hints — Яндекс выберет голос из настроек folder_id
+                # Retry без voice hint (причина тишины), но со speed
                 nohint_payload = {
                     **payload_text,
+                    "hints": [{"speed": speed}],
                     "outputAudioSpec": {"containerAudio": {"containerAudioType": "MP3"}},
                     "unsafeMode": True,
                 }
