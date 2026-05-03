@@ -301,15 +301,19 @@ def run_pipeline(
 # ── TTS endpoints ─────────────────────────────────────────────────────────────
 
 @tts_router.get("/voices")
-def get_tts_voices(provider: str = "openai"):
+def get_tts_voices(provider: str = "openai", model: str = ""):
     """Вернуть список доступных TTS-голосов.
 
-    ?provider=openai  → голоса OpenAI-совместимых провайдеров (polza/neuroapi)
-    ?provider=yandex  → голоса Yandex SpeechKit с ролями
+    ?provider=openai   → голоса OpenAI-совместимых провайдеров
+    ?provider=polza    → голоса зависят от модели (?model=...)
+    ?provider=yandex   → голоса Yandex SpeechKit с ролями
     """
     if provider == "yandex":
         from translate_video.tts import SPEECHKIT_VOICES
         return {"voices": SPEECHKIT_VOICES, "provider": "yandex"}
+    if provider == "polza":
+        from translate_video.tts.openai_tts import voices_for_model
+        return {"voices": voices_for_model(model), "provider": "polza", "model": model}
     from translate_video.tts import TTS_VOICES
     return {"voices": TTS_VOICES, "provider": "openai"}
 
@@ -324,11 +328,20 @@ def get_tts_models(provider: str = "openai"):
             ],
             "provider": "yandex",
         }
+    if provider == "polza":
+        from translate_video.tts.openai_tts import POLZA_TTS_MODELS
+        return {
+            "models": [
+                {"id": m["id"], "name": m["name"], "note": f"{m['provider']}, timeout={int(m['timeout'])}s"}
+                for m in POLZA_TTS_MODELS
+            ],
+            "provider": "polza",
+        }
     return {
         "models": [
-            {"id": "tts-1",           "name": "TTS-1",           "note": "Быстрая, стандартное качество"},
-            {"id": "tts-1-hd",        "name": "TTS-1 HD",        "note": "Улучшенное качество, медленнее"},
-            {"id": "gpt-4o-mini-tts", "name": "GPT-4o Mini TTS", "note": "Высокое качество, поддержка инструкций"},
+            {"id": "tts-1",                "name": "TTS-1",           "note": "Быстрая, стандартное качество"},
+            {"id": "tts-1-hd",             "name": "TTS-1 HD",        "note": "Улучшенное качество, медленнее"},
+            {"id": "gpt-4o-mini-tts",      "name": "GPT-4o Mini TTS", "note": "Высокое качество, поддержка инструкций"},
         ],
         "provider": "openai",
     }

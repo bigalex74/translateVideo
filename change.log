@@ -1,5 +1,28 @@
 # Журнал Изменений
 
+## 1.30.0 - 2026-05-03 - FEAT - TVIDEO-120
+
+### Новые TTS-провайдеры: OpenAI + ElevenLabs через Polza
+
+openai_tts.py:
+- Поддержка JSON-ответа Polza: {"audio": "base64..."} → bytes
+  (раньше ожидался только binary mp3 → с Polza не работало)
+- ELEVENLABS_VOICES: Rachel, Domi, Bella, Antoni, Elli, Josh, Arnold, Adam, Sam
+- POLZA_TTS_MODELS: 5 моделей с голосами и timeout
+  * openai/gpt-4o-mini-tts    (60s, OpenAI voices)
+  * openai/tts-1-hd           (60s, OpenAI voices)
+  * openai/tts-1              (60s, OpenAI voices)
+  * elevenlabs/turbo-2-5      (120s, ElevenLabs voices)
+  * elevenlabs/multilingual-v2 (120s, ElevenLabs voices)
+- voices_for_model(model_id) / timeout_for_model(model_id) helpers
+- per_speaker использует пул голосов движка модели
+
+pipeline.py:
+- GET /api/v1/tts/voices?provider=polza&model=... → голоса по движку
+- GET /api/v1/tts/models?provider=polza → 5 Polza-моделей
+
+517 Python tests.
+
 ## 1.29.2 - 2026-05-03 - FIX - TVIDEO-119
 
 ### Кнопка «+á»: ударение ставится по позиции курсора, а не всегда на первую гласную
