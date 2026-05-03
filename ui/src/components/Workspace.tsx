@@ -46,6 +46,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [configPatch, setConfigPatch] = useState<Partial<PipelineConfig>>({});
   const [savingConfig, setSavingConfig] = useState(false);
   const [activeSegId, setActiveSegId] = useState<string | null>(null);
+  const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   // Ссылки на DOM-узлы карточек сегментов для авто-скролла
   const segRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -697,6 +698,45 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                           try { await audio.play(); } catch(e) { console.error('[preview] play error', e); }
                         }}
                       />
+                    );
+                  })()}
+
+                  {/* Превью TTS — для OpenAI-совместимых провайдеров (Polza, NeuroAPI) */}
+                  {(() => {
+                    const prov = project.config?.professional_tts_provider ?? '';
+                    if (!prov || prov === 'yandex') return null;
+                    const segText = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
+                      || seg.translated_text || '';
+                    const isPreviewing = previewingSegId === seg.id;
+                    return (
+                      <div className="seg-preview-bar">
+                        <button
+                          className={`seg-preview-btn${isPreviewing ? ' seg-preview-btn--loading' : ''}`}
+                          title="Прослушать синтез голоса для этого сегмента"
+                          disabled={isPreviewing || !segText.trim()}
+                          onClick={async () => {
+                            if (isPreviewing) return;
+                            setPreviewingSegId(seg.id);
+                            try {
+                              const url = await previewTTS(projectId, segText, false);
+                              const audio = new Audio();
+                              (window as any).__ttsPreviewAudio = audio;
+                              audio.onended = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; setPreviewingSegId(null); };
+                              audio.onerror = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; setPreviewingSegId(null); };
+                              audio.src = url;
+                              audio.load();
+                              await audio.play();
+                            } catch {
+                              setPreviewingSegId(null);
+                            }
+                          }}
+                        >
+                          {isPreviewing
+                            ? <Loader2 size={13} className="seg-preview-spinner" />
+                            : <Play size={13} />}
+                          {isPreviewing ? 'Синтез…' : 'Превью'}
+                        </button>
+                      </div>
                     );
                   })()}
 

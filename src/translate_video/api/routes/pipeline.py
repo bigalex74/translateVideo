@@ -475,25 +475,23 @@ def tts_preview(
                 )
 
         else:
-            # OpenAI TTS
+            # OpenAI-совместимый провайдер (polza, neuroapi, openai)
             import re as _re
-            from translate_video.tts.openai_tts import OpenAITTSProvider
+            from translate_video.tts.openai_tts import build_openai_tts_provider
 
-            api_key = os.getenv("OPENAI_API_KEY", "")
-            if not api_key:
-                raise HTTPException(status_code=503, detail="OPENAI_API_KEY не настроен")
+            provider = build_openai_tts_provider(cfg)
+            if provider is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="TTS-провайдер не настроен (нет API-ключа или провайдера)",
+                )
 
-            voice = getattr(cfg, "professional_tts_voice", "alloy")
-            # Для OpenAI стриппируем SSML если есть
+            # Стриппируем SSML/ударения — OpenAI/ElevenLabs их не поддерживают
             clean_text = _re.sub(r"<[^>]+>", "", text).replace("+", "").strip()
             if not clean_text:
                 clean_text = text
 
-            provider = OpenAITTSProvider(
-                api_key=api_key,
-                voice_1=voice,
-                voice_2=getattr(cfg, "professional_tts_voice_2", "echo"),
-            )
+            voice = getattr(cfg, "professional_tts_voice", "nova")
             with tempfile.TemporaryDirectory() as tmp:
                 tmp_path = Path(tmp) / "preview.mp3"
                 provider._synth(clean_text, voice, tmp_path)

@@ -1,3 +1,22 @@
+## 1.30.3 - 2026-05-03 - FEAT - TVIDEO-123
+
+### Универсальный TTS-превью для всех провайдеров
+
+pipeline.py (tts_preview endpoint):
+- Заменён хардкод OPENAI_API_KEY → build_openai_tts_provider(cfg)
+- Превью теперь работает для polza, neuroapi и любого OpenAI-совместимого провайдера
+- Корректно передаёт el_* параметры через provider._synth
+
+Workspace.tsx:
+- Добавлен state previewingSegId для per-segment спиннера
+- Кнопка ▶ «Превью» появляется для ВСЕХ не-Яндекс провайдеров (Polza, NeuroAPI, openai)
+- Spinner (Loader2) во время синтеза, setPreviewingSegId(null) после завершения/ошибки
+- SSMLToolbar (ударения, паузы) остаётся только для yandex
+
+Workspace.css:
+- seg-preview-bar, seg-preview-btn, seg-preview-btn--loading
+- seg-preview-spinner (@keyframes seg-preview-spin)
+
 ## 1.30.2 - 2026-05-03 - FEAT - TVIDEO-122
 
 ### ElevenLabs: 21 голос + слайдеры параметров
