@@ -45,6 +45,7 @@ export interface PipelineConfig {
     professional_tts_speed_2: number;
     professional_tts_pitch: number;
     professional_tts_pitch_2: number;
+    professional_tts_emotion: number;
     allow_tts_rate_adaptation: boolean;
     allow_render_audio_speedup: boolean;
     allow_timeline_shift: boolean;

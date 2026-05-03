@@ -621,6 +621,43 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
             </div>
           </div>
 
+          {/* 🎭 Уровень эмоций SSML (только Yandex) */}
+          {isYandex && (
+            <div className="adv-field">
+              <label className="adv-label">
+                🎭 Эмоциональность SSML
+              </label>
+              <div className="adv-emotion-note">
+                Автоматически добавляет паузы, просодию и акценты в речь через SSML-разметку.
+                Требует повторной озвучки.
+              </div>
+              <div className="adv-role-btns">
+                {([
+                  { val: 0, label: '🔇 Выкл' },
+                  { val: 1, label: '🌿 Мягко' },
+                  { val: 2, label: '🔥 Средне' },
+                  { val: 3, label: '⚡ Экспресс' },
+                ] as { val: number; label: string }[]).map(({ val, label }) => (
+                  <button
+                    key={val}
+                    id={`adv-emotion-${val}`}
+                    className={`adv-tts-role-btn${(c.professional_tts_emotion ?? 0) === val ? ' adv-tts-role-btn--active' : ''}`}
+                    onClick={() => onChange({ professional_tts_emotion: val })}
+                    disabled={disabled}
+                    title={[
+                      'SSML отключён — обычный текст',
+                      'Паузы на знаках препинания',
+                      'Паузы + просодия по типу предложений',
+                      'Полная экспрессия: просодия + ударения + паузы',
+                    ][val]}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Обсценная лексика */}
           <div className="adv-field">
             <label className="adv-label" htmlFor="adv-profanity">Ненормативная лексика</label>

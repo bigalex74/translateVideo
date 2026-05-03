@@ -44,6 +44,7 @@ import urllib.request
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import Segment
 from translate_video.tts import stress as _stress
+from translate_video.tts.ssml_enhance import EMOTION_OFF, enhance as ssml_enhance
 
 _log = get_logger(__name__)
 
@@ -104,6 +105,7 @@ class YandexSpeechKitTTSProvider:
         speed_2: float = 1.0,
         pitch_1: int = 0,
         pitch_2: int = 0,
+        emotion_level: int = 0,   # 0=off 1=subtle 2=medium 3=expressive
         timeout: float = 60.0,
         use_stress: bool = True,
         http_post=None,
@@ -117,6 +119,7 @@ class YandexSpeechKitTTSProvider:
         self.speed_2 = speed_2
         self.pitch_1 = pitch_1
         self.pitch_2 = pitch_2
+        self.emotion_level = max(0, min(3, int(emotion_level)))
         self.timeout = timeout
         self.use_stress = use_stress
         self._http_post = http_post or _post_streaming
@@ -230,8 +233,16 @@ class YandexSpeechKitTTSProvider:
         if pitch != 0:
             hints.append({"pitchShift": max(-1000, min(1000, pitch))})
 
+        # SSML-эмоции: если emotion_level > 0 — конвертируем текст в SSML
+        # и отправляем в поле "ssml" вместо "text"
+        if self.emotion_level > EMOTION_OFF:
+            enhanced = ssml_enhance(text, self.emotion_level)
+            text_payload = {"ssml": enhanced}
+        else:
+            text_payload = {"text": text}
+
         payload = {
-            "text": text,
+            **text_payload,
             "hints": hints,
             "outputAudioSpec": {
                 "containerAudio": {"containerAudioType": "MP3"},
@@ -280,6 +291,7 @@ def build_speechkit_tts_provider(config) -> YandexSpeechKitTTSProvider | None:
         speed_2=float(getattr(config, "professional_tts_speed_2", 1.0)),
         pitch_1=int(getattr(config, "professional_tts_pitch",     0)),
         pitch_2=int(getattr(config, "professional_tts_pitch_2",   0)),
+        emotion_level=int(getattr(config, "professional_tts_emotion", 0)),
         use_stress=bool(getattr(config, "professional_tts_stress", True)),
     )
 
