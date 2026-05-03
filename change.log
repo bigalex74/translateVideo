@@ -1,5 +1,26 @@
 # Журнал Изменений
 
+## 1.28.3 - 2026-05-03 - FIX - TVIDEO-109
+
+### folder_id для premium голосов Яндекс в полном пайплайне
+
+Ранее YANDEX_FOLDER_ID использовался только в preview endpoint.
+Основной синтез (YandexSpeechKitTTSProvider._synth/_synth_plain)
+не передавал x-folder-id → premium голоса (zamira и др.) в полном
+пайплайне (озвучка всего видео) тоже возвращали 0.4s.
+
+Изменения:
+- YandexSpeechKitTTSProvider.__init__: новый параметр folder_id=''
+- self.folder_id = folder_id.strip()
+- _synth: если folder_id задан → headers['x-folder-id'] = folder_id
+- _synth_plain: аналогично
+- build_speechkit_tts_provider: читает os.getenv('YANDEX_FOLDER_ID','')
+  и передаёт в конструктор
+
+Теперь и preview, и полный синтез используют premium голос корректно.
+
+503 Python.
+
 ## 1.28.2 - 2026-05-03 - FIX - TVIDEO-108
 
 ### Preview: premium голос zamira возвращает 0.4s аудио

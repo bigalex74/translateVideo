@@ -108,6 +108,7 @@ class YandexSpeechKitTTSProvider:
         emotion_level: int = 0,   # 0=off 1=subtle 2=medium 3=expressive
         timeout: float = 60.0,
         use_stress: bool = True,
+        folder_id: str = "",       # x-folder-id для premium голосов (zamira, etc.)
         http_post=None,
     ) -> None:
         self.api_key = api_key
@@ -122,6 +123,7 @@ class YandexSpeechKitTTSProvider:
         self.emotion_level = max(0, min(3, int(emotion_level)))
         self.timeout = timeout
         self.use_stress = use_stress
+        self.folder_id = folder_id.strip()
         self._http_post = http_post or _post_streaming
 
     def synthesize(self, project, segments: list[Segment]) -> list[Segment]:
@@ -309,6 +311,8 @@ class YandexSpeechKitTTSProvider:
             "Authorization": f"Api-Key {self.api_key}",
             "Content-Type": "application/json",
         }
+        if self.folder_id:
+            headers["x-folder-id"] = self.folder_id
         audio_bytes = self._http_post(
             SPEECHKIT_TTS_URL,
             payload,
@@ -352,6 +356,8 @@ class YandexSpeechKitTTSProvider:
             "Authorization": f"Api-Key {self.api_key}",
             "Content-Type": "application/json",
         }
+        if self.folder_id:
+            headers["x-folder-id"] = self.folder_id
         audio_bytes = self._http_post(
             SPEECHKIT_TTS_URL,
             payload,
@@ -392,6 +398,7 @@ def build_speechkit_tts_provider(config) -> YandexSpeechKitTTSProvider | None:
         pitch_2=int(getattr(config, "professional_tts_pitch_2",   0)),
         emotion_level=int(getattr(config, "professional_tts_emotion", 0)),
         use_stress=bool(getattr(config, "professional_tts_stress", True)),
+        folder_id=os.getenv("YANDEX_FOLDER_ID", ""),
     )
 
 
