@@ -1,3 +1,34 @@
+## 1.30.6 - 2026-05-03 - FEAT - TVIDEO-125
+
+### Масштабируемость: ffmpeg-аудио + прогресс Whisper + очистка временных файлов
+
+media/legacy.py:
+- LegacyMoviePyMediaProvider: MoviePy → ffmpeg (subprocess)
+- Флаги: -ar 16000 -ac 1 -sample_fmt s16 (WAV 16 kHz mono)
+- 2.5ч видео: ~1.5 GB → ~170 MB (без загрузки видео в RAM)
+
+speech/base.py:
+- Transcriber Protocol: добавлен progress_callback (current_sec, total_sec, message)
+
+speech/legacy.py:
+- FasterWhisperTranscriber.transcribe(): прогресс через итерацию генератора
+- Репортинг каждые 5 сек аудио (info.duration + item.end)
+- Финальный вызов progress_callback(total_sec, total_sec) при 100%
+
+pipeline/stages.py — TranscribeStage:
+- on_progress → update_stage_progress (прогрессбар в UI)
+- После транскрипции: source_audio.wav удаляется с диска
+- artifact_records и artifacts очищаются от source_audio (idempotency)
+
+pipeline/stages.py — RenderStage:
+- После рендера: все файлы в tts/ удаляются (смонтированы в output_video)
+
+Тесты:
+- FakeTranscriber: добавлен progress_callback=None
+- test_legacy_adapters: замена MoviePy-теста на ffmpeg-mock
+- _FakeWhisperModel: duration=2.0 в TranscriptionInfo
+- test_pipeline_stages: source_audio артефакт проверяется как отсутствующий
+
 ## 1.30.5 - 2026-05-03 - FIX - TVIDEO-124
 
 ### Hotfix: откат Яндекс-правок не обновлял UI

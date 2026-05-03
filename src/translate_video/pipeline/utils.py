@@ -33,7 +33,7 @@ class FakeMediaProvider:
 class FakeTranscriber:
     """Имитационный распознаватель для дымовых сценариев."""
 
-    def transcribe(self, audio_path, config):
+    def transcribe(self, audio_path, config, progress_callback=None):
         """Вернуть один сегмент без обращения к внешним моделям."""
         return [Segment(id="seg_1", start=0.0, end=1.0, source_text="Пример речи")]
 

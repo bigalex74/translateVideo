@@ -123,8 +123,13 @@ class ExtractAudioStage(BaseStage):
         return self._record(context, action)
 
 
+
 class TranscribeStage(BaseStage):
-    """Создает исходные сегменты расшифровки из извлеченного аудио."""
+    """Создает исходные сегменты расшифровки из извлечённого аудио.
+
+    После успешной транскрипции source_audio.wav удаляется
+    (аудио больше не нужно — сегменты уже сохранены в transcript.source.json).
+    """
 
     stage = Stage.TRANSCRIBE
 
@@ -132,7 +137,7 @@ class TranscribeStage(BaseStage):
         self.transcriber = transcriber
 
     def run(self, context: StageContext) -> StageRun:
-        def action(_run: StageRun) -> tuple[list[str], list[str]]:
+        def action(run: StageRun) -> tuple[list[str], list[str]]:
             source_audio = _required_artifact(context, ArtifactKind.SOURCE_AUDIO)
             raw_path = Path(source_audio.path)
             if raw_path.is_absolute():
@@ -140,19 +145,53 @@ class TranscribeStage(BaseStage):
             else:
                 candidate = (context.project.work_dir / raw_path).resolve()
                 if not candidate.exists():
-                    # Старый формат: path содержит work_dir внутри (runs/proj/runs/proj/file)
-                    # Пробуем просто basename
                     audio_path = context.project.work_dir.resolve() / raw_path.name
                 else:
                     audio_path = candidate
-            segments = self.transcriber.transcribe(audio_path, context.project.config)
+
+            def on_progress(current: int, total: int, message: str | None) -> None:
+                """Прогресс транскрипции (единицы — секунды аудио)."""
+                run.progress_current = current
+                run.progress_total = total
+                run.progress_message = message
+                context.store.update_stage_progress(
+                    context.project,
+                    run.id,
+                    current=current,
+                    total=total,
+                    message=message,
+                )
+
+            segments = self.transcriber.transcribe(
+                audio_path,
+                context.project.config,
+                progress_callback=on_progress,
+            )
             for segment in segments:
                 segment.status = SegmentStatus.TRANSCRIBED
             output_path = context.store.save_segments(context.project, segments, translated=False)
             output = output_path.relative_to(context.project.work_dir).as_posix()
+
+            # Удаляем WAV: транскрипция завершена, файл больше не нужен.
+            try:
+                if audio_path.exists():
+                    audio_path.unlink()
+                    _log.info("transcribe.wav_deleted", path=str(audio_path))
+                    # Убираем запись source_audio из артефактов — файл удалён
+                    context.project.artifact_records = [
+                        r for r in context.project.artifact_records
+                        if r.kind != ArtifactKind.SOURCE_AUDIO
+                    ]
+                    context.project.artifacts.pop(ArtifactKind.SOURCE_AUDIO.value, None)
+                    context.store.save_project(context.project)
+            except OSError as e:
+                _log.warning("transcribe.wav_delete_failed", path=str(audio_path), error=str(e))
+
             return [source_audio.path], [output]
 
         return self._record(context, action)
+
+
 
 
 
@@ -371,7 +410,11 @@ class TTSStage(BaseStage):
 
 
 class RenderStage(BaseStage):
-    """Рендерит итоговый медиа-артефакт."""
+    """Рендерит итоговый медиа-артефакт.
+
+    После успешного рендера MP3-файлы отдельных TTS-сегментов
+    удаляются: они уже смонтированы в output_video.
+    """
 
     stage = Stage.RENDER
 
@@ -393,6 +436,19 @@ class RenderStage(BaseStage):
                 stage=self.stage,
                 content_type="video/mp4",
             )
+
+            # Удаляем TTS-сегменты: они смонтированы в output_video
+            tts_dir = context.project.work_dir / "tts"
+            deleted = 0
+            try:
+                for f in tts_dir.glob("*"):
+                    if f.is_file():
+                        f.unlink()
+                        deleted += 1
+                _log.info("render.tts_cleaned", deleted=deleted, dir=str(tts_dir))
+            except OSError as e:
+                _log.warning("render.tts_clean_failed", error=str(e))
+
             return [translated_transcript.path, tts_audio.path], [record.path]
 
         return self._record(context, action)
