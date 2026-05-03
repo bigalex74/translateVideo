@@ -54,11 +54,6 @@ export function renderTtsMarkup(text: string): React.ReactNode[] {
   // Паттерны обработки (порядок важен)
   const patterns: Array<{ re: RegExp; render: (m: RegExpExecArray) => React.ReactNode }> = [
     {
-      // **акцент**
-      re: /\*\*(.+?)\*\*/,
-      render: (m) => <strong key={key++} className="tts-accent">{m[1]}</strong>,
-    },
-    {
       // sil<[300]>
       re: /sil<\[(\d+)\]>/,
       render: (m) => <span key={key++} className="tts-sil" title={`Пауза ${m[1]}мс`}>⏸{m[1]}мс</span>,
@@ -74,7 +69,7 @@ export function renderTtsMarkup(text: string): React.ReactNode[] {
       render: (m) => <span key={key++} className="tts-phoneme" title={`Фонемы: ${m[1]}`}>🔤{m[1]}</span>,
     },
     {
-      // + перед гласной (ударение)
+      // + перед гласной (ударение) — нативная Яндекс разметка
       re: /\+([аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU])/,
       render: (m) => <span key={key++} className="tts-stress">+{m[1]}</span>,
     },
@@ -169,22 +164,35 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
     refocus(start + tag.length);
   };
 
-  /** Акцент **слово** — определяет слово под курсором автоматически */
+  /** Акцент: ставит + перед первой гласной в слове под курсором.
+   * Это нативная Яндекс TTS разметка — +болван, +ударение.
+   * **word** Яндекс НЕ поддерживает и игнорирует.
+   */
   const doAccent = () => {
     const { start, end } = sel.current;
     let wS = start, wE = end;
     if (start === end) [wS, wE] = wordBounds(currentText, start);
 
+    // Нет слова — просто вставляем + в позицию курсора
     if (wS === wE) {
-      const tag = '**слово**';
-      onChange(insertAt(currentText, start, tag));
-      refocus(start + 2, start + 2 + 'слово'.length);
+      onChange(insertAt(currentText, start, '+'));
+      refocus(start + 1);
       return;
     }
 
-    const newVal = wrapAt(currentText, wS, wE, '**', '**');
-    onChange(newVal);
-    refocus(wS + 2, wS + 2 + (wE - wS));
+    // Слово найдено — ставим + перед первой гласной
+    const VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU';
+    const word = currentText.slice(wS, wE);
+    const vowelIdx = word.split('').findIndex(ch => VOWELS.includes(ch));
+    if (vowelIdx === -1) {
+      // Нет гласных (аббревиатура, число) — + в начало
+      onChange(insertAt(currentText, wS, '+'));
+      refocus(wS + 1);
+    } else {
+      const insertPos = wS + vowelIdx;
+      onChange(insertAt(currentText, insertPos, '+'));
+      refocus(insertPos + 1 + (wE - wS)); // после слова
+    }
   };
 
   /** Фонемы [[...]] — определяет слово под курсором автоматически */
@@ -286,15 +294,15 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
 
       <div className="ssml-divider" />
 
-      {/* Акцент **слово** */}
+      {/* Акцент: + перед гласной */}
       <button
         className="ssml-btn ssml-btn--accent"
-        title={"Акцент: выделить слово или поставить курсор внутри\nАвтоматически обёртывает слово в **...**"}
+        title={"Ударение на слове: ставит + перед первой гласной\nПример: болван → б+олван, вода → в+ода\nПоставьте курсор внутри слова или выделите его"}
         onMouseDown={saveSel}
         onClick={doAccent}
         type="button"
       >
-        **B**
+        +á
       </button>
 
       <div className="ssml-divider" />

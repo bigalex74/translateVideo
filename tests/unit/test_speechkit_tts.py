@@ -607,7 +607,8 @@ class SSMLOverrideTest(unittest.TestCase):
             "sil-пауза должна быть сохранена в тексте")
 
     def test_tts_markup_accent_stars(self):
-        """TTS-разметка **акцент** отправляется в поле 'text' без изменений."""
+        """TTS-разметка **акцент** → Яндекс TTS v3 не поддерживает **bold**.
+        После фикса: ** снимаются, контент (включая + ударения) сохраняется."""
         received_payload = {}
 
         def capture_post(url, payload, **kw):
@@ -627,8 +628,13 @@ class SSMLOverrideTest(unittest.TestCase):
         provider.synthesize(project, project.segments)
 
         text = received_payload.get("text", "")
-        self.assertIn("**всегда**", text,
-            "Разметка **акцент** должна сохраняться в поле 'text'")
+        # ** убраны — Яндекс их игнорирует; текст внутри сохранён
+        self.assertNotIn("**", text,
+            "** должны быть убраны перед отправкой в Яндекс TTS")
+        self.assertIn("всегда", text,
+            "Содержимое **акцент** должно сохраняться без обёртки **")
+        self.assertIn("кого приручили", text,
+            "Содержимое второго **акцент** тоже сохраняется")
         self.assertNotIn("ssml", received_payload,
             "TTS-разметка не должна попадать в поле 'ssml'")
 

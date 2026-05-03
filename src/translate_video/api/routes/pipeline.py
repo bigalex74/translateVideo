@@ -391,13 +391,20 @@ def tts_preview(
             voice = getattr(cfg, "professional_tts_voice", "alena")
             emotion_level = int(getattr(cfg, "tts_emotion_level", 0))
 
-            # TTS-разметка пользователя → поле "text" (sil<[300]>, **акцент**, [[фонемы]])
+            # ── Конвертация TTS-разметки пользователя ──────────────────────────
+            # **слово** → слово  (Яндекс v3 НЕ поддерживает **bold**, просто
+            #   игнорирует asterisks как мусор. + ударения внутри сохраняются:
+            #   **б+олван** → б+олван)
+            import re as _re_tts
+            tts_text = _re_tts.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+
+            # TTS-разметка пользователя → поле "text" (sil<[300]>, [[фонемы]], +ударения)
             # SSML-эмоции (emotion_level>0) → ssml_enhance → поле "ssml"
             if emotion_level > EMOTION_OFF:
-                synth_text = ssml_enhance(text, emotion_level)
+                synth_text = ssml_enhance(tts_text, emotion_level)
                 payload_text = {"ssml": synth_text}
             else:
-                payload_text = {"text": text}
+                payload_text = {"text": tts_text}
 
             from translate_video.tts.speechkit_tts import SPEECHKIT_TTS_URL, _post_streaming, SPEECHKIT_VOICES
             voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
@@ -410,9 +417,9 @@ def tts_preview(
 
             payload = {
                 **payload_text,
-                "hints": hints,
                 "outputAudioSpec": {"containerAudio": {"containerAudioType": "MP3"}},
                 "unsafeMode": True,
+                "hints": hints,
             }
             headers = {
                 "Authorization": f"Api-Key {api_key}",
@@ -425,10 +432,15 @@ def tts_preview(
 
             audio_bytes = _post_streaming(SPEECHKIT_TTS_URL, payload, headers=headers, timeout=15)
 
-            # Fallback: premium голос без folder_id может вернуть <5KB (усечённый ответ)
-            # В этом случае повторяем с голосом alena (стандартный, не требует folder_id)
-            TRUNCATED_THRESHOLD = 5000
-            if len(audio_bytes) < TRUNCATED_THRESHOLD and voice not in ("alena", "filipp", "zahar", "oksana"):
+            # ── Fallback для голоса zamira ──────────────────────────────────────
+            # zamira возвращает «немые» чанки двух размеров:
+            #   2925b — полная тишина (голос не смог синтезировать)
+            #   3309b — почти тишина (~0.37s молчания)
+            # Это происходит для коротких чисто-русских фраз.
+            # При этом folder_id передан → это баг самого голоса.
+            # Fallback: повторяем с голосом alena (стабильный стандартный голос).
+            ZAMIRA_SILENCE_SIZES = {2925, 3309}
+            if len(audio_bytes) in ZAMIRA_SILENCE_SIZES and voice not in ("alena", "filipp", "zahar", "oksana"):
                 fallback_hints = [{"voice": "alena"}, {"speed": 1.0}]
                 fallback_payload = {
                     **payload_text,
@@ -440,6 +452,8 @@ def tts_preview(
                     "Authorization": f"Api-Key {api_key}",
                     "Content-Type": "application/json",
                 }
+                if folder_id:
+                    fallback_headers["x-folder-id"] = folder_id
                 audio_bytes = _post_streaming(
                     SPEECHKIT_TTS_URL, fallback_payload,
                     headers=fallback_headers, timeout=15

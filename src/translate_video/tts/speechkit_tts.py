@@ -152,7 +152,11 @@ class YandexSpeechKitTTSProvider:
             # 2. translated_text — стандартный переведённый текст
             tts_override = (segment.tts_ssml_override or "").strip()
             if tts_override:
-                text = tts_override
+                # **слово** → слово: Яндекс TTS v3 не поддерживает **bold**,
+                # asterisks игнорируются или озвучиваются как мусор.
+                # + ударения внутри сохраняются: **б+олван** → б+олван
+                import re as _re_tts
+                text = _re_tts.sub(r'\*\*([^*]+)\*\*', r'\1', tts_override)
                 _log.debug(
                     "tts.speechkit.tts_markup_override",
                     idx=index,
