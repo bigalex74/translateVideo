@@ -1,5 +1,29 @@
 # Журнал Изменений
 
+## 1.23.2 - 2026-05-03 - TEST - TVIDEO-096b
+
+### Тесты для TVIDEO-096 (SSML empty utterance + stale QA flags)
+
+**EmptyUtteranceGuardTest** (8 тестов) в test_ssml_enhance.py:
+- Текст из одного знака ('.' '!' '?') не даёт пустой <speak></speak>
+- Пустая строка при SSML > 0 → plain text fallback (не крашится)
+- Текст из пробелов → не пустой SSML
+- Нормальный текст → валидный непустой SSML
+- SSML не содержит только <break/> без текста (именно тот баг что давал HTTP 400)
+- Регрессия: один символ '.' при всех уровнях (1,2,3) → не падает
+
+**SSMLQaFlagsResetTest** (3 теста) в test_ssml_enhance.py:
+- tts_* флаги старого запуска удаляются перед новой озвучкой (SpeechKit)
+- timing_fit_* и translation_* флаги сохраняются
+- Новые флаги (tts_voice_alena, tts_speechkit) добавляются после сброса
+
+**OpenAIQaFlagsResetTest** (3 теста) в test_openai_tts.py:
+- tts_openai_error и tts_voice_X удаляются перед новой озвучкой (OpenAI)
+- timing_fit_* и translation_* флаги сохраняются
+- После сброса добавляется актуальный tts_voice_nova вместо устаревшего
+
+Итого: 490 Python (+14) + 101 Vitest.
+
 ## 1.23.1 - 2026-05-03 - FIX - TVIDEO-096
 
 ### SSML пустой Utterance + стале QA-варнинги
