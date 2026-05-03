@@ -4,6 +4,7 @@ import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../t
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
 import { stageProgressInfo } from '../progress';
+import { flagBelongsToStage } from '../qa_stage_filter';
 import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
@@ -122,20 +123,37 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     tts_pretrim: 'warning', timeline_shifted: 'warning',
     rewrite_provider_quota_limited: 'warning', rewrite_provider_cooldown: 'warning',
   };
+
+  // Какие флаги принадлежат каждой стадии пайплайна (импортировано из qa_stage_filter.ts).
+  // Используется чтобы в live-ленте показывать ТОЛЬКО флаги текущей стадии,
+  // а не флаги от предыдущих запусков (timing_fit, translate и т.д.).
+
   type LiveSev = 'critical' | 'error' | 'warning' | 'info';
   interface LiveFlag { flag: string; sev: LiveSev; count: number; }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const liveFlags: LiveFlag[] = React.useMemo(() => {
     const isRunningNow = project?.status === 'running';
     if (!isRunningNow || !project) return [];
+
+    // Стадия, которая выполняется СЕЙЧАС
+    const activeStage = (project.stage_runs ?? []).find(r => r.status === 'running')?.stage;
+
     const segs = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
     const counts: Record<string, number> = {};
     segs.forEach(seg =>
-      (seg.qa_flags ?? []).forEach(f => { counts[f] = (counts[f] ?? 0) + 1; })
+      (seg.qa_flags ?? []).forEach(f => { counts[f] = (counts[f] ?? 0) + 1; }),
     );
+
     const SEV_ORDER: LiveSev[] = ['critical', 'error', 'warning', 'info'];
     return Object.entries(counts)
-      .filter(([f]) => FLAG_SEV[f] !== 'info' && FLAG_SEV[f] !== undefined)
+      .filter(([f]) => {
+        // Показываем только известные (не info) флаги
+        if (FLAG_SEV[f] === 'info' || FLAG_SEV[f] === undefined) return false;
+        // Если известна активная стадия — показываем ТОЛЬКО её флаги.
+        // Флаги других стадий (даже если они есть в сегментах) — скрываем.
+        if (activeStage) return flagBelongsToStage(f, activeStage);
+        return true; // активная стадия неизвестна → показываем всё
+      })
       .map(([flag, count]) => ({ flag, sev: FLAG_SEV[flag] ?? 'info' as LiveSev, count }))
       .sort((a, b) => SEV_ORDER.indexOf(a.sev) - SEV_ORDER.indexOf(b.sev));
   }, [project]);
