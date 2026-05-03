@@ -1,222 +1,176 @@
-/* ──────────────────────────────────────────────────────────────────────────
-   SSMLToolbar.css — стили SSML-тулбара редактора сегмента
-   ────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────
+   SSMLToolbar.css — компактная панель TTS-разметки (v1.28.0)
+   ───────────────────────────────────────────────────────────────────────── */
 
 .ssml-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 2px;
-  padding: 4px 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 3px;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 6px;
   font-size: 11px;
+  row-gap: 3px;
 }
 
-/* Группа кнопок */
-.ssml-group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.ssml-group-label {
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-right: 2px;
-  user-select: none;
-}
-
-/* Разделитель */
+/* ── Разделитель ────────────────────────────────────────────────────────── */
 .ssml-divider {
   width: 1px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 0 4px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 2px;
   flex-shrink: 0;
 }
 
-/* Кнопки */
+/* ── Базовая кнопка ─────────────────────────────────────────────────────── */
 .ssml-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  padding: 2px 7px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 2px 8px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 4px;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
+  color: rgba(255, 255, 255, 0.70);
+  font-size: 11px;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
   white-space: nowrap;
   line-height: 1;
   font-family: inherit;
+  flex-shrink: 0;
 }
 
-.ssml-btn:hover {
-  background: rgba(139, 92, 246, 0.20);
-  border-color: rgba(139, 92, 246, 0.40);
+.ssml-btn:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(139, 92, 246, 0.35);
   color: #c4b5fd;
 }
 
-.ssml-btn:active {
-  background: rgba(139, 92, 246, 0.35);
+.ssml-btn:active:not(:disabled) {
+  background: rgba(139, 92, 246, 0.30);
   transform: translateY(0.5px);
 }
 
-/* Ударение */
+.ssml-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Ударение ──────────────────────────────────────────────────────────── */
 .ssml-btn--stress {
   font-weight: 700;
-  letter-spacing: -0.02em;
   color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.20);
+  border-color: rgba(251, 191, 36, 0.18);
 }
-.ssml-btn--stress:hover {
-  background: rgba(251, 191, 36, 0.15);
-  border-color: rgba(251, 191, 36, 0.40);
+.ssml-btn--stress:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.35);
   color: #fde68a;
 }
 
-/* Акцент reduced */
-.ssml-btn--reduced {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-/* Акцент moderate */
-.ssml-btn--moderate {
-  color: #fb923c;
-  border-color: rgba(251, 146, 60, 0.20);
-}
-.ssml-btn--moderate:hover {
-  background: rgba(251, 146, 60, 0.15);
-  border-color: rgba(251, 146, 60, 0.40);
-}
-
-/* Акцент **bold** (TTS-разметка) */
+/* ── Акцент **B** ──────────────────────────────────────────────────────── */
 .ssml-btn--accent {
-  color: #fb923c;
-  border-color: rgba(251, 146, 60, 0.20);
   font-weight: 700;
   font-size: 11px;
-  letter-spacing: -0.02em;
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.18);
 }
-.ssml-btn--accent:hover {
-  background: rgba(251, 146, 60, 0.15);
-  border-color: rgba(251, 146, 60, 0.40);
+.ssml-btn--accent:hover:not(:disabled) {
+  background: rgba(251, 146, 60, 0.12);
+  border-color: rgba(251, 146, 60, 0.35);
   color: #fdba74;
 }
 
-/* Акцент strong */
-.ssml-btn--strong {
-  font-size: 11px;
-}
-
-/* Фонема */
+/* ── Фонемы ────────────────────────────────────────────────────────────── */
 .ssml-btn--phoneme {
   color: #60a5fa;
-  border-color: rgba(96, 165, 250, 0.20);
+  border-color: rgba(96, 165, 250, 0.18);
 }
-.ssml-btn--phoneme:hover {
-  background: rgba(96, 165, 250, 0.12);
-  border-color: rgba(96, 165, 250, 0.40);
+.ssml-btn--phoneme:hover:not(:disabled) {
+  background: rgba(96, 165, 250, 0.10);
+  border-color: rgba(96, 165, 250, 0.35);
   color: #93c5fd;
 }
 
-/* Сброс */
+/* ── Сброс ─────────────────────────────────────────────────────────────── */
 .ssml-btn--reset {
   color: #f87171;
-  border-color: rgba(248, 113, 113, 0.20);
+  border-color: rgba(248, 113, 113, 0.18);
   font-size: 11px;
 }
-.ssml-btn--reset:hover {
-  background: rgba(248, 113, 113, 0.12);
-  border-color: rgba(248, 113, 113, 0.40);
+.ssml-btn--reset:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.10);
+  border-color: rgba(248, 113, 113, 0.35);
   color: #fca5a5;
 }
 
-/* Select для длины паузы */
-.ssml-select {
-  height: 24px;
-  padding: 0 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.70);
-  font-size: 11px;
-  cursor: pointer;
-  outline: none;
-  font-family: inherit;
-}
-
-.ssml-select:hover {
-  border-color: rgba(139, 92, 246, 0.35);
-}
-
-.ssml-select:focus {
-  border-color: rgba(139, 92, 246, 0.55);
-}
-
-/* Индикатор что override установлен */
-.ssml-override-badge {
-  margin-left: auto;
-  padding: 1px 6px;
-  background: rgba(139, 92, 246, 0.18);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 10px;
-  color: #c4b5fd;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  user-select: none;
-}
-
-/* Кнопка Прослушать */
+/* ── Прослушать ────────────────────────────────────────────────────────── */
 .ssml-btn--preview {
   color: #34d399;
-  border-color: rgba(52, 211, 153, 0.25);
+  border-color: rgba(52, 211, 153, 0.20);
   font-weight: 500;
-  gap: 4px;
 }
 .ssml-btn--preview:hover:not(:disabled) {
-  background: rgba(52, 211, 153, 0.12);
-  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.10);
+  border-color: rgba(52, 211, 153, 0.40);
   color: #6ee7b7;
-}
-.ssml-btn--preview:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 .ssml-btn--loading {
   animation: ssml-pulse 0.9s ease-in-out infinite;
 }
-
 @keyframes ssml-pulse {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.5; }
+  50%       { opacity: 0.45; }
 }
 
-/* Ошибка синтеза */
+/* ── Select ────────────────────────────────────────────────────────────── */
+.ssml-select {
+  height: 22px;
+  padding: 0 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.ssml-select:hover {
+  border-color: rgba(139, 92, 246, 0.30);
+}
+.ssml-select:focus {
+  border-color: rgba(139, 92, 246, 0.50);
+}
+
+/* ── Badge override ────────────────────────────────────────────────────── */
+.ssml-override-badge {
+  margin-left: 2px;
+  padding: 1px 6px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.30);
+  border-radius: 10px;
+  color: #c4b5fd;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* ── Ошибка синтеза ────────────────────────────────────────────────────── */
 .ssml-preview-err {
   color: #f87171;
   font-size: 10px;
-  max-width: 180px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Подсказка для новых пользователей */
-.ssml-hint {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.30);
-  font-style: italic;
-  margin-right: 4px;
-  user-select: none;
+  flex-shrink: 1;
 }
