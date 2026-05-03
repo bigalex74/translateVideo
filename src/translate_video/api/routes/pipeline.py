@@ -391,12 +391,11 @@ def tts_preview(
             voice = getattr(cfg, "professional_tts_voice", "alena")
             emotion_level = int(getattr(cfg, "tts_emotion_level", 0))
 
-            # ── Конвертация TTS-разметки пользователя ──────────────────────────
-            # **слово** → слово  (Яндекс v3 НЕ поддерживает **bold**, просто
-            #   игнорирует asterisks как мусор. + ударения внутри сохраняются:
-            #   **б+олван** → б+олван)
-            import re as _re_tts
-            tts_text = _re_tts.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+            # ── TTS-разметка пользователя ───────────────────────────────────────
+            # **слово** = логическое ударение (Яндекс TTS-разметка, поддерживается API v3).
+            # НЕ стираем! «**Кот** пошёл в лес?» → акцент на «Кот».
+            # Документация: https://yandex.cloud/ru/docs/speechkit/tts/markup/tts-markup
+            tts_text = text  # передаём как есть, со всей TTS-разметкой
 
             from translate_video.tts.ssml_enhance import enhance_tts_v3 as _enhance_tts_v3
             speed = float(getattr(cfg, "professional_tts_speed", 1.0))

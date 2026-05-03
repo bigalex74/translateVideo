@@ -64,7 +64,12 @@ export function renderTtsMarkup(text: string): React.ReactNode[] {
       render: (m) => <span key={key++} className="tts-phoneme" title={`Фонемы: ${m[1]}`}>🔤{m[1]}</span>,
     },
     {
-      // + перед гласной (ударение) — нативная Яндекс разметка
+      // **слово** — логическое ударение (Яндекс TTS-разметка, API v3)
+      re: /\*\*([^*]+)\*\*/,
+      render: (m) => <strong key={key++} className="tts-logic-accent" title={`Логическое ударение: «${m[1]}»`}>{m[1]}</strong>,
+    },
+    {
+      // + перед гласной (фонетическое ударение) — нативная Яндекс разметка
       re: /\+([аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU])/,
       render: (m) => <span key={key++} className="tts-stress">+{m[1]}</span>,
     },
@@ -159,9 +164,29 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
     refocus(start + tag.length);
   };
 
-  /** Акцент: ставит + перед первой гласной в слове под курсором.
-   * Это нативная Яндекс TTS разметка — +болван, +ударение.
-   * **word** Яндекс НЕ поддерживает и игнорирует.
+  /** Логическое ударение **word**: оборачивает слово под курсором в **...** */
+  const doLogicAccent = () => {
+    const { start, end } = sel.current;
+    let wS = start, wE = end;
+    if (start === end) [wS, wE] = wordBounds(currentText, start);
+
+    if (wS === wE) {
+      // Нет слова — вставляем ****  и ставим курсор внутрь
+      const ins = '****';
+      onChange(insertAt(currentText, start, ins));
+      refocus(start + 2);
+      return;
+    }
+
+    const before = currentText.slice(0, wS);
+    const word   = currentText.slice(wS, wE);
+    const after  = currentText.slice(wE);
+    onChange(before + '**' + word + '**' + after);
+    refocus(wS + 2 + word.length + 2);
+  };
+
+  /** Фонетическое ударение +: ставит + перед первой гласной в слове под курсором.
+   * Яндекс TTS разметка: б+олван, пр+иятно.
    */
   const doAccent = () => {
     const { start, end } = sel.current;
@@ -298,6 +323,19 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
         type="button"
       >
         +á
+      </button>
+
+      <div className="ssml-divider" />
+
+      {/* Логическое ударение **word** */}
+      <button
+        className="ssml-btn ssml-btn--logic-accent"
+        title={"Логическое ударение **слово**\nПример: **Кот** пошёл в лес? — акцент на 'Кот'\nПоставьте курсор внутри слова или выделите его"}
+        onMouseDown={saveSel}
+        onClick={doLogicAccent}
+        type="button"
+      >
+        **B**
       </button>
 
       <div className="ssml-divider" />

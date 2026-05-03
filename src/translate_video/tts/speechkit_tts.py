@@ -147,16 +147,15 @@ class YandexSpeechKitTTSProvider:
         for index, segment in enumerate(segments):
             # Приоритет источника текста:
             # 1. tts_ssml_override — TTS-разметка введённая пользователем вручную
-            #    (содержит Яндекс TTS-markup: +ударения, sil<[300]>, **акцент**, [[фонемы]])
+            #    Яндекс TTS-markup API v3: +ударения, sil<[300]>, **логич.акцент**, [[фонемы]]
             #    Отправляется в поле "text" — ssml_enhance и ruaccent НЕ применяются.
             # 2. translated_text — стандартный переведённый текст
             tts_override = (segment.tts_ssml_override or "").strip()
             if tts_override:
-                # **слово** → слово: Яндекс TTS v3 не поддерживает **bold**,
-                # asterisks игнорируются или озвучиваются как мусор.
-                # + ударения внутри сохраняются: **б+олван** → б+олван
-                import re as _re_tts
-                text = _re_tts.sub(r'\*\*([^*]+)\*\*', r'\1', tts_override)
+                # **слово** — логическое ударение (Яндекс TTS-разметка, API v3).
+                # НЕ стираем: "**Кот** пошёл в лес?" → акцент на «Кот».
+                # Документация: https://yandex.cloud/ru/docs/speechkit/tts/markup/tts-markup
+                text = tts_override
                 _log.debug(
                     "tts.speechkit.tts_markup_override",
                     idx=index,

@@ -635,8 +635,11 @@ class SSMLOverrideTest(unittest.TestCase):
             "sil-пауза должна быть сохранена в тексте")
 
     def test_tts_markup_accent_stars(self):
-        """TTS-разметка **акцент** → Яндекс TTS v3 не поддерживает **bold**.
-        После фикса: ** снимаются, контент (включая + ударения) сохраняется."""
+        """TTS-разметка **акцент** = логическое ударение (Яндекс TTS API v3).
+        ** должны СОХРАНЯТЬСЯ в тексте — это валидная TTS-разметка Яндекс.
+        Документация: https://yandex.cloud/ru/docs/speechkit/tts/markup/tts-markup
+        «**Кот** пошёл в лес?» → логическое ударение на слово «Кот».
+        """
         received_payload = {}
 
         def capture_post(url, payload, **kw):
@@ -656,13 +659,11 @@ class SSMLOverrideTest(unittest.TestCase):
         provider.synthesize(project, project.segments)
 
         text = received_payload.get("text", "")
-        # ** убраны — Яндекс их игнорирует; текст внутри сохранён
-        self.assertNotIn("**", text,
-            "** должны быть убраны перед отправкой в Яндекс TTS")
-        self.assertIn("всегда", text,
-            "Содержимое **акцент** должно сохраняться без обёртки **")
-        self.assertIn("кого приручили", text,
-            "Содержимое второго **акцент** тоже сохраняется")
+        # ** СОХРАНЯЮТСЯ — это TTS-разметка логического ударения
+        self.assertIn("**всегда**", text,
+            "** должны сохраняться: это TTS-разметка логического ударения Яндекс")
+        self.assertIn("**кого приручили**", text,
+            "Второй ** акцент тоже сохраняется")
         self.assertNotIn("ssml", received_payload,
             "TTS-разметка не должна попадать в поле 'ssml'")
 

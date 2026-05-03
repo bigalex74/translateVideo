@@ -245,8 +245,29 @@
   vertical-align: middle;
 }
 
-/* Ударение + перед гласной */
+/* Ударение + перед гласной (фонетическое) */
 .tts-rich-preview .tts-stress {
   color: #fbbf24;
   font-weight: 600;
+}
+
+/* Логическое ударение **слово** */
+.tts-rich-preview .tts-logic-accent {
+  color: #f97316;
+  font-weight: 700;
+  font-style: normal;
+  border-bottom: 2px solid #f97316;
+  padding-bottom: 1px;
+}
+
+/* Кнопка логического ударения */
+.ssml-btn--logic-accent {
+  font-family: Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: #f97316;
+}
+.ssml-btn--logic-accent:hover {
+  background: rgba(249, 115, 22, 0.18);
+  border-color: #f97316;
 }
