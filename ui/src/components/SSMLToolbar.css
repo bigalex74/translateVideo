@@ -98,6 +98,20 @@
   border-color: rgba(251, 146, 60, 0.40);
 }
 
+/* Акцент **bold** (TTS-разметка) */
+.ssml-btn--accent {
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.20);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: -0.02em;
+}
+.ssml-btn--accent:hover {
+  background: rgba(251, 146, 60, 0.15);
+  border-color: rgba(251, 146, 60, 0.40);
+  color: #fdba74;
+}
+
 /* Акцент strong */
 .ssml-btn--strong {
   font-size: 11px;

@@ -2,58 +2,48 @@ import React, { useRef, useState } from 'react';
 import './SSMLToolbar.css';
 
 /**
- * SSMLToolbar — панель инструментов для ручного управления произношением.
+ * SSMLToolbar — панель инструментов Яндекс TTS-разметки.
  *
- * КЛЮЧЕВЫЕ ИСПРАВЛЕНИЯ v1.26.0:
- * - getTextarea() — callback вместо RefObject: всегда читает Map из родителя
- *   при вызове (не при рендере), ref всегда актуален.
- * - Выделение сохраняется: перед кликом кнопки сохраняем selectionStart/End
- *   через onMouseDown (т.к. клик по кнопке снимает фокус с textarea).
- * - Кнопка ▶ Прослушать: синтез через backend и воспроизведение в браузере.
+ * Использует нативную TTS-разметку Яндекс SpeechKit (поле "text", не "ssml"):
+ *   +     — ударение перед ударной гласной: во+да, зам+ок
+ *   sil<[300]>  — пауза указанной длины (мс)
+ *   <[medium]>  — контекстная пауза (tiny/small/medium/large/huge)
+ *   **слово**   — акцент на слово/фразу
+ *   [[фонемы]]  — фонетическое произношение через русские фонемы SpeechKit
  *
- * TVIDEO-100 / TVIDEO-102.
+ * Ключевые фиксы v1.26.0:
+ *   - getTextarea() callback (не RefObject) — всегда актуален
+ *   - onMouseDown сохраняет selection ДО потери фокуса
+ *
+ * TVIDEO-100 / TVIDEO-102 / TVIDEO-103.
  */
 
 interface SSMLToolbarProps {
-  /** Callback для получения textarea (читает Map при каждом вызове — не snapshot) */
   getTextarea: () => HTMLTextAreaElement | null;
-  /** Текущий текст в редакторе (tts_ssml_override или translated_text) */
   currentText: string;
-  /** Вызывается при каждом изменении — обновляет tts_ssml_override */
   onChange: (newValue: string) => void;
-  /** Вызывается при нажатии «Сброс» — очищает tts_ssml_override */
   onReset: () => void;
-  /** true если tts_ssml_override задан */
   hasOverride: boolean;
-  /** Callback для превью синтеза */
-  onPreview: (text: string, isSsml: boolean) => Promise<void>;
+  onPreview: (text: string) => Promise<void>;
 }
 
 // ── Вспомогательные функции ─────────────────────────────────────────────────
 
-/**
- * Обернуть СОХРАНЁННОЕ выделение в тег.
- * Принимает saved selection (start/end) вместо чтения из DOM,
- * потому что к моменту клика фокус уже мог уйти с textarea.
- */
-function wrapAtSavedSelection(
-  currentText: string,
-  savedStart: number,
-  savedEnd: number,
-  before: string,
-  after: string,
-  fallback: string = 'слово',
-): string {
-  const selected = currentText.slice(savedStart, savedEnd);
-  const insert = selected
-    ? `${before}${selected}${after}`
-    : `${before}${fallback}${after}`;
-  return currentText.slice(0, savedStart) + insert + currentText.slice(savedEnd);
+function insertAtSaved(text: string, pos: number, insert: string): string {
+  return text.slice(0, pos) + insert + text.slice(pos);
 }
 
-/** Вставить строку в сохранённую позицию курсора. */
-function insertAtSaved(currentText: string, savedStart: number, insert: string): string {
-  return currentText.slice(0, savedStart) + insert + currentText.slice(savedStart);
+function wrapSaved(
+  text: string,
+  start: number,
+  end: number,
+  before: string,
+  after: string,
+  fallback = 'слово',
+): string {
+  const sel = text.slice(start, end);
+  const inner = sel || fallback;
+  return text.slice(0, start) + before + inner + after + text.slice(end);
 }
 
 // ── Компонент ────────────────────────────────────────────────────────────────
@@ -66,121 +56,109 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
   hasOverride,
   onPreview,
 }) => {
-  const pauseSelectRef = useRef<HTMLSelectElement>(null);
+  const pauseMsRef   = useRef<HTMLSelectElement>(null);
+  const pauseCtxRef  = useRef<HTMLSelectElement>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewErr, setPreviewErr] = useState('');
 
-  // Сохранённая позиция курсора/выделения на момент НАЖАТИЯ кнопки.
-  // Нужно потому что клик на кнопку снимает фокус с textarea и сбрасывает selection.
-  const savedSel = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+  // Сохранённый selection (курсор) — обновляется через onMouseDown на каждой кнопке.
+  // Нужно т.к. клик на кнопку снимает фокус с textarea и браузер сбрасывает selection.
+  const sel = useRef({ start: 0, end: 0 });
 
-  /** Сохранить выделение из textarea перед тем как фокус уйдёт (onMouseDown кнопок). */
-  const saveSelection = () => {
+  const saveSel = () => {
     const ta = getTextarea();
-    if (ta) {
-      savedSel.current = { start: ta.selectionStart, end: ta.selectionEnd };
-    }
+    if (ta) sel.current = { start: ta.selectionStart, end: ta.selectionEnd };
   };
 
-  /** Восстановить фокус и курсор в textarea после вставки. */
-  const restoreFocus = (newStart: number, newEnd?: number) => {
+  const refocus = (newStart: number, newEnd = newStart) => {
     requestAnimationFrame(() => {
       const ta = getTextarea();
-      if (ta) {
-        ta.focus();
-        ta.setSelectionRange(newStart, newEnd ?? newStart);
-      }
+      if (ta) { ta.focus(); ta.setSelectionRange(newStart, newEnd); }
     });
   };
 
-  // ── Обработчики кнопок ────────────────────────────────────────────────────
+  // ── Кнопки ──────────────────────────────────────────────────────────────
 
-  const handleStress = () => {
-    const { start } = savedSel.current;
-    const newVal = insertAtSaved(currentText, start, '+');
-    onChange(newVal);
-    restoreFocus(start + 1);
+  /** Ударение: вставить «+» в позицию курсора — ставить ПЕРЕД ударной гласной */
+  const doStress = () => {
+    const { start } = sel.current;
+    onChange(insertAtSaved(currentText, start, '+'));
+    refocus(start + 1);
   };
 
-  const handleBreak = () => {
-    const { start } = savedSel.current;
-    const ms = pauseSelectRef.current?.value ?? '350';
-    const tag = `<break time="${ms}ms"/>`;
-    const newVal = insertAtSaved(currentText, start, tag);
-    onChange(newVal);
-    restoreFocus(start + tag.length);
+  /** Явная пауза sil<[300]> */
+  const doSilPause = () => {
+    const { start } = sel.current;
+    const ms  = pauseMsRef.current?.value ?? '300';
+    const tag = `sil<[${ms}]>`;
+    onChange(insertAtSaved(currentText, start, tag));
+    refocus(start + tag.length);
   };
 
-  const handleEmphasis = (level: 'reduced' | 'moderate' | 'strong') => {
-    const { start, end } = savedSel.current;
-    const before = `<emphasis level="${level}">`;
-    const after = '</emphasis>';
-    const newVal = wrapAtSavedSelection(currentText, start, end, before, after);
-    onChange(newVal);
-    // Выделяем вставленный текст
-    const selStart = start + before.length;
-    const selEnd   = end > start ? start + before.length + (end - start) : selStart + 'слово'.length;
-    restoreFocus(selStart, selEnd);
+  /** Контекстная пауза <[medium]> */
+  const doCtxPause = () => {
+    const { start } = sel.current;
+    const size = pauseCtxRef.current?.value ?? 'medium';
+    const tag  = `<[${size}]>`;
+    onChange(insertAtSaved(currentText, start, tag));
+    refocus(start + tag.length);
   };
 
-  const handleProsody = (rate: string) => {
-    const { start, end } = savedSel.current;
-    const before = `<prosody rate="${rate}">`;
-    const after = '</prosody>';
-    const newVal = wrapAtSavedSelection(currentText, start, end, before, after, 'текст');
+  /** Акцент **слово** */
+  const doAccent = () => {
+    const { start, end } = sel.current;
+    const newVal = wrapSaved(currentText, start, end, '**', '**');
     onChange(newVal);
-    const selStart = start + before.length;
-    const selEnd   = end > start ? start + before.length + (end - start) : selStart + 'текст'.length;
-    restoreFocus(selStart, selEnd);
+    // Выделяем вставленное
+    const sel2start = start + 2;
+    const sel2end   = end > start ? sel2start + (end - start) : sel2start + 'слово'.length;
+    refocus(sel2start, sel2end);
   };
 
-  const handlePhoneme = () => {
-    const { start, end } = savedSel.current;
-    const ipa = window.prompt('Введите IPA-транскрипцию:');
-    if (!ipa) return;
-    const before = `<phoneme alphabet="ipa" ph="${ipa}">`;
-    const after = '</phoneme>';
-    const newVal = wrapAtSavedSelection(currentText, start, end, before, after);
+  /** Фонетическое произношение [[фонемы]] */
+  const doPhoneme = () => {
+    const { start, end } = sel.current;
+    const ph = window.prompt(
+      'Введите фонемы через пробел (пример: v a sʲ ʌ):',
+      currentText.slice(start, end) || '',
+    );
+    if (!ph) return;
+    // Заменяем выделение обёрткой [[фонемы]]
+    const newVal = wrapSaved(currentText, start, end, '[[', ']]', ph);
     onChange(newVal);
-    restoreFocus(start + before.length);
+    refocus(start + 2 + ph.length);
   };
 
-  const handlePreview = async () => {
-    if (previewing) return;
-    const text = currentText.trim();
-    if (!text) return;
+  /** Прослушать */
+  const doPreview = async () => {
+    if (previewing || !currentText.trim()) return;
     setPreviewErr('');
     setPreviewing(true);
     try {
-      const isSsml = text.includes('<') || text.startsWith('<speak>');
-      await onPreview(text, isSsml);
+      await onPreview(currentText.trim());
     } catch (e) {
-      setPreviewErr(e instanceof Error ? e.message : 'Ошибка синтеза');
+      setPreviewErr(e instanceof Error ? e.message.slice(0, 50) : 'Ошибка');
     } finally {
       setPreviewing(false);
     }
   };
 
   // ── JSX ──────────────────────────────────────────────────────────────────
-
   return (
-    <div className="ssml-toolbar" role="toolbar" aria-label="Инструменты произношения">
+    <div className="ssml-toolbar" role="toolbar" aria-label="TTS-разметка произношения">
 
-      {/* Подсказка для новичка */}
       {!hasOverride && (
-        <span className="ssml-hint">
-          Поставьте курсор в текст ниже, затем нажмите кнопку
-        </span>
+        <span className="ssml-hint">Поставьте курсор в текст ниже → нажмите кнопку</span>
       )}
 
-      {/* Группа: Ударение */}
+      {/* Ударение */}
       <div className="ssml-group">
         <span className="ssml-group-label">Ударение</span>
         <button
           className="ssml-btn ssml-btn--stress"
-          title="Вставить «+» перед ударной гласной: во+да, при+вет"
-          onMouseDown={saveSelection}
-          onClick={handleStress}
+          title="Вставить «+» перед ударной гласной&#10;Пример: во+да, зам+ок, при+вет"
+          onMouseDown={saveSel}
+          onClick={doStress}
           type="button"
         >
           +а́
@@ -189,104 +167,81 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
 
       <div className="ssml-divider" />
 
-      {/* Группа: Пауза */}
+      {/* Явная пауза */}
       <div className="ssml-group">
-        <span className="ssml-group-label">Пауза</span>
-        <select
-          ref={pauseSelectRef}
-          className="ssml-select"
-          title="Длина паузы"
-          defaultValue="350"
-        >
-          <option value="150">150ms</option>
-          <option value="350">350ms</option>
-          <option value="500">500ms</option>
-          <option value="700">700ms</option>
-          <option value="1000">1с</option>
+        <span className="ssml-group-label">Пауза (мс)</span>
+        <select ref={pauseMsRef} className="ssml-select" title="Длина паузы" defaultValue="300">
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="300">300</option>
+          <option value="500">500</option>
+          <option value="700">700</option>
+          <option value="1000">1000</option>
+          <option value="2000">2000</option>
         </select>
         <button
           className="ssml-btn"
-          title="Вставить паузу в позицию курсора"
-          onMouseDown={saveSelection}
-          onClick={handleBreak}
+          title="Вставить явную паузу sil<[Xms]>&#10;Пример: Унылая пора! sil<[300]> Очей очарованье!"
+          onMouseDown={saveSel}
+          onClick={doSilPause}
           type="button"
         >
-          ⏸
+          ⏸ms
         </button>
       </div>
 
       <div className="ssml-divider" />
 
-      {/* Группа: Акцент */}
+      {/* Контекстная пауза */}
+      <div className="ssml-group">
+        <span className="ssml-group-label">Пауза (контекст)</span>
+        <select ref={pauseCtxRef} className="ssml-select" title="Размер контекстной паузы" defaultValue="medium">
+          <option value="tiny">tiny</option>
+          <option value="small">small</option>
+          <option value="medium">medium</option>
+          <option value="large">large</option>
+          <option value="huge">huge</option>
+        </select>
+        <button
+          className="ssml-btn"
+          title="Контекстная пауза — длина подбирается автоматически&#10;Пример: Мороз и солнце; <[medium]> день чудесный!"
+          onMouseDown={saveSel}
+          onClick={doCtxPause}
+          type="button"
+        >
+          ⏸~
+        </button>
+      </div>
+
+      <div className="ssml-divider" />
+
+      {/* Акцент */}
       <div className="ssml-group">
         <span className="ssml-group-label">Акцент</span>
         <button
-          className="ssml-btn ssml-btn--reduced"
-          title="Выделите слово и нажмите — приглушить (reduced)"
-          onMouseDown={saveSelection}
-          onClick={() => handleEmphasis('reduced')}
+          className="ssml-btn ssml-btn--accent"
+          title="Выделите слово — обернуть в **акцент**&#10;Пример: Мы **всегда** будем в ответе"
+          onMouseDown={saveSel}
+          onClick={doAccent}
           type="button"
         >
-          ▾
-        </button>
-        <button
-          className="ssml-btn ssml-btn--moderate"
-          title="Выделите слово и нажмите — акцент (moderate)"
-          onMouseDown={saveSelection}
-          onClick={() => handleEmphasis('moderate')}
-          type="button"
-        >
-          ❗
-        </button>
-        <button
-          className="ssml-btn ssml-btn--strong"
-          title="Выделите слово и нажмите — сильный акцент (strong)"
-          onMouseDown={saveSelection}
-          onClick={() => handleEmphasis('strong')}
-          type="button"
-        >
-          ‼
+          **B**
         </button>
       </div>
 
       <div className="ssml-divider" />
 
-      {/* Группа: Темп */}
+      {/* Фонемы */}
       <div className="ssml-group">
-        <span className="ssml-group-label">Темп</span>
-        <button
-          className="ssml-btn"
-          title="Выделите фрагмент — замедлить на 20%"
-          onMouseDown={saveSelection}
-          onClick={() => handleProsody('80%')}
-          type="button"
-        >
-          🐢
-        </button>
-        <button
-          className="ssml-btn"
-          title="Выделите фрагмент — ускорить на 20%"
-          onMouseDown={saveSelection}
-          onClick={() => handleProsody('120%')}
-          type="button"
-        >
-          🐇
-        </button>
-      </div>
-
-      <div className="ssml-divider" />
-
-      {/* Группа: IPA */}
-      <div className="ssml-group">
-        <span className="ssml-group-label">IPA</span>
+        <span className="ssml-group-label">Фонемы</span>
         <button
           className="ssml-btn ssml-btn--phoneme"
-          title="Выделите слово — задать произношение в IPA"
-          onMouseDown={saveSelection}
-          onClick={handlePhoneme}
+          title="Выделите слово — задать произношение фонемами&#10;Пример: [[v a sʲ ʌ]] → «Вася»"
+          onMouseDown={saveSel}
+          onClick={doPhoneme}
           type="button"
         >
-          🔤
+          [[🔤]]
         </button>
       </div>
 
@@ -294,45 +249,35 @@ export const SSMLToolbar: React.FC<SSMLToolbarProps> = ({
       {hasOverride && (
         <>
           <div className="ssml-divider" />
-          <div className="ssml-group">
-            <button
-              className="ssml-btn ssml-btn--reset"
-              title="Убрать ручные правки — вернуть автоматический текст"
-              onClick={onReset}
-              type="button"
-            >
-              🔄 Сброс
-            </button>
-          </div>
+          <button
+            className="ssml-btn ssml-btn--reset"
+            title="Убрать ручные правки — вернуть автоматический текст"
+            onClick={onReset}
+            type="button"
+          >
+            🔄 Сброс
+          </button>
         </>
       )}
 
-      {/* ▶ Прослушать */}
+      {/* Прослушать */}
       <div className="ssml-divider" />
-      <div className="ssml-group">
-        <button
-          className={`ssml-btn ssml-btn--preview${previewing ? ' ssml-btn--loading' : ''}`}
-          title="Синтезировать и прослушать этот отрывок"
-          onClick={handlePreview}
-          disabled={previewing || !currentText.trim()}
-          type="button"
-        >
-          {previewing ? '⏳' : '▶'} Прослушать
-        </button>
-      </div>
+      <button
+        className={`ssml-btn ssml-btn--preview${previewing ? ' ssml-btn--loading' : ''}`}
+        title="Синтезировать и прослушать этот фрагмент"
+        onClick={doPreview}
+        disabled={previewing || !currentText.trim()}
+        type="button"
+      >
+        {previewing ? '⏳' : '▶'} Прослушать
+      </button>
 
-      {/* Индикатор override */}
       {hasOverride && (
-        <span className="ssml-override-badge" title="Используется ручной SSML">
-          ✎ ред.
-        </span>
+        <span className="ssml-override-badge" title="Активна ручная разметка TTS">✎ TTS</span>
       )}
 
-      {/* Ошибка синтеза */}
       {previewErr && (
-        <span className="ssml-preview-err" title={previewErr}>
-          ⚠ {previewErr.slice(0, 40)}
-        </span>
+        <span className="ssml-preview-err" title={previewErr}>⚠ {previewErr}</span>
       )}
     </div>
   );

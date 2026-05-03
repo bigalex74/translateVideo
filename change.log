@@ -1,5 +1,42 @@
 # Журнал Изменений
 
+## 1.27.0 - 2026-05-03 - FEAT - TVIDEO-103
+
+### Переход на нативную Яндекс TTS-разметку
+
+Заменяем SSML-теги (<break>, <emphasis>, <phoneme>) на нативную
+TTS-разметку Яндекс SpeechKit — она проще, мощнее и отправляется
+в поле "text" (не "ssml").
+
+**Таблица замен:**
+
+  Операция       | Было (SSML)                    | Стало (TTS-markup)
+  Ударение       | + (тот же)                     | + (без изменений)
+  Пауза явная    | <break time="300ms"/>           | sil<[300]>
+  Пауза контекст | ❌ не было                      | <[medium]> (tiny/small/medium/large/huge)
+  Акцент         | <emphasis level="moderate">   | **слово** (интуитивно)
+  Фонемы         | <phoneme alphabet="ipa" ph=...>| [[v a sʲ ʌ]] (русские фонемы)
+
+**Backend:**
+- speechkit_tts.py: убрана <speak>-обёртка для override. TTS-разметка
+  всегда идёт в поле "text". Только emotion_level>0 использует "ssml".
+- pipeline.py tts-preview: та же логика упрощена.
+
+**Frontend (SSMLToolbar):**
+- Новые кнопки: «⏸ms» (sil<[300]>), «⏸~» (контекстная <[medium]>)
+- «**B**» вместо «❗» для акцента → **слово**
+- «[[🔤]]» для фонем → [[v a sʲ ʌ]]
+- Убраны: prosody rate (нет аналога в TTS-markup)
+- Tooltip с примерами для каждой кнопки
+- Badge: «✎ TTS» вместо «✎ ред.»
+
+**Тесты:**
+- test_ssml_override_wraps_tags_in_speak → test_tts_markup_override_goes_to_text_field
+- test_ssml_override_no_double_speak_wrap → test_tts_markup_accent_stars
+  (проверяют что TTS-markup идёт в 'text', не в 'ssml')
+
+503 Python + 131 Vitest.
+
 ## 1.26.0 - 2026-05-03 - FEAT - TVIDEO-102
 
 ### SSML Toolbar: фикс UX + кнопка Прослушать

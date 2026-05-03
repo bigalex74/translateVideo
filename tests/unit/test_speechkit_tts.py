@@ -577,8 +577,8 @@ class SSMLOverrideTest(unittest.TestCase):
                       received_payload.get("ssml", ""),
             "tts_ssml_override должен быть отправлен в TTS")
 
-    def test_ssml_override_wraps_tags_in_speak(self):
-        """SSML-теги без <speak> обёртываются автоматически."""
+    def test_tts_markup_override_goes_to_text_field(self):
+        """TTS-разметка override отправляется в поле 'text', не 'ssml'."""
         received_payload = {}
 
         def capture_post(url, payload, **kw):
@@ -592,19 +592,22 @@ class SSMLOverrideTest(unittest.TestCase):
         )
         project = _make_project(self.work_dir)
         seg = _make_segment(0, "текст")
-        seg.tts_ssml_override = 'привет <break time="500ms"/> мир'
+        # TTS-разметка с sil-паузой и ударением (Яндекс TTS-markup, поле 'text')
+        seg.tts_ssml_override = 'Унылая пора! sil<[300]> Очей оч+арованье!'
         project.segments = [seg]
 
         provider.synthesize(project, project.segments)
 
-        ssml = received_payload.get("ssml", "")
-        self.assertTrue(ssml.startswith("<speak>"),
-            f"SSML должен начинаться с <speak>, получен: {ssml!r}")
-        self.assertTrue(ssml.endswith("</speak>"),
-            f"SSML должен заканчиваться на </speak>, получен: {ssml!r}")
+        # TTS-разметка должна идти в поле 'text', не в 'ssml'
+        self.assertIn("text", received_payload,
+            "TTS-разметка должна быть в поле 'text'")
+        self.assertNotIn("ssml", received_payload,
+            "TTS-разметка не должна попадать в поле 'ssml'")
+        self.assertIn("sil<[300]>", received_payload["text"],
+            "sil-пауза должна быть сохранена в тексте")
 
-    def test_ssml_override_no_double_speak_wrap(self):
-        """Уже обёрнутый <speak> не двойная обёртка."""
+    def test_tts_markup_accent_stars(self):
+        """TTS-разметка **акцент** отправляется в поле 'text' без изменений."""
         received_payload = {}
 
         def capture_post(url, payload, **kw):
@@ -618,14 +621,16 @@ class SSMLOverrideTest(unittest.TestCase):
         )
         project = _make_project(self.work_dir)
         seg = _make_segment(0, "текст")
-        seg.tts_ssml_override = '<speak>уже в speak</speak>'
+        seg.tts_ssml_override = 'Мы **всегда** будем в ответе за тех, **кого приручили**.'
         project.segments = [seg]
 
         provider.synthesize(project, project.segments)
 
-        ssml = received_payload.get("ssml", "") or received_payload.get("text", "")
-        self.assertNotIn("<speak><speak>", ssml,
-            "Двойная обёртка <speak> недопустима")
+        text = received_payload.get("text", "")
+        self.assertIn("**всегда**", text,
+            "Разметка **акцент** должна сохраняться в поле 'text'")
+        self.assertNotIn("ssml", received_payload,
+            "TTS-разметка не должна попадать в поле 'ssml'")
 
     def test_empty_override_falls_back_to_translated_text(self):
         """Пустой override → использовать translated_text."""

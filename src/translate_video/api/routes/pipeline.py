@@ -381,19 +381,13 @@ def tts_preview(
             voice = getattr(cfg, "professional_tts_voice", "alena")
             emotion_level = int(getattr(cfg, "tts_emotion_level", 0))
 
-            # Подготовка текста для синтеза
-            if req.is_ssml and not text.startswith("<speak>"):
-                synth_text = f"<speak>{text}</speak>"
-            elif not req.is_ssml and emotion_level > EMOTION_OFF:
+            # TTS-разметка пользователя → поле "text" (sil<[300]>, **акцент**, [[фонемы]])
+            # SSML-эмоции (emotion_level>0) → ssml_enhance → поле "ssml"
+            if emotion_level > EMOTION_OFF:
                 synth_text = ssml_enhance(text, emotion_level)
-            else:
-                synth_text = text
-
-            # Определяем поле (text или ssml)
-            if synth_text.startswith("<speak>") or req.is_ssml:
                 payload_text = {"ssml": synth_text}
             else:
-                payload_text = {"text": synth_text}
+                payload_text = {"text": text}
 
             from translate_video.tts.speechkit_tts import SPEECHKIT_TTS_URL, _post_streaming, SPEECHKIT_VOICES
             voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)

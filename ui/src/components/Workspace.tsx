@@ -674,7 +674,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   </div>
                   <div className="seg-source">{seg.source_text}</div>
 
-                  {/* SSML-тулбар — показывается только при Яндекс TTS */}
+                  {/* TTS-тулбар — показывается только при Яндекс TTS */}
                   {project.config?.professional_tts_provider === 'yandex' && (() => {
                     const ssmlOverride = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override || '';
                     const currentText = ssmlOverride || seg.translated_text || '';
@@ -685,8 +685,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                         hasOverride={!!ssmlOverride}
                         onChange={(v) => handleSsmlChange(seg.id, v)}
                         onReset={() => handleSsmlReset(seg.id)}
-                        onPreview={async (text, isSsml) => {
-                          const url = await previewTTS(projectId, text, isSsml);
+                        onPreview={async (text) => {
+                          const url = await previewTTS(projectId, text, false);
                           const audio = new Audio(url);
                           audio.onended = () => URL.revokeObjectURL(url);
                           audio.onerror = () => URL.revokeObjectURL(url);
