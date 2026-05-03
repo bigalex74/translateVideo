@@ -433,30 +433,25 @@ def tts_preview(
             audio_bytes = _post_streaming(SPEECHKIT_TTS_URL, payload, headers=headers, timeout=15)
 
             # ── Fallback для голоса zamira ──────────────────────────────────────
-            # zamira возвращает «немые» чанки двух размеров:
-            #   2925b — полная тишина (голос не смог синтезировать)
-            #   3309b — почти тишина (~0.37s молчания)
-            # Это происходит для коротких чисто-русских фраз.
-            # При этом folder_id передан → это баг самого голоса.
-            # Fallback: повторяем с голосом alena (стабильный стандартный голос).
-            ZAMIRA_SILENCE_SIZES = {2925, 3309}
-            if len(audio_bytes) in ZAMIRA_SILENCE_SIZES and voice not in ("alena", "filipp", "zahar", "oksana"):
-                fallback_hints = [{"voice": "alena"}, {"speed": 1.0}]
-                fallback_payload = {
+            # ПОДТВЕРЖДЁННЫЙ БАГ Яндекс: zamira через REST API v3 возвращает
+            # немые чанки (2925/2733/3309/3117b) для коротких чисто-русских фраз.
+            # Проблема не зависит от role, speed, unsafeMode — это баг самого
+            # REST-интерфейса для данного голоса.
+            #
+            # РЕШЕНИЕ: повторить запрос БЕЗ hints (Яндекс использует голос проекта
+            # по умолчанию, привязанный к folder_id — работает для всех фраз).
+            # Это лучше чем fallback на alena: сохраняется тот же голос.
+            YANDEX_SILENCE_MAX = 4000  # < 4KB = тишина / неполный ответ
+            if len(audio_bytes) < YANDEX_SILENCE_MAX:
+                # Retry без hints — Яндекс выберет голос из настроек folder_id
+                nohint_payload = {
                     **payload_text,
-                    "hints": fallback_hints,
                     "outputAudioSpec": {"containerAudio": {"containerAudioType": "MP3"}},
                     "unsafeMode": True,
                 }
-                fallback_headers = {
-                    "Authorization": f"Api-Key {api_key}",
-                    "Content-Type": "application/json",
-                }
-                if folder_id:
-                    fallback_headers["x-folder-id"] = folder_id
                 audio_bytes = _post_streaming(
-                    SPEECHKIT_TTS_URL, fallback_payload,
-                    headers=fallback_headers, timeout=15
+                    SPEECHKIT_TTS_URL, nohint_payload,
+                    headers=headers, timeout=15
                 )
 
         else:
