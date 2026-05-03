@@ -132,14 +132,14 @@ class YandexSpeechKitTTSProvider:
         output_dir.mkdir(parents=True, exist_ok=True)
         speaker_voice_map: dict[str, tuple[str, str]] = {}
 
-        # Сбрасываем TTS-специфичные QA-флаги от предыдущего запуска,
-        # чтобы ошибки прошлой озвучки не попадали в QA текущей.
+        # Сбрасываем TTS-специфичные QA-флаги и tts_path от предыдущего запуска.
+        # ВАЖНО: tts_path должен быть None чтобы рендер не использовал СТАРЫЕ
+        # mp3-файлы от предыдущей озвучки если текущий синтез провалится.
         # Флаги тайминга (timing_fit_*) сохраняются — они остаются актуальными.
-        _TTS_FLAG_PREFIXES = ("tts_",)
         for seg in segments:
+            seg.tts_path = None  # защита от использования старого mp3 при ошибке
             seg.qa_flags = [
-                f for f in seg.qa_flags
-                if not any(f.startswith(p) for p in _TTS_FLAG_PREFIXES)
+                f for f in seg.qa_flags if not f.startswith("tts_")
             ]
 
         for index, segment in enumerate(segments):
@@ -165,15 +165,43 @@ class YandexSpeechKitTTSProvider:
                 try:
                     self._synth(text, voice, role, speed, pitch, output)
                 except Exception as exc:  # noqa: BLE001
-                    _log.error(
-                        "tts.speechkit.error",
-                        idx=index,
-                        seg_id=segment.id,
-                        voice=voice,
-                        error=str(exc),
-                    )
-                    _add_qa_flag(segment, "tts_speechkit_error")
-                    continue
+                    # SSML fallback: если SSML вызвал "Empty Utterance" (HTTP 400)
+                    # → повторяем с plain text. SSML-тег удаляется из payload,
+                    # заменяется полем "text". Это гарантирует что синтез пройдёт.
+                    err_str = str(exc)
+                    if (
+                        self.emotion_level > EMOTION_OFF
+                        and "Empty" in err_str
+                        and ("400" in err_str or "Utterance" in err_str)
+                    ):
+                        _log.warning(
+                            "tts.speechkit.ssml_fallback",
+                            idx=index,
+                            seg_id=segment.id,
+                            reason="Empty Utterance — retry with plain text",
+                        )
+                        try:
+                            self._synth_plain(text, voice, role, speed, pitch, output)
+                        except Exception as exc2:  # noqa: BLE001
+                            _log.error(
+                                "tts.speechkit.error",
+                                idx=index,
+                                seg_id=segment.id,
+                                voice=voice,
+                                error=str(exc2),
+                            )
+                            _add_qa_flag(segment, "tts_speechkit_error")
+                            continue
+                    else:
+                        _log.error(
+                            "tts.speechkit.error",
+                            idx=index,
+                            seg_id=segment.id,
+                            voice=voice,
+                            error=err_str,
+                        )
+                        _add_qa_flag(segment, "tts_speechkit_error")
+                        continue
 
             segment.tts_path = output.relative_to(project.work_dir).as_posix()
             segment.voice = f"{voice}:{role}"
@@ -253,6 +281,49 @@ class YandexSpeechKitTTSProvider:
 
         payload = {
             **text_payload,
+            "hints": hints,
+            "outputAudioSpec": {
+                "containerAudio": {"containerAudioType": "MP3"},
+            },
+            "unsafeMode": True,
+        }
+        headers = {
+            "Authorization": f"Api-Key {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        audio_bytes = self._http_post(
+            SPEECHKIT_TTS_URL,
+            payload,
+            headers=headers,
+            timeout=self.timeout,
+        )
+        output.write_bytes(audio_bytes)
+
+    def _synth_plain(
+        self,
+        text: str,
+        voice: str,
+        role: str,
+        speed: float,
+        pitch: int,
+        output,
+    ) -> None:
+        """Синтез с plain text (без SSML) — используется как fallback при ошибках SSML.
+
+        Идентичен _synth, но всегда использует поле ``"text"`` вместо ``"ssml"``.
+        """
+        voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
+        supports_role = bool(voice_meta and voice_meta.get("roles"))
+
+        hints: list[dict] = [{"voice": voice}]
+        if supports_role:
+            hints.append({"role": role})
+        hints.append({"speed": max(0.1, min(10.0, speed))})
+        if pitch != 0:
+            hints.append({"pitchShift": max(-1000, min(1000, pitch))})
+
+        payload = {
+            "text": text,  # всегда plain text, независимо от emotion_level
             "hints": hints,
             "outputAudioSpec": {
                 "containerAudio": {"containerAudioType": "MP3"},
