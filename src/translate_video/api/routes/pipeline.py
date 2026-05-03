@@ -363,6 +363,10 @@ def tts_preview(
         cfg = project.config
 
         text = req.text.strip()
+        import logging as _logging
+        _logging.getLogger("tts_preview").warning(
+            f"[tts-preview] received text len={len(text)!r} chars: {text[:80]!r}"
+        )
         if not text:
             raise HTTPException(status_code=400, detail="Текст не может быть пустым")
         if len(text) > 2000:
@@ -466,6 +470,10 @@ def tts_preview(
                 provider._synth(clean_text, voice, tmp_path)
                 audio_bytes = tmp_path.read_bytes()
 
+        import logging as _logging
+        _logging.getLogger("tts_preview").warning(
+            f"[tts-preview] returning audio_bytes={len(audio_bytes)} bytes"
+        )
         return Response(content=audio_bytes, media_type="audio/mpeg")
 
     except HTTPException:

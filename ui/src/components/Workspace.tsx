@@ -687,10 +687,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                         onReset={() => handleSsmlReset(seg.id)}
                         onPreview={async (text) => {
                           const url = await previewTTS(projectId, text, false);
-                          const audio = new Audio(url);
-                          audio.onended = () => URL.revokeObjectURL(url);
-                          audio.onerror = () => URL.revokeObjectURL(url);
-                          await audio.play();
+                          const audio = new Audio();
+                          // Сохраняем ссылку на window чтобы GC не убил объект во время воспроизведения
+                          (window as any).__ttsPreviewAudio = audio;
+                          audio.onended = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; };
+                          audio.onerror = (e) => { console.error('[preview] audio error', e); URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; };
+                          audio.src = url;
+                          audio.load();
+                          try { await audio.play(); } catch(e) { console.error('[preview] play error', e); }
                         }}
                       />
                     );
