@@ -1,5 +1,46 @@
 # Журнал Изменений
 
+## 1.25.0 - 2026-05-03 - FEAT - TVIDEO-100
+
+### SSML Inline Editor: ударения, паузы, акцент, просодия, фонемы
+
+Новый SSML-редактор в панели сегментов. Позволяет вручную управлять
+произношением без изменения translated_text.
+
+**Backend:**
+- Segment.tts_ssml_override: str = "" — новое поле.
+  Если задано — TTS использует его вместо translated_text.
+  ssml_enhance НЕ применяется (пользователь контролирует SSML сам).
+- SpeechKit: override с тегами → auto-wrap в <speak>, отправка
+  в поле "ssml". Без тегов — ruaccent не применяется.
+- SpeechKit: text.startswith("<speak>") → всегда "ssml" поле.
+- OpenAI TTS: SSML override поддержан — теги стриппируются, "+'
+  удаляется (OpenAI не поддерживает SSML).
+- Segment.from_dict(): толерантность к схема-миграции — неизвестные
+  поля игнорируются, отсутствующие — defaults. Совместимость
+  со старыми проектами.
+
+**Frontend (SSMLToolbar):**
+Тулбар над textarea каждого сегмента (только при Яндекс TTS).
+Кнопки:
+  +а́  Ударение — вставить «+» перед ударной гласной (во+да)
+  ⏸   Пауза — <break time="Xms"/> (150/350/500/700ms/1с)
+  ▾❗‼ Акцент — <emphasis level="reduced/moderate/strong">
+  🐢🐇 Темп — <prosody rate="80%/120%">
+  🔤  Фонема IPA — <phoneme alphabet="ipa" ph="...">
+  🔄  Сброс tts_ssml_override → вернуть к translated_text
+
+Если override задан — textarea показывает его (фиолетовая рамка).
+Редактирование в textarea обновляет override напрямую.
+
+Тесты Python (6 новых — SSMLOverrideTest):
+- override > translated_text
+- <speak> wrap (без двойной обёртки)
+- Пустой override → translated_text fallback
+- Схема-миграция: from_dict без tts_ssml_override / с неизвест. полями
+
+503 Python + 131 Vitest.
+
 ## 1.24.1 - 2026-05-03 - FIX - TVIDEO-099
 
 ### Автосохранение правок перед запуском пайплайна

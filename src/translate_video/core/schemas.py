@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -165,6 +165,10 @@ class Segment:
     status: SegmentStatus = SegmentStatus.DRAFT
     tts_path: str | None = None
     tts_text: str = ""  # текст реально отправленный в TTS (пусто = translated_text)
+    tts_ssml_override: str = ""  # SSML введённый пользователем вручную в редакторе;
+    #   если задан — используется TTS вместо translated_text (минуя ssml_enhance).
+    #   Формат: plain text с тегами Яндекс SpeechKit SSML или `+` для ударений.
+    #   Пример: "во+да течёт <break time=\"350ms\"/> по трубам"
     qa_flags: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -189,6 +193,12 @@ class Segment:
 
         data = dict(payload)
         data["status"] = SegmentStatus(data.get("status", "draft"))
+        # Толерантность к схема-миграции: неизвестные поля удаляются,
+        # отсутствующие — используют значения по умолчанию из dataclass.
+        known = {f.name for f in fields(cls)}
+        for key in list(data.keys()):
+            if key not in known:
+                data.pop(key)
         return cls(**data)
 
 

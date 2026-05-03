@@ -388,6 +388,14 @@
   background: rgba(251, 191, 36, 0.04) !important;
 }
 
+/* Segment с ручным SSML-override */
+.seg-has-ssml {
+  border-color: rgba(139, 92, 246, 0.40) !important;
+  background: rgba(139, 92, 246, 0.04) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+}
+
 /* Segment duration badge */
 .seg-duration {
   margin-left: 6px;

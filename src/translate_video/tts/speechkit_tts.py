@@ -143,7 +143,22 @@ class YandexSpeechKitTTSProvider:
             ]
 
         for index, segment in enumerate(segments):
-            text = segment.translated_text.strip()
+            # Приоритет источника текста:
+            # 1. tts_ssml_override — текст введённый пользователем в SSML-редакторе
+            #    (уже содержит SSML-теги и/или ударения; ssml_enhance НЕ применяется)
+            # 2. translated_text — стандартный переведённый текст
+            ssml_override = (segment.tts_ssml_override or "").strip()
+            if ssml_override:
+                text = ssml_override
+                _log.debug(
+                    "tts.speechkit.ssml_override",
+                    idx=index,
+                    seg_id=segment.id,
+                    length=len(text),
+                )
+            else:
+                text = segment.translated_text.strip()
+
             if not text:
                 continue
 
@@ -157,9 +172,15 @@ class YandexSpeechKitTTSProvider:
             output = output_dir / f"{segment.id or index}.mp3"
             segment.tts_text = text
 
-            # Автоматическая расстановка ударений (ruaccent)
-            if self.use_stress:
+            # Автоматическая расстановка ударений (ruaccent) — только если НЕТ
+            # пользовательского override (там ударения расставляет сам пользователь).
+            if self.use_stress and not ssml_override:
                 text = _stress.process(text)
+
+            # Если override содержит SSML-теги и не обёрнут в <speak> — обёртываем.
+            # ssml_enhance НЕ применяется для override (пользователь сам контролирует SSML).
+            if ssml_override and "<" in text and not text.startswith("<speak>"):
+                text = f"<speak>{text}</speak>"
 
             with Timer() as t:
                 try:
@@ -272,10 +293,15 @@ class YandexSpeechKitTTSProvider:
             hints.append({"pitchShift": max(-1000, min(1000, pitch))})
 
         # SSML-эмоции: если emotion_level > 0 — конвертируем текст в SSML
-        # и отправляем в поле "ssml" вместо "text"
+        # и отправляем в поле "ssml" вместо "text".
+        # Также: если текст уже в SSML-формате (<speak>...</speak>) —
+        # пользовательский override — отправляем в поле "ssml" напрямую.
         if self.emotion_level > EMOTION_OFF:
             enhanced = ssml_enhance(text, self.emotion_level)
             text_payload = {"ssml": enhanced}
+        elif text.startswith("<speak>"):
+            # Пользовательский SSML override (из tts_ssml_override)
+            text_payload = {"ssml": text}
         else:
             text_payload = {"text": text}
 

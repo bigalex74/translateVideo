@@ -84,7 +84,21 @@ class OpenAITTSProvider:
             seg.qa_flags = [f for f in seg.qa_flags if not f.startswith("tts_")]
 
         for index, segment in enumerate(segments):
-            text = segment.translated_text.strip()
+            # Приоритет источника текста:
+            # 1. tts_ssml_override — пользовательский текст из SSML-редактора
+            #    OpenAI не поддерживает SSML → стриппим теги, оставляем plain text
+            # 2. translated_text — стандартный переведённый текст
+            ssml_override = (segment.tts_ssml_override or "").strip()
+            if ssml_override:
+                import re as _re
+                text = _re.sub(r"<[^>]+>", "", ssml_override).strip()
+                # Убираем SSML-ударения (+), оставляем только текст
+                text = text.replace("+", "")
+                if not text:
+                    text = segment.translated_text.strip()
+            else:
+                text = segment.translated_text.strip()
+
             if not text:
                 continue
 

@@ -531,5 +531,152 @@ class SSMLFallbackTest(unittest.TestCase):
         self.assertIn("tts_speechkit_error", project.segments[0].qa_flags)
 
 
+class SSMLOverrideTest(unittest.TestCase):
+    """TVIDEO-100: tts_ssml_override имеет приоритет над translated_text.
+
+    Тестирует что:
+    - Текст из tts_ssml_override отправляется в TTS вместо translated_text
+    - SSML-теги обёртываются в <speak> если их нет
+    - Уже обёрнутый <speak>...</speak> не двойная обёртка
+    - ruaccent/stress не применяется к override
+    - Если override пустой — использует translated_text как обычно
+    """
+
+    def setUp(self):
+        import tempfile
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.work_dir = Path(self._tmpdir.name)
+        (self.work_dir / "tts").mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_ssml_override_used_instead_of_translated_text(self):
+        """tts_ssml_override имеет приоритет над translated_text."""
+        received_payload = {}
+
+        def capture_post(url, payload, **kw):
+            received_payload.update(payload)
+            return _make_streaming_response(b"audio")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test", voice_1="alena", voice_2="filipp",
+            emotion_level=0,
+            http_post=capture_post,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "старый текст")
+        seg.tts_ssml_override = "во+да течёт по тру+бам"
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        # В payload должен быть override, а не translated_text
+        self.assertIn("text", received_payload)
+        self.assertIn("во+да", received_payload.get("text", "") or
+                      received_payload.get("ssml", ""),
+            "tts_ssml_override должен быть отправлен в TTS")
+
+    def test_ssml_override_wraps_tags_in_speak(self):
+        """SSML-теги без <speak> обёртываются автоматически."""
+        received_payload = {}
+
+        def capture_post(url, payload, **kw):
+            received_payload.update(payload)
+            return _make_streaming_response(b"audio")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test", voice_1="alena", voice_2="filipp",
+            emotion_level=0,
+            http_post=capture_post,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "текст")
+        seg.tts_ssml_override = 'привет <break time="500ms"/> мир'
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        ssml = received_payload.get("ssml", "")
+        self.assertTrue(ssml.startswith("<speak>"),
+            f"SSML должен начинаться с <speak>, получен: {ssml!r}")
+        self.assertTrue(ssml.endswith("</speak>"),
+            f"SSML должен заканчиваться на </speak>, получен: {ssml!r}")
+
+    def test_ssml_override_no_double_speak_wrap(self):
+        """Уже обёрнутый <speak> не двойная обёртка."""
+        received_payload = {}
+
+        def capture_post(url, payload, **kw):
+            received_payload.update(payload)
+            return _make_streaming_response(b"audio")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test", voice_1="alena", voice_2="filipp",
+            emotion_level=0,
+            http_post=capture_post,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "текст")
+        seg.tts_ssml_override = '<speak>уже в speak</speak>'
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        ssml = received_payload.get("ssml", "") or received_payload.get("text", "")
+        self.assertNotIn("<speak><speak>", ssml,
+            "Двойная обёртка <speak> недопустима")
+
+    def test_empty_override_falls_back_to_translated_text(self):
+        """Пустой override → использовать translated_text."""
+        received_payload = {}
+
+        def capture_post(url, payload, **kw):
+            received_payload.update(payload)
+            return _make_streaming_response(b"audio")
+
+        provider = YandexSpeechKitTTSProvider(
+            api_key="test", voice_1="alena", voice_2="filipp",
+            emotion_level=0,
+            http_post=capture_post,
+        )
+        project = _make_project(self.work_dir)
+        seg = _make_segment(0, "основной текст перевода")
+        seg.tts_ssml_override = ""  # пустой — должен использоваться translated_text
+        project.segments = [seg]
+
+        provider.synthesize(project, project.segments)
+
+        text = received_payload.get("text", "")
+        self.assertIn("основной текст перевода", text,
+            "При пустом override должен использоваться translated_text")
+
+    def test_schema_migration_from_dict_without_ssml_override(self):
+        """from_dict без поля tts_ssml_override не падает (совместимость со старыми проектами)."""
+        data = {
+            "start": 0.0,
+            "end": 1.0,
+            "source_text": "hello",
+            "translated_text": "привет",
+            "status": "draft",
+            # tts_ssml_override отсутствует — поле добавлено в v1.25.0
+        }
+        seg = Segment.from_dict(data)
+        self.assertEqual(seg.tts_ssml_override, "")
+
+    def test_schema_migration_unknown_fields_ignored(self):
+        """from_dict игнорирует незнакомые поля из будущих версий схемы."""
+        data = {
+            "start": 0.0,
+            "end": 1.0,
+            "source_text": "hello",
+            "translated_text": "привет",
+            "status": "draft",
+            "future_unknown_field": "some_value",  # поле из будущей версии
+        }
+        seg = Segment.from_dict(data)  # не должен падать с TypeError
+        self.assertEqual(seg.source_text, "hello")
+
+
 if __name__ == "__main__":
     unittest.main()

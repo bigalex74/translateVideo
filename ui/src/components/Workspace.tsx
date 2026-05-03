@@ -11,6 +11,7 @@ import { AdvancedSettings } from './AdvancedSettings';
 import { ArtifactCard } from './ArtifactCard';
 import { StatsPanel } from './StatsPanel';
 import { DevLogPanel } from './DevLogPanel';
+import { SSMLToolbar } from './SSMLToolbar';
 import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
@@ -195,6 +196,33 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     });
     setDirty(true);
   };
+
+  /** Изменить SSML-override для сегмента (поле tts_ssml_override). */
+  const handleSsmlChange = (segId: string, newSsml: string) => {
+    setProject(prev => {
+      if (!prev) return prev;
+      const newSegments = (prev.segments as Segment[]).map(s =>
+        s.id === segId ? { ...s, tts_ssml_override: newSsml } : s,
+      );
+      return { ...prev, segments: newSegments };
+    });
+    setDirty(true);
+  };
+
+  /** Сбросить SSML-override — TTS вернётся к translated_text. */
+  const handleSsmlReset = (segId: string) => {
+    setProject(prev => {
+      if (!prev) return prev;
+      const newSegments = (prev.segments as Segment[]).map(s =>
+        s.id === segId ? { ...s, tts_ssml_override: '' } : s,
+      );
+      return { ...prev, segments: newSegments };
+    });
+    setDirty(true);
+  };
+
+  /** Ref на textarea активного SSML-редактора. Нужен SSMLToolbar для работы с selection. */
+  const ssmlTextareaRefs = React.useRef<Map<string, HTMLTextAreaElement>>(new Map());
 
   const undo = () => {
     if (historyIndex <= 0) return;
@@ -644,11 +672,47 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     <span className="seg-status">{statusLabel(seg.status ?? '', locale)}</span>
                   </div>
                   <div className="seg-source">{seg.source_text}</div>
+
+                  {/* SSML-тулбар — показывается только при Яндекс TTS */}
+                  {project.config?.professional_tts_provider === 'yandex' && (
+                    <SSMLToolbar
+                      hasOverride={!!((seg as Segment & { tts_ssml_override?: string }).tts_ssml_override)}
+                      onChange={(v) => handleSsmlChange(seg.id, v)}
+                      onReset={() => handleSsmlReset(seg.id)}
+                      textareaRef={{ current: ssmlTextareaRefs.current.get(seg.id) ?? null }}
+                    />
+                  )}
+
                   <textarea
-                    className={`seg-translated text-input ${!seg.translated_text?.trim() ? 'seg-empty' : ''}`}
-                    value={seg.translated_text ?? ''}
-                    onChange={(e) => handleTextChange(seg.id, e.target.value)}
-                    placeholder={t('workspace.enterTranslation', locale)}
+                    ref={(el) => {
+                      if (el) ssmlTextareaRefs.current.set(seg.id, el);
+                      else ssmlTextareaRefs.current.delete(seg.id);
+                    }}
+                    className={`seg-translated text-input ${
+                      !seg.translated_text?.trim() ? 'seg-empty' : ''
+                    }${
+                      (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override ? ' seg-has-ssml' : ''
+                    }`}
+                    value={
+                      // Если задан override — показывать его в textarea вместо translated_text
+                      (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
+                        || (seg.translated_text ?? '')
+                    }
+                    onChange={(e) => {
+                      const hasOverride = !!(seg as Segment & { tts_ssml_override?: string }).tts_ssml_override;
+                      if (hasOverride) {
+                        // Редактируем SSML-override
+                        handleSsmlChange(seg.id, e.target.value);
+                      } else {
+                        // Редактируем translated_text (стандартный путь)
+                        handleTextChange(seg.id, e.target.value);
+                      }
+                    }}
+                    placeholder={
+                      (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
+                        ? 'SSML / текст с тегами Яндекс SpeechKit'
+                        : t('workspace.enterTranslation', locale)
+                    }
                     rows={2}
                   />
                 </div>
