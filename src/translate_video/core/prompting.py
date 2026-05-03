@@ -118,6 +118,15 @@ def build_project_directives(config: PipelineConfig) -> str:
         terms = ", ".join(config.do_not_translate)
         lines.append(f"- Не переводить эти термины и имена: {terms}.")
 
+    # Требование «ё» — только для русского целевого языка (Яндекс TTS)
+    target_code = (getattr(config, "target_language", "") or "").strip().lower()
+    if target_code == "ru":
+        lines.append(
+            "- ОБЯЗАТЕЛЬНО: используй букву «ё» (не «е») везде где она нужна — "
+            "всё, ещё, её, идёт, чёрный, зелёный, жёлтый и т.д. "
+            "Замена «ё» на «е» недопустима — система синтеза речи произнесёт слово неверно."
+        )
+
     return "\n".join(lines)
 
 

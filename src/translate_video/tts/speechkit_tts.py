@@ -183,6 +183,20 @@ class YandexSpeechKitTTSProvider:
             if self.use_stress and not tts_override:
                 text = _stress.process(text)
 
+            # ── Проверка лимита Яндекс: 250 символов / 24 секунды ──────────────
+            # При превышении Яндекс вернёт ошибку. Устанавливаем флаг заранее.
+            _YANDEX_CHAR_WARN = 220  # 250 - запас 30 на TTS-разметку
+            if len(text) > _YANDEX_CHAR_WARN:
+                _log.warning(
+                    "tts.speechkit.text_too_long",
+                    idx=index,
+                    seg_id=segment.id,
+                    char_count=len(text),
+                    limit=250,
+                    hint="Разбейте сегмент на более короткие предложения",
+                )
+                _add_qa_flag(segment, "tts_text_too_long")
+
             with Timer() as t:
                 try:
                     self._synth(text, voice, role, speed, pitch, output)
