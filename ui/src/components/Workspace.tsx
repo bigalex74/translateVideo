@@ -236,6 +236,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     setMessage('');
     setRightTab('status');
     try {
+      // Автосохранение несохранённых правок перед запуском пайплайна.
+      // Без этого TTS использует старый текст с диска, а не отредактированный.
+      if (dirty) {
+        setSaving(true);
+        try {
+          await saveProjectSegments(projectId, segments);
+          setDirty(false);
+        } catch (saveErr) {
+          setMessage(`${t('workspace.saveError', locale)}: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
+          setSaving(false);
+          return; // не запускать пайплайн если не удалось сохранить
+        } finally {
+          setSaving(false);
+        }
+      }
       await runPipeline(projectId, force, undefined, undefined, fromStage);
       // Оптимистично переключаем статус — поллинг подхватит реальный
       setProject(prev => prev ? { ...prev, status: 'running' } : prev);
