@@ -476,6 +476,86 @@ class ExportSubtitlesStage(BaseStage):
         return self._record(context, action)
 
 
+class EmbedSubtitlesStage(BaseStage):
+    """Встраивает субтитры в выходное видео через ffmpeg.
+
+    Режимы (subtitle_embed_mode в конфиге):
+    - "soft" — SRT мультиплексируется как дополнительный трек в MP4.
+               Можно включить/выключить в плеере (VLC, mpv, браузер).
+    - "burn" — субтитры вжигаются в видеопоток (hardcoded).
+               Всегда видны, не зависят от поддержки субтитров в плеере.
+    - "none" — этап пропускается.
+    """
+
+    stage = Stage.EMBED_SUBTITLES
+
+    def run(self, context: StageContext) -> StageRun:
+        def action(_run: StageRun) -> tuple[list[str], list[str]]:
+            import subprocess  # noqa: PLC0415
+
+            mode = getattr(context.project.config, "subtitle_embed_mode", "none")
+            if mode not in ("soft", "burn"):
+                _log.info("embed_subtitles.skip", mode=mode)
+                return [], []
+
+            video_rec = _required_artifact(context, ArtifactKind.OUTPUT_VIDEO)
+            subs_rec  = _required_artifact(context, ArtifactKind.SUBTITLES)
+
+            video_path = (context.project.work_dir / video_rec.path).resolve()
+            subs_path  = (context.project.work_dir / subs_rec.path).resolve()
+
+            # Всегда работаем с SRT — если артефакт указывает на VTT, ищем SRT
+            srt_path = subs_path if subs_path.suffix.lower() == ".srt" else (
+                context.project.work_dir / "subtitles" / "translated.srt"
+            )
+            if not srt_path.exists():
+                raise FileNotFoundError(f"SRT-файл не найден: {srt_path}")
+
+            output_path = video_path.parent / (video_path.stem + f"_sub_{mode}.mp4")
+
+            if mode == "soft":
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-i", str(video_path),
+                    "-i", str(srt_path),
+                    "-c", "copy",
+                    "-c:s", "mov_text",
+                    "-metadata:s:s:0",
+                    f"language={context.project.config.target_language}",
+                    str(output_path),
+                ]
+            else:  # burn
+                safe_srt = str(srt_path).replace("\\", "/").replace(":", "\\:")
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-i", str(video_path),
+                    "-vf", f"subtitles='{safe_srt}'",
+                    "-c:a", "copy",
+                    str(output_path),
+                ]
+
+            _log.info("embed_subtitles.start", mode=mode, srt=str(srt_path))
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"ffmpeg embed_subtitles failed (code {result.returncode}):\n"
+                    f"{result.stderr[-2000:]}"
+                )
+
+            record = context.store.add_artifact(
+                context.project,
+                kind=ArtifactKind.OUTPUT_VIDEO_WITH_SUBS,
+                path=output_path,
+                stage=self.stage,
+                content_type="video/mp4",
+                metadata={"subtitle_mode": mode},
+            )
+            _log.info("embed_subtitles.done", mode=mode, output=str(output_path))
+            return [video_rec.path, subs_rec.path], [record.path]
+
+        return self._record(context, action)
+
+
 def _required_artifact(context: StageContext, kind: ArtifactKind):
     record = context.store.get_artifact(context.project, kind)
     if record is None:

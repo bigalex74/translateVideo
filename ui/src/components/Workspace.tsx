@@ -321,10 +321,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     project.artifact_records?.find(r => r.kind === kind);
 
   const downloadableArtifacts = [
-    { kind: 'subtitles',            label: '📄 Субтитры' },
-    { kind: 'output_video',         label: '🎬 Готовое видео' },
-    { kind: 'qa_report',            label: '✅ QA-отчёт' },
-    { kind: 'translated_transcript', label: '📝 Перевод (JSON)' },
+    { kind: 'subtitles',              label: '📄 Субтитры (SRT/VTT)' },
+    { kind: 'output_video',           label: '🎬 Готовое видео' },
+    { kind: 'output_video_with_subs', label: '🎬💬 Видео с субтитрами' },
+    { kind: 'qa_report',              label: '✅ QA-отчёт' },
+    { kind: 'translated_transcript',  label: '📝 Перевод (JSON)' },
   ].filter(item => findArtifact(item.kind));
 
   const canUndo = historyIndex > 0;

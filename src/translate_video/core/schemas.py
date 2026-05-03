@@ -47,6 +47,7 @@ class Stage(StrEnum):
     RENDER = "render"
     QA = "qa"
     EXPORT = "export"
+    EMBED_SUBTITLES = "embed_subtitles"
 
 
 class ArtifactKind(StrEnum):
@@ -61,6 +62,7 @@ class ArtifactKind(StrEnum):
     TTS_AUDIO = "tts_audio"
     FINAL_AUDIO = "final_audio"
     OUTPUT_VIDEO = "output_video"
+    OUTPUT_VIDEO_WITH_SUBS = "output_video_with_subs"
     QA_REPORT = "qa_report"
 
 

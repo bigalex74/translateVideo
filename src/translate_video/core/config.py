@@ -92,6 +92,11 @@ class PipelineConfig:
     original_audio_volume: float = 0.15
     background_ducking: bool = True
     subtitle_formats: list[str] = field(default_factory=lambda: ["srt"])
+    # Режим встраивания субтитров в выходное видео (TVIDEO-126):
+    #   "none" — только отдельные SRT/VTT файлы (по умолчанию)
+    #   "soft" — SRT мультиплексируется как скрытый трек в MP4 (можно включить в плеере)
+    #   "burn" — субтитры вжигаются в видеопоток через ffmpeg subtitles-filter
+    subtitle_embed_mode: str = "none"
     glossary_path: Path | None = None
     # ── Естественный голос и подгонка таймингов (TVIDEO-042) ─────────────────
     # По умолчанию не ускоряем голос. Сначала пытаемся сделать текст короче,

@@ -21,6 +21,7 @@ export interface PipelineConfig {
     original_audio_volume: number;
     background_ducking: boolean;
     subtitle_formats: string[];
+    subtitle_embed_mode?: string;  // 'none' | 'soft' | 'burn'
     glossary_path?: string;
     timing_policy: string;
     target_chars_per_second: number;

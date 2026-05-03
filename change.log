@@ -1,3 +1,41 @@
+## 1.30.7 - 2026-05-03 - FEAT - TVIDEO-126
+
+### Встраивание субтитров в выходное видео
+
+core/schemas.py:
+- Stage.EMBED_SUBTITLES — новый этап пайплайна
+- ArtifactKind.OUTPUT_VIDEO_WITH_SUBS — артефакт видео с субтитрами
+
+core/config.py:
+- subtitle_embed_mode: str = "none"  (none | soft | burn)
+  - none — только SRT/VTT файлы (по умолчанию)
+  - soft — SRT мультиплексируется как трек в MP4 (mov_text)
+  - burn — субтитры вжигаются в видеопоток через ffmpeg subtitles-filter
+
+pipeline/stages.py — EmbedSubtitlesStage:
+- Запускается после ExportSubtitlesStage
+- soft: ffmpeg -c copy -c:s mov_text (без перекодирования видео)
+- burn: ffmpeg -vf subtitles='...' (перекодирует видеопоток)
+- mode=none: этап моментально пропускается (return [], [])
+- Регистрирует output_video_with_subs в artifact_records
+
+pipeline/__init__.py + utils.py:
+- EmbedSubtitlesStage добавлен в fake и legacy пайплайны
+
+ui/src/types/schemas.ts:
+- subtitle_embed_mode добавлен в PipelineConfig
+
+ui/src/components/AdvancedSettings.tsx:
+- Новая секция "Субтитры в видео": select none/soft/burn
+- Динамическая подсказка при выборе soft/burn
+
+ui/src/components/Workspace.tsx:
+- "🎬💬 Видео с субтитрами" добавлен в список скачиваемых артефактов
+
+Тесты:
+- tests/unit/test_embed_subtitles_stage.py: 5 тестов (none/soft/burn/artifact/ffmpeg-error)
+- Обновлены test_legacy_adapters, test_cli_pipeline: count 8→9
+
 ## 1.30.6 - 2026-05-03 - FEAT - TVIDEO-125
 
 ### Масштабируемость: ffmpeg-аудио + прогресс Whisper + очистка временных файлов

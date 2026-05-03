@@ -868,6 +868,34 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* ══ Субтитры ══════════════════════════════════════════════════════════ */}
+      <div className="adv-section">
+        <div className="adv-section-title">Субтитры в видео</div>
+
+        <div className="adv-field">
+          <label className="adv-label" htmlFor="adv-subtitle-mode">Режим встраивания</label>
+          <select
+            id="adv-subtitle-mode"
+            className="adv-select"
+            value={c.subtitle_embed_mode ?? 'none'}
+            onChange={e => onChange({ subtitle_embed_mode: e.target.value })}
+            disabled={disabled}
+          >
+            <option value="none">Не встраивать (только SRT/VTT файлы)</option>
+            <option value="soft">Мягкие (трек в MP4, включается в плеере)</option>
+            <option value="burn">Жёсткие (вжечь в видео, всегда видны)</option>
+          </select>
+        </div>
+
+        {(c.subtitle_embed_mode ?? 'none') !== 'none' && (
+          <div className="adv-hint">
+            {c.subtitle_embed_mode === 'soft'
+              ? '💬 Субтитры будут встроены как отдельный трек. Их можно включить/выключить в VLC, браузере или медиаплеере.'
+              : '🔥 Субтитры будут вжжены в видеопоток (hardcode). Всегда видны, независимо от плеера.'}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

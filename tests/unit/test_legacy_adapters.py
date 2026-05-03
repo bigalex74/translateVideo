@@ -311,7 +311,7 @@ class LegacyAdaptersTest(unittest.TestCase):
 
         stages = _build_stages("legacy")
 
-        self.assertEqual(len(stages), 8)  # +RegroupStage + TimingFitStage + ExportSubtitlesStage
+        self.assertEqual(len(stages), 9)  # +RegroupStage + TimingFitStage + ExportSubtitlesStage + EmbedSubtitlesStage
 
 
 def _project(temp_dir: str, config: PipelineConfig | None = None) -> VideoProject:

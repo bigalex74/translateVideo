@@ -37,7 +37,7 @@ class CliPipelineIntegrationTest(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(run_payload["status"], "completed")
             self.assertEqual(run_payload["segments"], 1)
-            self.assertEqual(len(run_payload["runs"]), 8)  # +RegroupStage + TimingFitStage + ExportSubtitlesStage
+            self.assertEqual(len(run_payload["runs"]), 9)  # +RegroupStage + TimingFitStage + ExportSubtitlesStage + EmbedSubtitlesStage
             self.assertEqual(run_payload["artifacts"]["output_video"], "output/translated.mp4")
             self.assertTrue((Path(temp_dir) / "lesson" / "output" / "translated.mp4").exists())
 
@@ -46,7 +46,7 @@ class CliPipelineIntegrationTest(unittest.TestCase):
             status_payload = json.loads(status_output.getvalue())
 
             self.assertEqual(status_payload["status"], "completed")
-            self.assertEqual(len(status_payload["stage_runs"]), 8)  # +RegroupStage + TimingFitStage + ExportSubtitlesStage
+            self.assertEqual(len(status_payload["stage_runs"]), 9)  # +RegroupStage + TimingFitStage + ExportSubtitlesStage + EmbedSubtitlesStage
 
             artifacts_output = StringIO()
             main(["artifacts", str(Path(temp_dir) / "lesson")], stdout=artifacts_output)

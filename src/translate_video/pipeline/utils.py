@@ -7,10 +7,11 @@ from typing import Any
 from translate_video.core.schemas import Segment, VideoProject
 from translate_video.pipeline import (
     ExtractAudioStage,
+    EmbedSubtitlesStage,
+    ExportSubtitlesStage,
     PipelineRunner,  # noqa: F401 — переэкспорт для удобства
     RegroupStage,
     RenderStage,
-    ExportSubtitlesStage,
     TTSStage,
     TimingFitStage,
     TranscribeStage,
@@ -111,6 +112,7 @@ def build_stages(provider: str, project_config=None) -> list:
             TTSStage(FakeTTSProvider()),
             RenderStage(FakeRenderer()),
             ExportSubtitlesStage(),
+            EmbedSubtitlesStage(),
         ]
     if provider == "legacy":
         from translate_video.media import LegacyMoviePyMediaProvider
@@ -138,6 +140,7 @@ def build_stages(provider: str, project_config=None) -> list:
             TTSStage(tts_provider),
             RenderStage(MoviePyVoiceoverRenderer()),
             ExportSubtitlesStage(),
+            EmbedSubtitlesStage(),
         ]
     raise ValueError(f"неподдерживаемый провайдер: {provider!r}")
 
