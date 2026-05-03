@@ -35,17 +35,29 @@ TTS_VOICES: list[dict] = [
     {"id": "shimmer", "name": "Shimmer", "gender": "female",  "tone": "Мягкий, тёплый"},
 ]
 
-# ── ElevenLabs голоса ─────────────────────────────────────────────────────────
+# ── ElevenLabs голоса (21 голос, актуальный список из Polza API) ─────────────
 ELEVENLABS_VOICES: list[dict] = [
-    {"id": "Rachel",  "name": "Rachel",  "gender": "female",  "tone": "Спокойный, профессиональный"},
-    {"id": "Domi",    "name": "Domi",    "gender": "female",  "tone": "Живой, энергичный"},
-    {"id": "Bella",   "name": "Bella",   "gender": "female",  "tone": "Мягкий, дружелюбный"},
-    {"id": "Antoni",  "name": "Antoni",  "gender": "male",    "tone": "Хорошо поставленный, спокойный"},
-    {"id": "Elli",    "name": "Elli",    "gender": "female",  "tone": "Молодой, живой"},
-    {"id": "Josh",    "name": "Josh",    "gender": "male",    "tone": "Молодой, расслабленный"},
-    {"id": "Arnold",  "name": "Arnold",  "gender": "male",    "tone": "Уверенный, зрелый"},
-    {"id": "Adam",    "name": "Adam",    "gender": "male",    "tone": "Глубокий, авторитетный"},
-    {"id": "Sam",     "name": "Sam",     "gender": "male",    "tone": "Разговорный, дружелюбный"},
+    {"id": "Rachel",   "name": "Rachel",   "gender": "female",  "tone": "Спокойный, профессиональный"},
+    {"id": "Aria",     "name": "Aria",     "gender": "female",  "tone": "Выразительный, живой"},
+    {"id": "Roger",    "name": "Roger",    "gender": "male",    "tone": "Уверенный, авторитетный"},
+    {"id": "Sarah",    "name": "Sarah",    "gender": "female",  "tone": "Мягкий, дружелюбный"},
+    {"id": "Laura",    "name": "Laura",    "gender": "female",  "tone": "Чёткий, информационный"},
+    {"id": "Charlie",  "name": "Charlie",  "gender": "male",    "tone": "Разговорный, непринуждённый"},
+    {"id": "George",   "name": "George",   "gender": "male",    "tone": "Зрелый, солидный"},
+    {"id": "Callum",   "name": "Callum",   "gender": "male",    "tone": "Молодой, динамичный"},
+    {"id": "River",    "name": "River",    "gender": "neutral", "tone": "Нейтральный, спокойный"},
+    {"id": "Liam",     "name": "Liam",     "gender": "male",    "tone": "Живой, энергичный"},
+    {"id": "Charlotte","name": "Charlotte","gender": "female",  "tone": "Тёплый, эмоциональный"},
+    {"id": "Alice",    "name": "Alice",    "gender": "female",  "tone": "Чёткий, профессиональный"},
+    {"id": "Matilda",  "name": "Matilda",  "gender": "female",  "tone": "Мягкий, дружелюбный"},
+    {"id": "Will",     "name": "Will",     "gender": "male",    "tone": "Непринуждённый, разговорный"},
+    {"id": "Jessica",  "name": "Jessica",  "gender": "female",  "tone": "Живой, выразительный"},
+    {"id": "Eric",     "name": "Eric",     "gender": "male",    "tone": "Глубокий, авторитетный"},
+    {"id": "Chris",    "name": "Chris",    "gender": "male",    "tone": "Разговорный, естественный"},
+    {"id": "Brian",    "name": "Brian",    "gender": "male",    "tone": "Уверенный, профессиональный"},
+    {"id": "Daniel",   "name": "Daniel",   "gender": "male",    "tone": "Чёткий, дикторский"},
+    {"id": "Lily",     "name": "Lily",     "gender": "female",  "tone": "Молодой, яркий"},
+    {"id": "Bill",     "name": "Bill",     "gender": "male",    "tone": "Зрелый, спокойный"},
 ]
 
 # ── Модели с их голосами ──────────────────────────────────────────────────────
@@ -126,6 +138,11 @@ class OpenAITTSProvider:
         voice_2: str,
         timeout: float = 60.0,
         http_post=None,
+        # ElevenLabs-специфичные параметры
+        el_stability: float = 0.5,
+        el_similarity_boost: float = 0.75,
+        el_style: float = 0.0,
+        el_speed: float = 1.0,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
@@ -135,8 +152,13 @@ class OpenAITTSProvider:
         self.timeout = timeout or timeout_for_model(model)
         self._http_post = http_post or _post_audio
         # Выбираем пул голосов в зависимости от движка модели
-        is_eleven = model.startswith("elevenlabs/")
-        self._voice_pool = _ELEVEN_VOICE_POOL if is_eleven else _VOICE_POOL
+        self.is_elevenlabs = model.startswith("elevenlabs/")
+        self._voice_pool = _ELEVEN_VOICE_POOL if self.is_elevenlabs else _VOICE_POOL
+        # ElevenLabs параметры
+        self.el_stability = max(0.0, min(1.0, el_stability))
+        self.el_similarity_boost = max(0.0, min(1.0, el_similarity_boost))
+        self.el_style = max(0.0, min(1.0, el_style))
+        self.el_speed = max(0.7, min(1.2, el_speed))
 
     def synthesize(self, project, segments: list[Segment]) -> list[Segment]:
         """Синтезировать каждый переведённый сегмент через /audio/speech."""
@@ -239,12 +261,18 @@ class OpenAITTSProvider:
 
     def _synth(self, text: str, voice: str, output: Path) -> None:
         """Вызвать /audio/speech и сохранить mp3."""
-        payload = {
+        payload: dict = {
             "model": self.model,
             "input": text,
             "voice": voice,
             "response_format": "mp3",
         }
+        # ElevenLabs-специфичные параметры (только для elevenlabs/* моделей)
+        if self.is_elevenlabs:
+            payload["speed"] = self.el_speed
+            payload["stability"] = self.el_stability
+            payload["similarity_boost"] = self.el_similarity_boost
+            payload["style"] = self.el_style
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -294,6 +322,10 @@ def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
         voice_1=getattr(config, "professional_tts_voice", "nova"),
         voice_2=getattr(config, "professional_tts_voice_2", "onyx"),
         timeout=timeout_for_model(model),
+        el_stability=getattr(config, "el_stability", 0.5),
+        el_similarity_boost=getattr(config, "el_similarity_boost", 0.75),
+        el_style=getattr(config, "el_style", 0.0),
+        el_speed=getattr(config, "el_speed", 1.0),
     )
 
 

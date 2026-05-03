@@ -491,6 +491,13 @@
   min-width: 44px;
 }
 
+.adv-tts-slider-hint {
+  font-size: 0.68rem;
+  color: rgba(156,163,175,0.55);
+  font-style: italic;
+  margin-left: auto;
+}
+
 .adv-tts-slider {
   -webkit-appearance: none;
   appearance: none;

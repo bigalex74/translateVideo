@@ -74,4 +74,8 @@ export const DEFAULT_CONFIG: Partial<PipelineConfig> = {
   professional_tts_speed_2: 1.0,
   professional_tts_pitch: 0,
   professional_tts_pitch_2: 0,
+  el_stability: 0.5,
+  el_similarity_boost: 0.75,
+  el_style: 0.0,
+  el_speed: 1.0,
 };

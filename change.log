@@ -1,3 +1,29 @@
+## 1.30.2 - 2026-05-03 - FEAT - TVIDEO-122
+
+### ElevenLabs: 21 голос + слайдеры параметров
+
+openai_tts.py:
+- ELEVENLABS_VOICES: обновлено до 21 голоса (актуальный список Polza API)
+  Rachel, Aria, Roger, Sarah, Laura, Charlie, George, Callum, River, Liam,
+  Charlotte, Alice, Matilda, Will, Jessica, Eric, Chris, Brian, Daniel, Lily, Bill
+- __init__ + _synth: ElevenLabs-параметры stability/similarity_boost/style/speed
+  передаются в payload только для elevenlabs/* моделей
+- build_openai_tts_provider: передаёт el_* из config
+
+config.py:
+- Новые поля: el_stability (0.5), el_similarity_boost (0.75), el_style (0.0), el_speed (1.0)
+- from_dict: десериализация el_* с дефолтами
+
+schemas.ts + advancedSettingsConfig.ts:
+- el_* добавлены в PipelineConfig и DEFAULT_CONFIG
+
+AdvancedSettings.tsx:
+- ELEVENLABS_VOICES_FALLBACK: 21 голос-фолбэк
+- isElevenLabs: определяет показ ElevenLabs-специфичных элементов
+- Fallback голосов: isElevenLabs → 21 голос (голос1 и голос2)
+- Слайдеры: Стабильность, Схожесть, Стиль/экспрессия, Скорость (0.7-1.2×)
+- CSS: adv-tts-slider-hint (курсивная подсказка)
+
 # Журнал Изменений
 
 ## 1.30.0 - 2026-05-03 - FEAT - TVIDEO-120

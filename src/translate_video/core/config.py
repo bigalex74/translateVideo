@@ -168,6 +168,11 @@ class PipelineConfig:
     professional_tts_pitch_2: int = 0             # высота голоса 2: pitchShift -1000..1000
     professional_tts_stress: bool = True           # авто-ударения через ruaccent (только Yandex)
     professional_tts_emotion: int = 0              # SSML-эмоции: 0=выкл 1=мягко 2=средне 3=экспрессивно
+    # ElevenLabs-специфичные параметры
+    el_stability: float = 0.5          # стабильность голоса (0-1)
+    el_similarity_boost: float = 0.75  # схожесть с исходным голосом (0-1)
+    el_style: float = 0.0              # экспрессия стиля (0-1)
+    el_speed: float = 1.0              # скорость речи (0.7-1.2)
 
     # ── Адаптивный rate TTS (явный fast-режим, не дефолт) ────────────────────
     tts_base_rate: int = 0          # базовый rate TTS в %; 0 = естественная скорость
@@ -307,6 +312,11 @@ class PipelineConfig:
                 "professional_tts_pitch_2": int(data.get("professional_tts_pitch_2", 0)),
                 "professional_tts_stress": bool(data.get("professional_tts_stress", True)),
                 "professional_tts_emotion": int(data.get("professional_tts_emotion", 0)),
+                # ElevenLabs-специфичные параметры
+                "el_stability": float(data.get("el_stability", 0.5)),
+                "el_similarity_boost": float(data.get("el_similarity_boost", 0.75)),
+                "el_style": float(data.get("el_style", 0.0)),
+                "el_speed": float(data.get("el_speed", 1.0)),
                 # Адаптивный TTS rate — только для явного fast-режима
                 "tts_base_rate": int(data.get("tts_base_rate", 0)),
                 "tts_max_rate": int(data.get("tts_max_rate", 0)),
