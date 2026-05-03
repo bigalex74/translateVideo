@@ -23,11 +23,6 @@ function insertAt(text: string, pos: number, insert: string): string {
   return text.slice(0, pos) + insert + text.slice(pos);
 }
 
-function wrapAt(text: string, s: number, e: number, before: string, after: string, fallback = 'слово'): string {
-  const inner = s < e ? text.slice(s, e) : fallback;
-  return text.slice(0, s < e ? s : s) + before + inner + after + text.slice(s < e ? e : s);
-}
-
 /** Определить границы слова в позиции pos */
 function wordBounds(text: string, pos: number): [number, number] {
   let s = pos, e = pos;
