@@ -216,6 +216,15 @@ class EffectiveTtsSpeedTest(unittest.TestCase):
         """Неизвестный провайдер → скорость 1.0 (Edge TTS дефолт)."""
         self.assertAlmostEqual(self._speed(professional_tts_provider="some_other"), 1.0)
 
+    def test_polza_gpt4o_speed_13_multiplied(self):
+        """polza + gpt-4o-mini-tts + speed=1.3 → 0.78 × 1.3 ≈ 1.014."""
+        v = self._speed(
+            professional_tts_provider="polza",
+            professional_tts_model="openai/gpt-4o-mini-tts",
+            professional_tts_speed=1.3,
+        )
+        self.assertAlmostEqual(v, 0.78 * 1.3, places=4)
+
     def test_yandex_single_speed_15(self):
         """Yandex single voice, speed=1.5 → возвращает 1.5."""
         v = self._speed(

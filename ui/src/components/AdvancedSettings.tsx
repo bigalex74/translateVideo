@@ -548,7 +548,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                     </div>
                   )}
 
-                  {/* Скорость и высота голоса 1 (только Yandex) */}
+                  {/* Скорость голоса 1 (Yandex: 0.5–2.0) */}
                   {isYandex && (
                     <div className="adv-tts-sliders">
                       <div className="adv-tts-slider-row">
@@ -583,6 +583,32 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                         />
                         <div className="adv-tts-slider-ticks">
                           <span>-500</span><span>0</span><span>+500</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OpenAI TTS: скорость речи (0.75–2.0) */}
+                  {!isYandex && !isElevenLabs && (
+                    <div className="adv-tts-sliders">
+                      <div className="adv-tts-slider-row">
+                        <label className="adv-tts-slider-label">
+                          🎚 Скорость речи: <strong>{ttsSpeed1.toFixed(2)}×</strong>
+                          <span className="adv-tts-slider-hint">
+                            ~{Math.round(14.0 * 0.78 * ttsSpeed1)} симв/с · рек. 1.3× для gpt-4o-mini-tts
+                          </span>
+                        </label>
+                        <input
+                          id="adv-tts-speed-openai"
+                          type="range"
+                          className="adv-tts-slider"
+                          min={0.75} max={2.0} step={0.05}
+                          value={ttsSpeed1}
+                          onChange={e => onChange({ professional_tts_speed: parseFloat(e.target.value) })}
+                          disabled={disabled}
+                        />
+                        <div className="adv-tts-slider-ticks">
+                          <span>0.75×</span><span>1.0×</span><span>1.3×</span><span>1.5×</span><span>2.0×</span>
                         </div>
                       </div>
                     </div>

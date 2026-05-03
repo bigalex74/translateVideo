@@ -302,15 +302,19 @@ def _effective_tts_speed(config) -> float:
         return speed_1
 
     # OpenAI / ElevenLabs через Polza или NeuroAPI:
-    # реальный темп ниже target_chars_per_second — корректируем
+    # реальный темп ниже target_chars_per_second — корректируем с учётом speed
     if provider in ("polza", "neuroapi", "openai"):
         model = getattr(config, "professional_tts_model", "").lower()
+        speed = max(0.25, float(getattr(config, "professional_tts_speed", 1.0)))
+        # Базовый калибровочный коэффициент (замерено при speed=1.0)
         if "gpt-4o-mini-tts" in model:
-            return 0.78   # замерено: ~11 CPS при base 14.0
-        if "elevenlabs" in model:
-            return 0.90   # ElevenLabs несколько быстрее OpenAI TTS
-        # tts-1, tts-1-hd и прочие OpenAI
-        return 0.82
+            base_factor = 0.78   # замерено: ~11 CPS при base 14.0
+        elif "elevenlabs" in model:
+            base_factor = 0.90   # ElevenLabs несколько быстрее OpenAI TTS
+        else:
+            base_factor = 0.82   # tts-1, tts-1-hd и прочие OpenAI
+        # Умножаем на пользовательский speed: speed=1.3 → больше текста влезает
+        return base_factor * speed
 
     # Edge TTS / нет провайдера → без корректировки
     return 1.0

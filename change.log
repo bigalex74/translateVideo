@@ -1,5 +1,33 @@
 # Журнал Изменений
 
+## 1.31.3 - 2026-05-03 - FEAT - TVIDEO-132
+
+### OpenAI TTS: управление скоростью речи (0.75–2.0×)
+
+OpenAI /audio/speech поддерживает параметр speed (0.25–4.0).
+Теперь доступен слайдер в Настройках TTS для провайдеров polza/neuroapi.
+
+openai_tts.py:
+- OpenAITTSProvider: новый параметр openai_speed (0.25..4.0)
+- _synth(): при speed != 1.0 передаёт speed в payload
+- build_openai_tts_provider(): читает professional_tts_speed из конфига
+
+timing/natural.py — _effective_tts_speed():
+- для OpenAI-провайдеров: base_factor * speed
+  gpt-4o-mini-tts: 0.78 * speed  (при speed=1.3 → 1.01, идеально под CPS=14)
+  tts-1/tts-1-hd:  0.82 * speed
+  ElevenLabs:      0.90 * speed
+
+AdvancedSettings.tsx:
+- Новый слайдер «Скорость речи» для !isYandex && !isElevenLabs
+- Диапазон 0.75–2.0, метки 0.75× 1.0× 1.3× 1.5× 2.0×
+- Подсказка: «рек. 1.3× для gpt-4o-mini-tts»
+
+Тесты: +1 новый (test_polza_gpt4o_speed_13_multiplied)
+
+Замеры при speed=1.3 (gpt-4o-mini-tts):
+  CPS=13.6 — почти идеально под target=14.0
+
 ## 1.31.2 - 2026-05-03 - FIX - TVIDEO-131
 
 ### TimingFit: калибровка темпа для gpt-4o-mini-tts / OpenAI TTS

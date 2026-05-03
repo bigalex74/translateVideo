@@ -138,6 +138,8 @@ class OpenAITTSProvider:
         voice_2: str,
         timeout: float = 60.0,
         http_post=None,
+        # OpenAI: скорость речи (0.25–4.0)
+        openai_speed: float = 1.0,
         # ElevenLabs-специфичные параметры
         el_stability: float = 0.5,
         el_similarity_boost: float = 0.75,
@@ -154,6 +156,8 @@ class OpenAITTSProvider:
         # Выбираем пул голосов в зависимости от движка модели
         self.is_elevenlabs = model.startswith("elevenlabs/")
         self._voice_pool = _ELEVEN_VOICE_POOL if self.is_elevenlabs else _VOICE_POOL
+        # OpenAI: speed 0.25–4.0 (default 1.0)
+        self.openai_speed = max(0.25, min(4.0, openai_speed))
         # ElevenLabs параметры
         self.el_stability = max(0.0, min(1.0, el_stability))
         self.el_similarity_boost = max(0.0, min(1.0, el_similarity_boost))
@@ -270,6 +274,11 @@ class OpenAITTSProvider:
             payload["stability"] = self.el_stability
             payload["similarity_boost"] = self.el_similarity_boost
             payload["style"] = self.el_style
+        else:
+            # OpenAI /audio/speech поддерживает speed=0.25..4.0
+            # speed != 1.0 — передаём явно
+            if abs(self.openai_speed - 1.0) > 0.01:
+                payload["speed"] = self.openai_speed
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -324,6 +333,7 @@ def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
         voice_1=getattr(config, "professional_tts_voice", "nova"),
         voice_2=getattr(config, "professional_tts_voice_2", "onyx"),
         timeout=timeout_for_model(model),
+        openai_speed=getattr(config, "professional_tts_speed", 1.0),
         el_stability=getattr(config, "el_stability", 0.5),
         el_similarity_boost=getattr(config, "el_similarity_boost", 0.75),
         el_style=getattr(config, "el_style", 0.0),
