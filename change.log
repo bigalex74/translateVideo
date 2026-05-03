@@ -1,5 +1,22 @@
 # Журнал Изменений
 
+## 1.31.0 - 2026-05-03 - FIX - TVIDEO-129
+
+### OpenAI TTS: кряк вместо речи при наличии Яндекс TTS-разметки
+
+Причина: в translated_text и tts_ssml_override могут присутствовать
+токены Яндекс TTS: **слово** (логическое ударение), +гласная (ударение),
+sil<[200ms]> (пауза), [[phonemes]] (фонемы). OpenAI/ElevenLabs их
+не понимают — читают буквально или генерируют артефакты/кряки.
+
+openai_tts.py:
+- _strip_tts_markup(): убирает **..**, +, sil<[...]>, [[...]], SSML-теги
+- synthesize(): использует _strip_tts_markup() для обоих источников текста
+  (tts_ssml_override и translated_text)
+
+api/routes/pipeline.py (tts-preview endpoint):
+- заменён ручной re.sub+replace на _strip_tts_markup()
+
 ## 1.30.9 - 2026-05-03 - FEAT - TVIDEO-128
 
 ### Выбор режима пайплайна: Дубляж / Субтитры / Дубляж+Субтитры

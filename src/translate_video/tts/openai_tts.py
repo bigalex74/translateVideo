@@ -178,18 +178,15 @@ class OpenAITTSProvider:
         for index, segment in enumerate(segments):
             # Приоритет источника текста:
             # 1. tts_ssml_override — пользовательский текст из SSML-редактора
-            #    OpenAI не поддерживает SSML → стриппим теги, оставляем plain text
+            #    OpenAI не поддерживает SSML/Яндекс-разметку → стриппим всё
             # 2. translated_text — стандартный переведённый текст
             ssml_override = (segment.tts_ssml_override or "").strip()
             if ssml_override:
-                import re as _re
-                text = _re.sub(r"<[^>]+>", "", ssml_override).strip()
-                # Убираем SSML-ударения (+), оставляем только текст
-                text = text.replace("+", "")
+                text = _strip_tts_markup(ssml_override)
                 if not text:
-                    text = segment.translated_text.strip()
+                    text = _strip_tts_markup(segment.translated_text)
             else:
-                text = segment.translated_text.strip()
+                text = _strip_tts_markup(segment.translated_text)
 
             if not text:
                 continue
@@ -327,6 +324,42 @@ def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
         el_style=getattr(config, "el_style", 0.0),
         el_speed=getattr(config, "el_speed", 1.0),
     )
+
+
+def _strip_tts_markup(text: str) -> str:
+    """Очистить текст от разметки Яндекс TTS и SSML перед отправкой в OpenAI/ElevenLabs.
+
+    OpenAI и ElevenLabs не понимают:
+    - **слово** — логическое ударение (Яндекс TTS API v3)
+    - +гласная — ударение на гласную (Яндекс TTS)
+    - sil<[200ms]> — пауза (Яндекс TTS)
+    - [[phonemes]] — фонемы (Яндекс TTS)
+    - <speak>...</speak>, <break/> и другие SSML-теги
+
+    Эти символы либо произносятся буквально (звёздочки, плюс),
+    либо заставляют OpenAI TTS генерировать артефакты/кряки.
+    """
+    import re as _re
+
+    # 1. Убрать Яндекс sil<[ms]> паузы (должно быть до общего <...>)
+    text = _re.sub(r"\bsil\s*<\[[^\]]*\]>", "", text)      # sil<[200ms]>
+
+    # 2. Убрать SSML-теги
+    text = _re.sub(r"<[^>]+>", "", text)                    # <speak>, <break/>
+
+    # 3. Убрать Яндекс [[phonemes]]
+    text = _re.sub(r"\[\[[^\]]*\]\]", "", text)
+
+    # 4. Убрать Яндекс логическое ударение **слово** → слово
+    text = _re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+
+    # 5. Убрать ударение на гласную (+а → а)
+    text = text.replace("+", "")
+
+    # 6. Схлопнуть пробелы
+    text = _re.sub(r" {2,}", " ", text)
+
+    return text.strip()
 
 
 def _add_qa_flag(segment: Segment, flag: str) -> None:

@@ -475,9 +475,7 @@ def tts_preview(
                 )
 
         else:
-            # OpenAI-совместимый провайдер (polza, neuroapi, openai)
-            import re as _re
-            from translate_video.tts.openai_tts import build_openai_tts_provider
+            from translate_video.tts.openai_tts import build_openai_tts_provider, _strip_tts_markup  # noqa: PLC2701
 
             provider = build_openai_tts_provider(cfg)
             if provider is None:
@@ -486,8 +484,8 @@ def tts_preview(
                     detail="TTS-провайдер не настроен (нет API-ключа или провайдера)",
                 )
 
-            # Стриппируем SSML/ударения — OpenAI/ElevenLabs их не поддерживают
-            clean_text = _re.sub(r"<[^>]+>", "", text).replace("+", "").strip()
+            # Стриппируем Яндекс TTS-разметку и SSML — OpenAI/ElevenLabs их не поддерживают
+            clean_text = _strip_tts_markup(text)
             if not clean_text:
                 clean_text = text
 
