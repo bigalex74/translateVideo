@@ -47,6 +47,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [savingConfig, setSavingConfig] = useState(false);
   const [activeSegId, setActiveSegId] = useState<string | null>(null);
   const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
+  // Модальное предупреждение: откат Яндекс-разметки при смене провайдера
+  const [yandexRevertModal, setYandexRevertModal] = useState<{
+    pendingPatch: Partial<PipelineConfig>;
+    affectedCount: number;
+  } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   // Ссылки на DOM-узлы карточек сегментов для авто-скролла
   const segRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -582,7 +587,31 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           <div className="adv-scroll-wrap">
             <AdvancedSettings
               config={{ ...(project.config ?? {}), ...configPatch }}
-              onChange={patch => setConfigPatch(prev => ({ ...prev, ...patch }))}
+              onChange={patch => {
+                // Обнаруживаем смену провайдера С Yandex НА что-то другое
+                const currentProvider = configPatch.professional_tts_provider
+                  ?? project?.config?.professional_tts_provider ?? '';
+                const nextProvider = patch.professional_tts_provider;
+
+                if (
+                  nextProvider !== undefined
+                  && nextProvider !== 'yandex'
+                  && currentProvider === 'yandex'
+                ) {
+                  // Считаем сегменты с Яндекс-разметкой в tts_ssml_override
+                  const YANDEX_MARKUP_RE = /\*\*|sil<\[|<\[(tiny|small|medium|large|huge)\]>|\[\[|\+[аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU]/i;
+                  const affectedSegs = segments.filter(s => {
+                    const ov = (s as Segment & { tts_ssml_override?: string }).tts_ssml_override || '';
+                    return ov && YANDEX_MARKUP_RE.test(ov);
+                  });
+                  if (affectedSegs.length > 0) {
+                    // Показываем модалку — не применяем patch сразу
+                    setYandexRevertModal({ pendingPatch: patch, affectedCount: affectedSegs.length });
+                    return;
+                  }
+                }
+                setConfigPatch(prev => ({ ...prev, ...patch }));
+              }}
               disabled={savingConfig}
             />
           </div>
@@ -977,6 +1006,57 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           onCancel={() => setConfirm(null)}
         />
       )}
+
+      {/* Модалка: Яндекс-разметка несовместима с выбранным провайдером */}
+      {yandexRevertModal && (
+        <div className="workspace-overlay" role="dialog" aria-modal="true">
+          <div className="yandex-revert-card glass-panel">
+            <div className="yandex-revert-icon">⚠️</div>
+            <h3 className="yandex-revert-title">Несовместимые правки</h3>
+            <p className="yandex-revert-body">
+              У <strong>{yandexRevertModal.affectedCount}</strong> сегм.{' '}
+              есть Яндекс-разметка (ударения <code>+</code>, паузы{' '}
+              <code>{'sil<[…]>'}</code>, логическое ударение <code>{'**…**'}</code>).
+            </p>
+            <p className="yandex-revert-body">
+              Провайдер <strong>{yandexRevertModal.pendingPatch.professional_tts_provider}</strong>{' '}
+              её не поддерживает. Сбросить эти правки до оригинального перевода?
+            </p>
+            <div className="yandex-revert-actions">
+              <button
+                className="btn-secondary yandex-revert-btn-keep"
+                onClick={() => {
+                  // Применяем patch без сброса — разметка стриппируется при синтезе автоматически
+                  setConfigPatch(prev => ({ ...prev, ...yandexRevertModal.pendingPatch }));
+                  setYandexRevertModal(null);
+                }}
+              >
+                Оставить как есть
+              </button>
+              <button
+                className="btn-danger yandex-revert-btn-reset"
+                onClick={() => {
+                  const YANDEX_MARKUP_RE = /\*\*|sil<\[|<\[(tiny|small|medium|large|huge)\]>|\[\[|\+[аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU]/i;
+                  const nextSegs = segments.map(s => {
+                    const ov = (s as Segment & { tts_ssml_override?: string }).tts_ssml_override || '';
+                    if (ov && YANDEX_MARKUP_RE.test(ov)) {
+                      return { ...s, tts_ssml_override: '' };
+                    }
+                    return s;
+                  });
+                  pushHistory(nextSegs);
+                  setDirty(true);
+                  setConfigPatch(prev => ({ ...prev, ...yandexRevertModal.pendingPatch }));
+                  setYandexRevertModal(null);
+                }}
+              >
+                Сбросить правки
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

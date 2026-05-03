@@ -1,3 +1,24 @@
+## 1.30.4 - 2026-05-03 - FEAT - TVIDEO-124
+
+### Предупреждение о несовместимых правках при смене провайдера TTS
+
+Workspace.tsx:
+- yandexRevertModal state: хранит pendingPatch и affectedCount
+- Перехват onChange AdvancedSettings: при переключении провайдера С yandex
+  проверяет tts_ssml_override сегментов на Яндекс-разметку (regex:
+  ударения +, логическое ударение **, паузы sil<[...]>/<[tiny...]>, [[ ]])
+- Если найдены сегменты с разметкой — patch НЕ применяется, показывается модалка
+- «Оставить как есть»: patch применяется, разметка остаётся (будет стриппирована
+  при синтезе автоматически)
+- «Сбросить правки»: tts_ssml_override → '' для затронутых сегментов,
+  pushHistory + setDirty, patch применяется
+
+Workspace.css:
+- .workspace-overlay (backdrop z-index:2000)
+- .yandex-revert-card (предупреждающая карточка, amber border)
+- .yandex-revert-icon/title/body/actions/btn-keep/btn-reset
+- .btn-danger (универсальный класс для danger-кнопок)
+
 ## 1.30.3 - 2026-05-03 - FEAT - TVIDEO-123
 
 ### Универсальный TTS-превью для всех провайдеров
