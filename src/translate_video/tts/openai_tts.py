@@ -457,39 +457,45 @@ def _post_audio(
     *,
     headers: dict,
     timeout: float,
+    max_attempts: int = 3,
 ) -> bytes:
-    """POST /audio/speech → bytes (mp3).
+    """POST /audio/speech → bytes (mp3) с retry exponential backoff.
 
     Обрабатывает два формата ответа:
     - binary mp3 (NeuroAPI, прямой OpenAI)
     - JSON {"audio": "<base64_mp3>"} (Polza)
     """
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read()
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"TTS API вернул HTTP {exc.code}: {exc.read()[:200]}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"TTS сетевая ошибка: {exc.reason}") from exc
-    except OSError as exc:
-        raise RuntimeError(f"TTS ошибка запроса: {exc}") from exc
+    from translate_video.core.retry import DEFAULT_TTS_RETRY  # noqa: PLC0415
 
-    # Определяем формат: JSON или бинарный
-    if raw[:1] == b"{":
+    def _single_attempt() -> bytes:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
         try:
-            obj = json.loads(raw)
-            b64 = obj.get("audio") or obj.get("data") or ""
-            if b64:
-                return base64.b64decode(b64 + "==")
-            raise RuntimeError(f"Polza вернул JSON без поля audio: {list(obj.keys())}")
-        except (json.JSONDecodeError, Exception) as exc:
-            if isinstance(exc, RuntimeError):
-                raise
-            raise RuntimeError(f"Не удалось разобрать JSON-ответ TTS: {exc}") from exc
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = response.read()
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(f"TTS API вернул HTTP {exc.code}: {exc.read()[:200]}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"TTS сетевая ошибка: {exc.reason}") from exc
+        except OSError as exc:
+            raise RuntimeError(f"TTS ошибка запроса: {exc}") from exc
 
-    return raw  # бинарный mp3
+        # Определяем формат: JSON или бинарный
+        if raw[:1] == b"{":
+            try:
+                obj = json.loads(raw)
+                b64 = obj.get("audio") or obj.get("data") or ""
+                if b64:
+                    return base64.b64decode(b64 + "==")
+                raise RuntimeError(f"Polza вернул JSON без поля audio: {list(obj.keys())}")
+            except (json.JSONDecodeError, Exception) as exc:
+                if isinstance(exc, RuntimeError):
+                    raise
+                raise RuntimeError(f"Не удалось разобрать JSON-ответ TTS: {exc}") from exc
+
+        return raw  # бинарный mp3
+
+    return DEFAULT_TTS_RETRY.call(_single_attempt, label="openai_tts")
 
 
 # Обратная совместимость

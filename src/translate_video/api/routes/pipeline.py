@@ -142,10 +142,12 @@ def batch_run_pipeline_early(
     }
     ```
     """
-    if len(req.project_ids) > 10:
+    import os as _os
+    MAX_BATCH = int(_os.getenv("MAX_BATCH_SIZE", "50"))
+    if len(req.project_ids) > MAX_BATCH:
         raise HTTPException(
             status_code=400,
-            detail="Максимум 10 проектов за один batch-запрос.",
+            detail=f"Максимум {MAX_BATCH} проектов за один batch-запрос.",
         )
 
     items_result: list[BatchRunItem] = []

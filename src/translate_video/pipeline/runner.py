@@ -8,6 +8,7 @@ from typing import Callable, Protocol
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import JobStatus, ProjectStatus, Stage, StageRun
 from translate_video.pipeline.context import StageContext
+from translate_video.notifications import send_project_notification
 
 _log = get_logger(__name__)
 
@@ -153,10 +154,23 @@ class PipelineRunner:
                         stage=stage.stage.value,
                         total_elapsed_s=total.elapsed,
                     )
+                    # Email-уведомление о сбое (non-blocking)
+                    send_project_notification(
+                        project_id=project_id,
+                        status="failed",
+                        error_msg=f"Stage '{stage.stage.value}' failed",
+                        elapsed_s=total.elapsed,
+                    )
                     break
             else:
                 context.project.status = ProjectStatus.COMPLETED
                 context.store.save_project(context.project)
+                # Email-уведомление о успехе (non-blocking)
+                send_project_notification(
+                    project_id=project_id,
+                    status="completed",
+                    elapsed_s=total.elapsed,
+                )
 
         # ── Снапшот баланса ПОСЛЕ завершения этапов ────────────────────────
         _snapshot_balances(context, suffix="after")

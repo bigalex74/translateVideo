@@ -58,24 +58,96 @@ def project_payload(project: VideoProject, include_segments: bool = True) -> dic
 
 @router.post("")
 def create_project(req: CreateProjectRequest, store: ProjectStore = Depends(get_store)):
-    """Создать новый проект перевода по локальному пути или URL."""
+    """Создать новый проект перевода по локальному пути или URL.
+
+    Если input_video начинается с http:// или https://, файл автоматически
+    скачивается через yt-dlp (поддерживает YouTube, Vimeo, VK и 1000+ сайтов).
+    """
     config = PipelineConfig.from_dict(req.config) if req.config else PipelineConfig()
     try:
         project_id = sanitize_project_id(req.project_id) if req.project_id else None
+        input_video = req.input_video
+
+        # C-06 / backlog: URL-загрузка через yt-dlp
+        if input_video.startswith(("http://", "https://")):
+            input_video = _download_url_video(input_video, store.root)
+
         project = store.create_project(
-            input_video=req.input_video,
+            input_video=input_video,
             config=config,
             project_id=project_id,
         )
-        input_path = Path(req.input_video)
+        input_path = Path(input_video)
         if input_path.is_file():
             store.attach_input_video(project, input_path)
         return project_payload(project)
     except (ValueError, FileNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Неожиданная ошибка при создании проекта")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+def _download_url_video(url: str, work_root: Path) -> str:
+    """Скачать видео по URL через yt-dlp и вернуть локальный путь.
+
+    Поддерживает YouTube, Vimeo, VK, Twitch и 1000+ сайтов.
+    Таймаут: 10 мин. Максимум: 2 ГБ (MAX_UPLOAD_MB).
+    """
+    try:
+        import yt_dlp  # noqa: PLC0415
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=501,
+            detail="yt-dlp не установлен. Добавьте в зависимости: pip install yt-dlp",
+        ) from exc
+
+    MAX_MB = int(os.getenv("MAX_UPLOAD_MB", "2048"))
+    download_dir = work_root / "_url_downloads"
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    ydl_opts = {
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "outtmpl": str(download_dir / "%(id)s.%(ext)s"),
+        "quiet": True,
+        "no_warnings": True,
+        "max_filesize": MAX_MB * 1024 * 1024,
+        "socket_timeout": 30,
+        "retries": 3,
+        "merge_output_format": "mp4",
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            # Получаем путь к скачанному файлу
+            filename = ydl.prepare_filename(info)
+            # yt-dlp может изменить расширение
+            if not Path(filename).exists():
+                filename = filename.rsplit(".", 1)[0] + ".mp4"
+            if not Path(filename).exists():
+                # Ищем последний скачанный файл
+                files = sorted(download_dir.glob("*"), key=lambda p: p.stat().st_mtime)
+                if files:
+                    filename = str(files[-1])
+                else:
+                    raise HTTPException(status_code=422, detail="yt-dlp: не удалось найти скачанный файл")
+        logger.info("url_download.done", url=url[:80], path=filename)
+        return filename
+    except HTTPException:
+        raise
+    except yt_dlp.utils.DownloadError as exc:
+        msg = str(exc)
+        if "File is larger than max" in msg or "filesize" in msg.lower():
+            raise HTTPException(status_code=413, detail=f"Видео слишком большое. Максимум: {MAX_MB} МБ")
+        if "Private video" in msg or "Sign in" in msg or "unavailable" in msg:
+            raise HTTPException(status_code=403, detail="Видео недоступно (приватное или заблокированное).")
+        raise HTTPException(status_code=422, detail=f"Ошибка загрузки видео: {msg[:200]}")
+    except Exception as exc:
+        logger.exception("url_download.error", url=url[:80])
+        raise HTTPException(status_code=500, detail=f"Не удалось скачать видео: {exc}") from exc
 
 
 @router.post("/upload")

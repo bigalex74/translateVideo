@@ -2773,3 +2773,20 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 ### Updated
 - Skill continuous-improvement: Фаза 3б (Dev agent proposals) + CEO Арбитраж
 - PUBLIC_ROADMAP.md обновлён
+
+## [1.39.0] — 2026-05-04 — Backlog Implementation
+### Added
+- Retry с exponential backoff для TTS API (`core/retry.py`, env: TTS_RETRY_ATTEMPTS/BASE_DELAY/MAX_DELAY/BACKOFF)
+- Per-user API Keys: APIKeyStore (JSON dict), Admin API `/api/admin/keys` (GET/POST/DELETE)
+- URL-загрузка видео через yt-dlp (`create_project` + `_download_url_video`)
+- Email-уведомления при завершении/ошибке (`notifications/__init__.py`, env: SMTP_*)
+- PWA: manifest.webmanifest, sw.js (cache-first shell, network-only API, push)
+- CLI: команды `batch`, `watch`, `download`
+- .dockerignore (ускорение build context)
+- Optimized Dockerfile: отдельный python-deps layer, HEALTHCHECK
+### Changed
+- Batch лимит 10 → 50 (env: MAX_BATCH_SIZE)
+- Dockerfile: 3-stage build, HEALTHCHECK, --no-install-recommends
+### Tests
+- test_backlog_features.py (20 новых тестов)
+- 590 тестов total (было 570)

@@ -59,17 +59,17 @@ class BatchRunEndpointTest(unittest.TestCase):
         self.assertIn("queued", data)
         self.assertIn("items", data)
 
-    def test_batch_run_rejects_more_than_10(self):
-        """Endpoint отклоняет запрос с >10 проектами."""
+    def test_batch_run_rejects_more_than_50(self):
+        """Endpoint отклоняет запрос с >50 проектами (новый лимит)."""
         from translate_video.api.main import app
         client = TestClient(app, raise_server_exceptions=False)
-        ids = [f"proj-{i}" for i in range(11)]
+        ids = [f"proj-{i}" for i in range(51)]
         resp = client.post(
             "/api/v1/projects/batch/run",
             json={"project_ids": ids, "provider": "fake"},
         )
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("10", resp.json()["detail"])
+        self.assertIn("50", resp.json()["detail"])
 
     def test_batch_run_skips_invalid_ids(self):
         """Endpoint пропускает некорректные ID с reason=invalid_project_id."""

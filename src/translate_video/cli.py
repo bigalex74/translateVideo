@@ -123,6 +123,50 @@ def build_parser() -> argparse.ArgumentParser:
     review_parser.add_argument("work_dir", type=Path, help="папка проекта")
     review_parser.set_defaults(handler=_handle_review)
 
+    # batch run — запуск нескольких проектов
+    batch_parser = subparsers.add_parser(
+        "batch",
+        help="запустить пайплайн для нескольких проектов (до 50)"
+    )
+    batch_parser.add_argument(
+        "work_dirs",
+        nargs="+",
+        type=Path,
+        help="папки проектов для пакетного запуска",
+    )
+    batch_parser.add_argument("--force", action="store_true")
+    batch_parser.add_argument("--provider", choices=["fake", "legacy"], default="fake")
+    batch_parser.set_defaults(handler=_handle_batch)
+
+    # watch — ждать завершения проекта с прогресс-баром
+    watch_parser = subparsers.add_parser(
+        "watch",
+        help="следить за прогрессом запущенного проекта"
+    )
+    watch_parser.add_argument("work_dir", type=Path, help="папка проекта")
+    watch_parser.add_argument(
+        "--interval", type=float, default=3.0,
+        help="интервал опроса в секундах (default: 3)"
+    )
+    watch_parser.set_defaults(handler=_handle_watch)
+
+    # download — скачать видео по URL
+    dl_parser = subparsers.add_parser(
+        "download",
+        help="скачать видео по URL (YouTube, Vimeo и др.) через yt-dlp"
+    )
+    dl_parser.add_argument("url", help="URL видео")
+    dl_parser.add_argument(
+        "--output-dir", type=Path, default=Path("."),
+        help="директория для сохранения (default: текущая)"
+    )
+    dl_parser.add_argument(
+        "--format",
+        default="bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        help="yt-dlp формат",
+    )
+    dl_parser.set_defaults(handler=_handle_download)
+
     server_parser = subparsers.add_parser("server", help="запустить локальный API сервер")
     server_parser.add_argument("--host", default="127.0.0.1", help="хост для сервера")
     server_parser.add_argument("--port", type=int, default=8002, help="порт для сервера")
@@ -275,6 +319,87 @@ def _handle_server(args: argparse.Namespace) -> dict | None:
     os.environ["WORK_ROOT"] = str(args.work_root)
     uvicorn.run("translate_video.api.main:app", host=args.host, port=args.port, reload=True)
     return None
+
+
+def _handle_batch(args: argparse.Namespace) -> dict:
+    """Пакетный запуск нескольких проектов последовательно."""
+    MAX_BATCH = 50
+    work_dirs = args.work_dirs[:MAX_BATCH]
+    results = []
+    for wd in work_dirs:
+        store = ProjectStore(wd.parent)
+        try:
+            project = store.load_project(wd)
+            runner = PipelineRunner(
+                _build_stages(args.provider, project.config),
+                force=args.force,
+            )
+            runs = runner.run(StageContext(project=project, store=store))
+            results.append({
+                "project_id": project.id,
+                "status": project.status.value,
+                "stages": len(runs),
+            })
+        except Exception as exc:  # noqa: BLE001
+            results.append({"project_id": str(wd), "error": str(exc)})
+    return {"batch_results": results, "total": len(results)}
+
+
+def _handle_watch(args: argparse.Namespace) -> dict:
+    """Следить за статусом проекта до завершения (polling)."""
+    import time
+    import sys
+
+    store = ProjectStore(args.work_dir.parent)
+    interval = max(1.0, args.interval)
+    print(f"Следим за проектом: {args.work_dir.name}", file=sys.stderr)
+    while True:
+        try:
+            project = store.load_project(args.work_dir)
+        except Exception as exc:
+            print(f"Ошибка загрузки: {exc}", file=sys.stderr)
+            time.sleep(interval)
+            continue
+
+        status = project.status.value
+        pct = getattr(project, "progress_percent", None)
+        bar = f" {pct:.0f}%" if pct is not None else ""
+        print(f"\r[{status}]{bar}  ", end="", flush=True, file=sys.stderr)
+
+        if status in ("completed", "failed", "cancelled"):
+            print("", file=sys.stderr)  # newline
+            return _project_summary(project)
+
+        time.sleep(interval)
+
+
+def _handle_download(args: argparse.Namespace) -> dict:
+    """Скачать видео по URL через yt-dlp."""
+    try:
+        import yt_dlp  # noqa: PLC0415
+    except ImportError as exc:
+        raise SystemExit("yt-dlp не установлен. Запустите: pip install yt-dlp") from exc
+
+    output_dir = args.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    ydl_opts = {
+        "format": args.format,
+        "outtmpl": str(output_dir / "%(title)s.%(ext)s"),
+        "merge_output_format": "mp4",
+        "retries": 3,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(args.url, download=True)
+        filename = ydl.prepare_filename(info)
+
+    return {
+        "title": info.get("title", ""),
+        "duration_s": info.get("duration"),
+        "filename": filename,
+        "url": args.url,
+    }
 
 
 def _config_from_args(args: argparse.Namespace) -> PipelineConfig:
