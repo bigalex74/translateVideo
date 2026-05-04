@@ -69,6 +69,24 @@ def send_project_notification(
     t.start()
 
 
+def _project_link_html(project_id: str) -> str:
+    """Сгенерировать HTML-блок с кнопкой-ссылкой на проект."""
+    app_url = os.getenv("APP_URL", "").rstrip("/")
+    if not app_url:
+        return ""
+    url = f"{app_url}/?project={project_id}"
+    return f"""
+    <div style="margin: 16px 0;">
+      <a href="{url}" style="
+        display:inline-block; padding:10px 20px;
+        background:#6366f1; color:#fff; text-decoration:none;
+        border-radius:8px; font-weight:bold; font-size:14px;">
+        🚀 Открыть проект
+      </a>
+    </div>
+    """
+
+
 def _send_sync(
     project_id: str,
     status: str,
@@ -111,6 +129,7 @@ def _send_sync(
             <td style="padding:8px;">{now}</td></tr>
         {f'<tr><td style="padding:8px; color:#ef4444;">Ошибка:</td><td style="padding:8px; color:#ef4444;">{error_msg[:300]}</td></tr>' if error_msg else ''}
       </table>
+      {_project_link_html(project_id)}
       <hr style="border:none; border-top:1px solid #e2e8f0; margin:24px 0;">
       <p style="color:#94a3b8; font-size:12px;">AI Video Translator — автоматическое уведомление</p>
     </body></html>

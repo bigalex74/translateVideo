@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { URLDownloadStatus } from './URLDownloadStatus';
 import { createProject, preflightVideo } from '../api/client';
 import type { PipelineConfigDraft, PreflightReport } from '../types/schemas';
 import { providerLabels, providerWarning, t } from '../i18n';
@@ -149,6 +150,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
   // Общее
   const [loading, setLoading]       = useState(false);
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const [urlDownloading, setUrlDownloading] = useState(false);  // NC-01 yt-dlp
   const [error, setError]           = useState('');
 
   const currentProviderWarning = providerWarning(provider, locale);
@@ -265,6 +267,10 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
           xhr.send(fd);
         });
       } else {
+        // NC-01: показываем индикатор скачивания yt-dlp
+        if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
+          setUrlDownloading(true);
+        }
         project = await createProject(videoUrl, projectId || undefined, config);
       }
       persistProvider(provider);
@@ -274,6 +280,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
     } finally {
       setLoading(false);
       setUploadPercent(null);
+      setUrlDownloading(false);
     }
   };
 
@@ -513,6 +520,9 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
             </div>
           </div>
         )}
+
+        {/* NC-01: yt-dlp URL download indicator */}
+        <URLDownloadStatus isVisible={urlDownloading} url={videoUrl} />
 
         {/* ─── Навигация ─── */}
         <div className="wizard-nav">

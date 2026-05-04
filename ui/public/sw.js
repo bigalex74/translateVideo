@@ -7,8 +7,11 @@
  * - Статические ассеты → Stale While Revalidate
  */
 
-const CACHE_NAME = 'ai-video-translator-v1';
-const SHELL_CACHE = 'shell-v1';
+// Версия кэша = версия приложения (инжектируется при деплое через sed или Vite)
+// Изменение версии → браузер удалит старый кэш и установит новый SW
+const APP_VERSION = self.__APP_VERSION__ || '1.39.0';
+const CACHE_NAME = `ai-video-translator-${APP_VERSION}`;
+const SHELL_CACHE = `shell-${APP_VERSION}`;
 
 // Ресурсы для precaching (app shell)
 const SHELL_ASSETS = [

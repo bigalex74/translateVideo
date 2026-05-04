@@ -346,31 +346,42 @@ def _handle_batch(args: argparse.Namespace) -> dict:
 
 
 def _handle_watch(args: argparse.Namespace) -> dict:
-    """Следить за статусом проекта до завершения (polling)."""
+    """Следить за статусом проекта до завершения (polling).
+
+    Ctrl+C — выводит последний известный статус и завершается корректно.
+    """
     import time
     import sys
 
     store = ProjectStore(args.work_dir.parent)
     interval = max(1.0, args.interval)
-    print(f"Следим за проектом: {args.work_dir.name}", file=sys.stderr)
-    while True:
-        try:
-            project = store.load_project(args.work_dir)
-        except Exception as exc:
-            print(f"Ошибка загрузки: {exc}", file=sys.stderr)
+    print(f"Следим за проектом: {args.work_dir.name} (Ctrl+C для выхода)", file=sys.stderr)
+    last_project = None
+    try:
+        while True:
+            try:
+                project = store.load_project(args.work_dir)
+                last_project = project
+            except Exception as exc:
+                print(f"\rОшибка загрузки: {exc}  ", end="", flush=True, file=sys.stderr)
+                time.sleep(interval)
+                continue
+
+            status = project.status.value
+            pct = getattr(project, "progress_percent", None)
+            bar = f" {pct:.0f}%" if pct is not None else ""
+            print(f"\r[{status}]{bar}  ", end="", flush=True, file=sys.stderr)
+
+            if status in ("completed", "failed", "cancelled"):
+                print("", file=sys.stderr)
+                return _project_summary(project)
+
             time.sleep(interval)
-            continue
-
-        status = project.status.value
-        pct = getattr(project, "progress_percent", None)
-        bar = f" {pct:.0f}%" if pct is not None else ""
-        print(f"\r[{status}]{bar}  ", end="", flush=True, file=sys.stderr)
-
-        if status in ("completed", "failed", "cancelled"):
-            print("", file=sys.stderr)  # newline
-            return _project_summary(project)
-
-        time.sleep(interval)
+    except KeyboardInterrupt:
+        print("\n[watch] Прерван пользователем.", file=sys.stderr)
+        if last_project:
+            return _project_summary(last_project)
+        return {"error": "watch прерван до получения данных"}
 
 
 def _handle_download(args: argparse.Namespace) -> dict:

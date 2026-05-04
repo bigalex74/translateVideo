@@ -2790,3 +2790,11 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 ### Tests
 - test_backlog_features.py (20 новых тестов)
 - 590 тестов total (было 570)
+
+## [1.40.0] — 2026-05-04 — CI Round 2 Iteration 1
+### Added
+- URLDownloadStatus компонент — индикатор скачивания yt-dlp (NC-01)
+- Email: кнопка "Открыть проект" с APP_URL ссылкой (NC-04+Nm-12)
+- sw.js: динамическая версия кэша через APP_VERSION (Nm-11)
+- PWA иконки icon-192/512.png + скрипт generate_pwa_icons.mjs (NM-07)
+- CLI watch: graceful Ctrl+C с финальным статусом (NM-08)
