@@ -1,6 +1,6 @@
 [project]
 name = "translate-video"
-version = "1.31.4"
+version = "1.31.5"
 description = "Движок ИИ-перевода видео с CLI и UI-интерфейсами."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,4 +30,4 @@ omit = ["*/legacy.py"]
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
-fail_under = 80
+fail_under = 82

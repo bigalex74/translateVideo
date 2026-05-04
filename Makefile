@@ -1,4 +1,4 @@
-.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:release lint ui-build ui-dev
+.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:release lint ui-build ui-dev
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -70,6 +70,17 @@ test\:all:
 	PYTHONPATH=src python3 -m unittest discover -s tests -q
 	cd ui && npm test
 
+## test:coverage: Проверить покрытие кода (Python ≥82%, TypeScript ≥80%)
+test\:coverage:
+	@echo "$(CYAN)▶ Coverage: Python...$(RESET)"
+	PYTHONPATH=src python3 -m coverage run \
+	  --source=translate_video \
+	  --omit="*/legacy.py" \
+	  -m unittest discover -s tests -q
+	python3 -m coverage report --fail-under=82
+	@echo "$(CYAN)▶ Coverage: TypeScript...$(RESET)"
+	cd ui && npm run test -- --coverage
+
 ## test:release: Полный release gate перед merge в master
 test\:release:
 	PYTHONPATH=src python3 -m unittest discover -s tests
@@ -79,6 +90,7 @@ test\:release:
 	cd ui && npm run build
 	cd ui && npm run test:e2e
 	cd ui && npm run test:e2e:fullstack
+	$(MAKE) test\:coverage
 	git diff --check
 
 ## lint: Проверить ESLint, типы TypeScript и синтаксис Python

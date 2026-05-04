@@ -1,5 +1,33 @@
 # Журнал Изменений
 
+## 1.31.5 - 2026-05-04 - FEAT - TVIDEO-134
+
+### Coverage Gate: 80%+ фронт и 82%+ бэкенд (принудительно)
+
+Фронтенд (46% → 96% stmt / 84% branch / 100% funcs):
+- api/client.test.ts: полное покрытие всех 12 функций (было 4/12)
+  createProject, uploadProject, listProjects, getProjectStatus,
+  getProjectArtifacts, saveProjectSegments, patchProjectConfig,
+  preflightVideo, cancelPipeline, previewTTS, artifactDownloadUrl,
+  readError (через error responses)
+- store/settings.test.ts: новый файл, 27 тестов, 100% покрытие
+  все get/persist/apply функции, включая trim и удаление webhook
+- vitest.config.ts: coverage thresholds statements/funcs/lines=80%,
+  branches=75% — CI падает если опускается ниже
+
+Бэкенд (82%+):
+- test_openai_tts.py: новые тест-классы SynthPreviewTest (7 тестов)
+  и Mp3ToWavTest (3 теста)
+  synth_preview(): payload для OpenAI (speed) и ElevenLabs (el_speed/stability)
+  _mp3_to_wav(): ffmpeg -ar 44100, -ac 1, правильный путь wav_path
+- pyproject.toml: fail_under 80 → 82
+
+Makefile:
+- test:coverage — проверка покрытия Python≥82% + TypeScript≥80%
+- test:release — включает test:coverage
+
+Итого: Python 548 тестов ✅, TypeScript 181 тест ✅
+
 ## 1.31.4 - 2026-05-03 - FIX - TVIDEO-133
 
 ### TTS превью: speed и ElevenLabs-параметры не применялись + FileNotFoundError

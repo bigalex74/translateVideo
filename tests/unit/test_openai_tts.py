@@ -329,5 +329,154 @@ class OpenAIQaFlagsResetTest(unittest.TestCase):
         self.assertNotIn("tts_voice_fable", flags)
 
 
+
+class SynthPreviewTest(unittest.TestCase):
+    """TVIDEO-133: synth_preview() возвращает MP3-байты с правильными параметрами."""
+
+    def _provider(self, model="tts-1", openai_speed=1.0,
+                  el_speed=1.0, el_stability=0.5, el_similarity_boost=0.75, el_style=0.0):
+        http_post = MagicMock(return_value=b"mp3_bytes")
+        p = OpenAITTSProvider(
+            base_url="https://fake.api/v1",
+            api_key="key",
+            model=model,
+            voice_1="nova",
+            voice_2="onyx",
+            openai_speed=openai_speed,
+            el_speed=el_speed,
+            el_stability=el_stability,
+            el_similarity_boost=el_similarity_boost,
+            el_style=el_style,
+            http_post=http_post,
+        )
+        return p, http_post
+
+    def test_returns_bytes_from_http_post(self):
+        """synth_preview() возвращает то, что вернул _http_post."""
+        provider, mock_post = self._provider()
+        result = provider.synth_preview("Привет", "nova")
+        self.assertEqual(result, b"mp3_bytes")
+        mock_post.assert_called_once()
+
+    def test_openai_default_speed_not_in_payload(self):
+        """speed=1.0 (дефолт) не добавляется в payload для OpenAI."""
+        provider, mock_post = self._provider(openai_speed=1.0)
+        provider.synth_preview("Текст", "nova")
+        payload = mock_post.call_args[0][1]
+        self.assertNotIn("speed", payload)
+
+    def test_openai_custom_speed_in_payload(self):
+        """speed=1.3 добавляется в payload для OpenAI."""
+        provider, mock_post = self._provider(openai_speed=1.3)
+        provider.synth_preview("Текст", "nova")
+        payload = mock_post.call_args[0][1]
+        self.assertIn("speed", payload)
+        self.assertAlmostEqual(payload["speed"], 1.3, places=4)
+
+    def test_elevenlabs_params_in_payload(self):
+        """ElevenLabs: el_speed, stability, similarity_boost, style попадают в payload."""
+        provider, mock_post = self._provider(
+            model="elevenlabs/turbo-v2",
+            el_speed=1.1,
+            el_stability=0.7,
+            el_similarity_boost=0.8,
+            el_style=0.2,
+        )
+        provider.synth_preview("Test", "Rachel")
+        payload = mock_post.call_args[0][1]
+        self.assertAlmostEqual(payload["speed"], 1.1, places=4)
+        self.assertAlmostEqual(payload["stability"], 0.7, places=4)
+        self.assertAlmostEqual(payload["similarity_boost"], 0.8, places=4)
+        self.assertAlmostEqual(payload["style"], 0.2, places=4)
+
+    def test_elevenlabs_no_openai_speed(self):
+        """ElevenLabs модель: openai_speed НЕ добавляется (используется el_speed)."""
+        provider, mock_post = self._provider(
+            model="elevenlabs/turbo-v2",
+            openai_speed=1.5,   # должен игнорироваться
+            el_speed=1.0,
+        )
+        provider.synth_preview("Test", "Rachel")
+        payload = mock_post.call_args[0][1]
+        # speed в payload = el_speed=1.0 (не openai_speed)
+        self.assertIn("speed", payload)
+        self.assertAlmostEqual(payload["speed"], 1.0, places=4)
+
+    def test_payload_base_fields(self):
+        """Базовые поля model, input, voice, response_format всегда в payload."""
+        provider, mock_post = self._provider()
+        provider.synth_preview("Hello", "shimmer")
+        payload = mock_post.call_args[0][1]
+        self.assertEqual(payload["model"], "tts-1")
+        self.assertEqual(payload["input"], "Hello")
+        self.assertEqual(payload["voice"], "shimmer")
+        self.assertEqual(payload["response_format"], "mp3")
+
+    def test_authorization_header(self):
+        """Authorization: Bearer key передаётся в заголовках."""
+        provider, mock_post = self._provider()
+        provider.synth_preview("Hi", "nova")
+        headers = mock_post.call_args[1].get("headers") or mock_post.call_args[0][2]
+        self.assertIn("Authorization", headers)
+        self.assertIn("key", headers["Authorization"])
+
+
+class Mp3ToWavTest(unittest.TestCase):
+    """TVIDEO-130: _mp3_to_wav() конвертирует MP3-байты в WAV через ffmpeg.
+
+    subprocess/tempfile/os импортируются локально внутри функции,
+    поэтому патчим через глобальный модуль 'subprocess'.
+    """
+
+    def test_creates_wav_file(self):
+        """_mp3_to_wav() вызывает ffmpeg с правильными аргументами."""
+        import tempfile as _tempfile
+        from translate_video.tts.openai_tts import _mp3_to_wav
+
+        with patch("subprocess.run") as mock_run, \
+                _tempfile.TemporaryDirectory() as tmpdir:
+            mock_run.return_value = MagicMock(returncode=0)
+            wav_path = Path(tmpdir) / "output.wav"
+
+            _mp3_to_wav(b"fake_mp3_bytes", wav_path)
+
+            mock_run.assert_called_once()
+            cmd = mock_run.call_args[0][0]
+            self.assertEqual(cmd[0], "ffmpeg")
+            self.assertIn("-ar", cmd)
+            self.assertIn("44100", cmd)
+            self.assertIn("-ac", cmd)
+            self.assertIn("1", cmd)
+            self.assertIn(str(wav_path), cmd)
+
+    def test_ffmpeg_sample_rate_44100(self):
+        """ffmpeg вызывается с -ar 44100 (исправление проблемы 24kHz→кряк)."""
+        import tempfile as _tempfile
+        from translate_video.tts.openai_tts import _mp3_to_wav
+
+        with patch("subprocess.run") as mock_run, \
+                _tempfile.TemporaryDirectory() as tmpdir:
+            mock_run.return_value = MagicMock(returncode=0)
+            _mp3_to_wav(b"data", Path(tmpdir) / "out.wav")
+
+            args = mock_run.call_args[0][0]
+            ar_idx = args.index("-ar")
+            self.assertEqual(args[ar_idx + 1], "44100")
+
+    def test_mono_channel(self):
+        """ffmpeg вызывается с -ac 1 (моно)."""
+        import tempfile as _tempfile
+        from translate_video.tts.openai_tts import _mp3_to_wav
+
+        with patch("subprocess.run") as mock_run, \
+                _tempfile.TemporaryDirectory() as tmpdir:
+            mock_run.return_value = MagicMock(returncode=0)
+            _mp3_to_wav(b"data", Path(tmpdir) / "out.wav")
+
+            args = mock_run.call_args[0][0]
+            ac_idx = args.index("-ac")
+            self.assertEqual(args[ac_idx + 1], "1")
+
+
 if __name__ == "__main__":
     unittest.main()
