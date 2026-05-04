@@ -514,6 +514,14 @@
     margin: 0;
 }
 
+.running-eta {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    margin: 0;
+    letter-spacing: 0.01em;
+}
+
 .running-progress-wrap {
     width: 100%;
     height: 6px;

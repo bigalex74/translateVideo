@@ -191,3 +191,41 @@
   background: rgba(245,158,11,0.25);
   border-color: rgba(245,158,11,0.65);
 }
+
+/* ─── Cost Estimate block ─────────────────────────────────────────── */
+.modal-cost-estimate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+}
+
+.modal-cost-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.modal-cost-row svg {
+  flex-shrink: 0;
+  color: var(--accent-primary);
+}
+
+.modal-cost-row strong {
+  color: var(--text-primary);
+}
+
+.modal-cost-row--free svg {
+  color: var(--success);
+}
+
+.modal-cost-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}

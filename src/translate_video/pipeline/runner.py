@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Callable, Protocol
 
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import JobStatus, ProjectStatus, Stage, StageRun
@@ -41,6 +41,9 @@ class PipelineRunner:
         self.stages = stages
         self.force = force
         self.from_stage = from_stage
+        # Опциональный callback: вызывается после каждого завершённого этапа
+        # Сигнатура: on_stage_done(stage_index: int, total_stages: int, elapsed: float) -> None
+        self.on_stage_done: "Callable[[int, int, float], None] | None" = None
 
     def run(self, context: StageContext) -> list[StageRun]:
         """Выполнить настроенные этапы по порядку.
@@ -134,6 +137,13 @@ class PipelineRunner:
                     continue
                 run = stage.run(context)
                 runs.append(run)
+                # Вызываем progress-callback после каждого выполненного этапа
+                if self.on_stage_done is not None:
+                    stages_done = sum(1 for r in runs if r.status != JobStatus.SKIPPED)
+                    try:
+                        self.on_stage_done(stages_done, len(self.stages), total.elapsed)
+                    except Exception:  # noqa: BLE001
+                        pass
                 if run.status == JobStatus.FAILED:
                     context.project.status = ProjectStatus.FAILED
                     context.store.save_project(context.project)

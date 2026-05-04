@@ -109,3 +109,155 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE / MOBILE — O8 (v1.33.0)
+   Breakpoints: ≤768px (mobile), ≤1024px (tablet)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Nav */
+  .nav-tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 12px;
+    gap: 4px;
+  }
+
+  .nav-tab {
+    white-space: nowrap;
+    font-size: 0.8rem;
+    padding: 10px 12px;
+  }
+
+  /* Page container */
+  .page-container {
+    padding: 12px !important;
+  }
+
+  /* Workspace: stack left/right panel vertically */
+  .workspace-body {
+    flex-direction: column !important;
+    overflow: auto !important;
+  }
+
+  .workspace-left,
+  .workspace-right {
+    width: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .workspace-right {
+    height: 40vh;
+    flex-shrink: 0;
+  }
+
+  /* Header actions: wrap */
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Buttons: smaller on mobile */
+  .btn-primary,
+  .btn-secondary {
+    padding: 7px 12px;
+    font-size: 0.82rem;
+  }
+
+  /* Segments list: less padding */
+  .segments-list {
+    padding: 8px !important;
+  }
+
+  /* Dashboard: single column grid */
+  .projects-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Dashboard: mini-card full width */
+  .project-mini-card {
+    width: 100%;
+  }
+
+  /* Search bar: stack */
+  .search-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .search-bar input {
+    width: 100%;
+  }
+
+  /* NewProject: wizard steps */
+  .wizard-steps {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .wizard-step-item {
+    min-width: 80px;
+    font-size: 0.75rem;
+  }
+
+  /* Status filter: scroll */
+  .status-filter {
+    overflow-x: auto;
+    padding-bottom: 4px;
+    flex-wrap: nowrap;
+  }
+
+  /* ConfirmRunModal: full width */
+  .modal-box {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 0 auto;
+    border-radius: 12px !important;
+  }
+
+  /* Running overlay card: compact */
+  .running-card {
+    padding: 24px 16px !important;
+    max-width: 90vw !important;
+  }
+
+  /* Video panel: smaller */
+  .video-container video {
+    max-height: 180px !important;
+  }
+
+  /* Stats panel: hide on mobile if too long */
+  .panel-tabs button {
+    padding: 10px 8px;
+    font-size: 0.8rem;
+  }
+
+  /* Settings: dev links stack */
+  .dev-links {
+    flex-direction: column;
+  }
+
+  /* Onboarding steps: compact */
+  .onboarding-steps {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-left h2 {
+    font-size: 0.9rem;
+    max-width: 55vw;
+  }
+
+  .running-card h3 {
+    font-size: 1.1rem !important;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    gap: 4px;
+    padding: 6px 10px;
+  }
+}

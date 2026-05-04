@@ -96,6 +96,98 @@ def _validate_webhook_url(url: str | None) -> None:
 
 
 
+
+# ─── Batch Run Models + Route (MUST be before /{project_id}/* routes) ─────
+
+class BatchRunRequest(BaseModel):
+    """Запрос пакетного запуска нескольких проектов."""
+    project_ids: list[str]
+    provider: str = "legacy"
+    force: bool = False
+    from_stage: str | None = None
+    webhook_url: str | None = None
+
+
+class BatchRunItem(BaseModel):
+    """Результат постановки одного проекта в очередь."""
+    project_id: str
+    queued: bool
+    reason: str | None = None
+
+
+class BatchRunResponse(BaseModel):
+    """Ответ на пакетный запуск."""
+    queued: int
+    skipped: int
+    items: list[BatchRunItem]
+
+
+@router.post("/batch/run", summary="Пакетный запуск нескольких проектов")
+def batch_run_pipeline_early(
+    req: BatchRunRequest,
+    background_tasks: BackgroundTasks,
+    store: ProjectStore = Depends(get_store),
+) -> BatchRunResponse:
+    """Запустить перевод для нескольких проектов сразу.
+
+    Проекты, уже находящиеся в состоянии `running`, будут пропущены.
+    Допустимо не более 10 проектов за запрос.
+
+    Пример:
+    ```json
+    {
+      "project_ids": ["proj-1", "proj-2"],
+      "provider": "deepseek",
+      "force": false
+    }
+    ```
+    """
+    if len(req.project_ids) > 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Максимум 10 проектов за один batch-запрос.",
+        )
+
+    items_result: list[BatchRunItem] = []
+    queued = 0
+    skipped = 0
+
+    for raw_id in req.project_ids:
+        try:
+            safe_id = sanitize_project_id(raw_id)
+        except ValueError:
+            items_result.append(BatchRunItem(project_id=raw_id, queued=False, reason="invalid_project_id"))
+            skipped += 1
+            continue
+
+        with _running_lock:
+            already_running = safe_id in _running_projects
+
+        if already_running:
+            items_result.append(BatchRunItem(project_id=safe_id, queued=False, reason="already_running"))
+            skipped += 1
+            continue
+
+        sub_req = RunPipelineRequest(
+            force=req.force,
+            provider=req.provider,
+            from_stage=req.from_stage,
+        )
+
+        background_tasks.add_task(
+            run_pipeline_task,
+            project_id=safe_id,
+            store=store,
+            req=sub_req,
+            webhook_url=req.webhook_url,
+        )
+        items_result.append(BatchRunItem(project_id=safe_id, queued=True))
+        queued += 1
+
+    _log.info("api.batch_run", queued=queued, skipped=skipped)
+    return BatchRunResponse(queued=queued, skipped=skipped, items=items_result)
+
+
 class RunPipelineRequest(BaseModel):
     """Схема запроса на запуск пайплайна."""
     force: bool = False
@@ -149,6 +241,14 @@ async def run_pipeline_task(
             dev_mode=getattr(loaded_project.config, "dev_mode", False),
         )
 
+        # Записываем started_at и сбрасываем прогресс
+        from translate_video.core.schemas import ProjectStatus
+        from datetime import UTC, datetime as _dt
+        loaded_project.started_at = _dt.now(UTC).isoformat()
+        loaded_project.progress_percent = 0
+        loaded_project.eta_seconds = None
+        store.save_project(loaded_project)
+
         # Запускаем блокирующий пайплайн в отдельном потоке,
         # чтобы не блокировать asyncio event loop
         ctx = StageContext(
@@ -156,10 +256,28 @@ async def run_pipeline_task(
             store=store,
             cancel_event=cancel_event,
         )
+
+        # Callback для обновления progress_percent после каждого этапа
+        def _on_stage_done(stage_index: int, total_stages: int, elapsed: float) -> None:
+            try:
+                p = store.load_project(loaded_project.work_dir)
+                p.progress_percent = min(100, int((stage_index / total_stages) * 100))
+                remaining = total_stages - stage_index
+                p.eta_seconds = max(0, int((elapsed / stage_index) * remaining)) if stage_index else None
+                store.save_project(p)
+            except Exception:  # noqa: BLE001
+                pass
+
+        runner.on_stage_done = _on_stage_done
+
         with Timer() as t:
             await asyncio.to_thread(runner.run, ctx)
 
         restored = store.load_project(loaded_project.work_dir)
+        restored.progress_percent = 100
+        restored.eta_seconds = 0
+        store.save_project(restored)
+
         _log.info(
             "api.pipeline_done",
             project=safe_project_id,
@@ -505,3 +623,4 @@ def tts_preview(
     except Exception as exc:
         _log.exception("tts.preview.error", project=project_id)
         raise HTTPException(status_code=500, detail=f"Ошибка синтеза: {exc}")
+

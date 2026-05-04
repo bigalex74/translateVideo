@@ -6,10 +6,28 @@ import type { AppLocale } from '../store/settings';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { getPersistedProvider } from '../store/settings';
 import {
-  Play, FolderOpen, AlertCircle, CheckCircle2, Loader2,
-  ArrowRight, RefreshCw, Clock, Search
+  Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
+  ArrowRight, RefreshCw, Clock, Search, BookOpen
 } from 'lucide-react';
 import './Dashboard.css';
+
+// Человекочитаемые сообщения ошибок этапа
+// Ошибка = технические сообщения заменяются понятным пользователю текстом
+const STAGE_ERROR_HINTS: Record<string, string> = {
+  'extract_audio': 'Не удалось извлечь аудио — проверьте формат видеофайла',
+  'transcribe': 'Ошибка распознавания речи — возможно аудио слишком тихое или нечёткое',
+  'translate': 'Не удалось перевести — проверьте API-ключи провайдера перевода',
+  'tts': 'Ошибка озвучки — проверьте API-ключ TTS-провайдера и баланс счёта',
+  'timing_fit': 'Не удалось подстроить тайминги — попробуйте резким перезапуском',
+  'render': 'Ошибка монтажа — возможно файл повреждён, попробуйте перезапустить',
+  'export': 'Ошибка экспорта — повторите запуск или обратитесь в суппорт',
+};
+
+function humanStageError(stage: string, rawError: string | undefined): string {
+  if (!rawError) return '';
+  const hint = STAGE_ERROR_HINTS[stage];
+  return hint ? `${hint}. (Подробно: ${rawError.slice(0, 120)})` : rawError;
+}
 
 interface DashboardProps {
   onOpenProject: (id: string) => void;
@@ -23,6 +41,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<{ id: string; force: boolean } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -185,7 +204,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                         <strong>{stageLabel(run.stage, locale)}</strong>
                         {getStatusIcon(run.status)}
                       </div>
-                      {run.error && <div className="stage-error">{run.error}</div>}
+                      {run.error && (
+                        <div className="stage-error" title={run.error}>
+                          {humanStageError(run.stage, run.error)}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {(!project.stage_runs || project.stage_runs.length === 0) && (
@@ -199,11 +222,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
 
         {!project && (
           <div className="empty-state glass-panel">
-            <FolderOpen size={48} className="text-muted mb-4" />
-            <h3>{t('dashboard.noProjectTitle', locale)}</h3>
-            <p className="text-muted">
-              {t('dashboard.noProjectText', locale)}
-            </p>
+            <div className="onboarding-hero">
+              <div className="onboarding-icon">🎬</div>
+              <h3>{t('dashboard.noProjectTitle', locale)}</h3>
+              <p className="text-muted">{t('dashboard.noProjectText', locale)}</p>
+            </div>
+            <div className="onboarding-steps">
+              <div className="onboarding-step">
+                <div className="step-num">1</div>
+                <div>
+                  <strong>Создайте проект</strong>
+                  <p>Нажмите «+ Новый проект», загрузите видео или вставьте ссылку</p>
+                </div>
+              </div>
+              <div className="onboarding-step">
+                <div className="step-num">2</div>
+                <div>
+                  <strong>Выберите язык и провайдера</strong>
+                  <p>Настройте параметры перевода и озвучки в мастере</p>
+                </div>
+              </div>
+              <div className="onboarding-step">
+                <div className="step-num">3</div>
+                <div>
+                  <strong>Запустите перевод</strong>
+                  <p>Нажмите «Запустить» — всё остальное сделает ИИ автоматически</p>
+                </div>
+              </div>
+              <div className="onboarding-step">
+                <div className="step-num">4</div>
+                <div>
+                  <strong>Скачайте результат</strong>
+                  <p>Готовое видео с переводом появится в редакторе</p>
+                </div>
+              </div>
+            </div>
+            <div className="onboarding-actions">
+              <a href="/docs" target="_blank" className="btn-secondary onboarding-docs-link">
+                <BookOpen size={15} /> API документация
+              </a>
+            </div>
           </div>
         )}
 
@@ -213,10 +271,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
               <h3>{t('dashboard.allProjects', locale)}</h3>
               <p className="text-muted">{t('dashboard.sortedByUpdate', locale)}</p>
             </div>
-            <span className="text-sm text-muted">{t('dashboard.found', locale)}: {projects.length}</span>
+            <div className="section-header-right">
+              {/* Фильтр по статусу */}
+              <div className="status-filter">
+                <Filter size={13} />
+                {['all', 'created', 'running', 'completed', 'failed'].map(s => (
+                  <button
+                    key={s}
+                    className={`filter-pill ${statusFilter === s ? 'active' : ''}`}
+                    onClick={() => setStatusFilter(s)}
+                  >
+                    {s === 'all' ? 'Все' : STATUS_EMOJI[s as keyof typeof STATUS_EMOJI] ?? ''}{' '}
+                    {s === 'all' ? '' : statusLabel(s as 'created'|'running'|'completed'|'failed', locale)}
+                  </button>
+                ))}
+              </div>
+              <span className="text-sm text-muted">{t('dashboard.found', locale)}: {projects.filter(p => statusFilter === 'all' || p.status === statusFilter).length}</span>
+            </div>
           </div>
           <div className="projects-grid" data-testid="project-list">
-            {projects.map(item => (
+            {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).map(item => (
               <article key={item.project_id} className="project-mini-card">
                 <div className="mini-card-title">
                   <strong>{item.project_id}</strong>
@@ -249,7 +323,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                 </div>
               </article>
             ))}
-            {projects.length === 0 && (
+            {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).length === 0 && (
               <p className="empty-text">{t('dashboard.empty', locale)}</p>
             )}
           </div>

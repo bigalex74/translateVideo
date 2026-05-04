@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from translate_video import __version__
+from translate_video.api.middleware.auth import APIKeyMiddleware
 from translate_video.api.routes import pipeline, preflight, projects, providers, video
 from translate_video.core.env import load_env_file
 from translate_video.core.log import configure_from_env, get_logger
@@ -66,10 +67,20 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="AI Video Translator API",
-    description="API для ИИ-перевода видео и управления проектами.",
+    description=(
+        "REST API для ИИ-перевода видео.\n\n"
+        "**Авторизация**: если переменная `API_KEY` задана, все запросы "
+        "к `/api/*` требуют заголовок `X-API-Key: <ключ>`.\n\n"
+        "Для локального использования `API_KEY` можно не задавать."
+    ),
     version=__version__,
     lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
+
+app.add_middleware(APIKeyMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

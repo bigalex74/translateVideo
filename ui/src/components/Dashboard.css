@@ -220,3 +220,120 @@
     flex: 1;
     font-size: 0.9rem;
 }
+
+/* ─── Onboarding empty state ─────────────────────────────────────────── */
+.onboarding-hero {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.onboarding-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.onboarding-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+  max-width: 360px;
+  width: 100%;
+}
+
+.onboarding-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary), #a855f7);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onboarding-step strong {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.onboarding-step p {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.onboarding-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.onboarding-docs-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+/* ─── Status filter pills ─────────────────────────────────────────────── */
+.section-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.status-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.status-filter svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.filter-pill {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  border-radius: 99px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-pill:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.filter-pill.active {
+  background: var(--accent-glow);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+/* ─── O4: Увеличить meta-info шрифт ─────────────────────────────────── */
+.meta-label,
+.meta-value,
+.mini-card-meta {
+  font-size: 0.87rem !important;
+}

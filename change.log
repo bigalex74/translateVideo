@@ -1,5 +1,59 @@
 # Журнал Изменений
 
+## 1.33.0 - 2026-05-04 - FEAT - TVIDEO-137
+
+### UX Iteration 2: Onboarding, Error Messages, API Key UI, Mobile, Batch API
+
+**Backend:**
+- pipeline.py: batch endpoint POST /api/v1/projects/batch/run (max 10, idempotent)
+  - Skips already-running projects, invalid IDs
+  - Returns BatchRunResponse{queued, skipped, items}
+
+**Frontend:**
+- Dashboard.tsx: Rich onboarding empty state (4 steps + docs link)
+- Dashboard.tsx: Status filter pills (all/created/running/completed/failed)
+- Dashboard.tsx: Human-readable stage errors (STAGE_ERROR_HINTS map)
+- Dashboard.css: Onboarding, filter-pill, meta-info font ≥0.87rem
+- Settings.tsx: API Key section (X-API-Key, copy-to-clipboard, localStorage)
+- Settings.tsx: Developer links (Swagger /docs, ReDoc, openapi.json)
+- Settings.css: api-key-row, dev-links styles
+- index.css: Responsive/mobile CSS (≤768px, ≤480px breakpoints)
+  - Workspace stacks vertically on mobile
+  - Grid → single column, search bar stacks, filters scroll
+
+**Tests:**
+- test_batch_run.py: +4 тест batch endpoint (limit, invalid id, already_running, queued)
+
+**Version files:** VERSION + pyproject.toml → 1.32.0 sync
+
+**Coverage:** 568 Python ✅ / Build ✅ 96% TS
+
+## 1.32.0 - 2026-05-04 - FEAT - TVIDEO-135/136
+
+### UX Iteration 1: ETA, Cost Estimate, Undo, Swagger, API Key
+
+**Backend:**
+- preflight.py: добавлены `cost_estimate` (перевод+TTS) и `duration_estimate_seconds` (ETA пайплайна)
+- schemas.py: VideoProject получил `progress_percent`, `eta_seconds`, `started_at`
+- pipeline/runner.py: новый callback `on_stage_done(i, total, elapsed)` после каждого этапа
+- api/routes/pipeline.py: `started_at` и progress обновляются при каждом запуске
+- api/middleware/auth.py: опциональный `APIKeyMiddleware` (X-API-Key), активен при API_KEY в env
+- api/main.py: подключён middleware, явный `docs_url="/docs"`
+
+**Frontend:**
+- types/schemas.ts: VideoProject + CostEstimate + PreflightReport расширены
+- Workspace.tsx: ETA (`~X мин`) в running overlay из бэкенда; preflightCost state
+- ConfirmRunModal.tsx: блок «Время обработки + Стоимость» из preflight
+- Workspace.css: стиль `.running-eta`
+- ConfirmRunModal.css: блок `.modal-cost-estimate`
+
+**Tests:**
+- test_preflight.py: +7 тестов CostEstimateTest
+- test_core_schemas.py: +2 теста progress fields round-trip
+- test_api_key_middleware.py: +8 тестов APIKeyMiddleware
+
+**Coverage:** 564 Python ✅ 82% | 181 TS ✅ 96%
+
 ## 1.31.5 - 2026-05-04 - FEAT - TVIDEO-134
 
 ### Coverage Gate: 80%+ фронт и 82%+ бэкенд (принудительно)

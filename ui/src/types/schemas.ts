@@ -119,6 +119,12 @@ export interface VideoProject {
     artifact_records?: ArtifactRecord[];
     stage_runs?: StageRun[];
     config?: PipelineConfig;
+    /** Прогресс выполнения 0–100 */
+    progress_percent?: number | null;
+    /** ETA до завершения в секундах */
+    eta_seconds?: number | null;
+    /** ISO-дата начала пайплайна */
+    started_at?: string | null;
 }
 
 export interface ProjectListResponse {
@@ -138,11 +144,23 @@ export interface PreflightCheck {
     details: Record<string, string>;
 }
 
+export interface CostEstimate {
+    translation_usd: number;
+    tts_usd: number;
+    total_usd: number;
+    currency: string;
+    note: string;
+}
+
 export interface PreflightReport {
     input_video: string;
     provider: string;
     ok: boolean;
     duration_seconds?: number | null;
+    /** Оценка стоимости обработки */
+    cost_estimate?: CostEstimate | null;
+    /** ETA всего пайплайна в секундах */
+    duration_estimate_seconds?: number | null;
     checks: PreflightCheck[];
 }
 

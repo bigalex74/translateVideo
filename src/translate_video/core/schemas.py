@@ -221,6 +221,10 @@ class VideoProject:
     # Снапшоты баланса до/после пайплайна — для вычисления реального расхода.
     # Ключи: "polza_before", "polza_after", "neuroapi_before", "neuroapi_after"
     billing_snapshots: dict[str, float] = field(default_factory=dict)
+    # Прогресс выполнения (0–100) и ETA для UI-оверлея
+    progress_percent: int | None = None
+    eta_seconds: int | None = None
+    started_at: str | None = None
 
     def __post_init__(self) -> None:
         self.status = ProjectStatus(self.status)
@@ -239,6 +243,9 @@ class VideoProject:
             "stage_runs": [run.to_dict() for run in self.stage_runs],
             "status": self.status,
             "billing_snapshots": self.billing_snapshots,
+            "progress_percent": self.progress_percent,
+            "eta_seconds": self.eta_seconds,
+            "started_at": self.started_at,
         }
 
     @classmethod
@@ -258,4 +265,7 @@ class VideoProject:
             stage_runs=[StageRun.from_dict(item) for item in payload.get("stage_runs", [])],
             status=ProjectStatus(payload.get("status", "created")),
             billing_snapshots=dict(payload.get("billing_snapshots", {})),
+            progress_percent=payload.get("progress_percent"),
+            eta_seconds=payload.get("eta_seconds"),
+            started_at=payload.get("started_at"),
         )

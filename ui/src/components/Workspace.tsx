@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS } from '../api/client';
-import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
+import type { ArtifactRecord, CostEstimate, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
 import { stageProgressInfo } from '../progress';
@@ -59,9 +59,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   // ВАЖНО: должен быть ДО любого раннего return (Rules of Hooks).
   const ssmlTextareaRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
 
-  // Undo/redo история
   const [history, setHistory] = useState<Segment[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  // Оценка стоимости из последнего preflight (для ConfirmRunModal)
+  const [preflightCost, setPreflightCost] = useState<{
+    cost?: CostEstimate | null;
+    eta?: number | null;
+  }>({});
 
   // Авто-скролл к активному сегменту при воспроизведении
   useEffect(() => {
@@ -84,6 +88,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
         setHistory(loadedSegments.length > 0 ? [loadedSegments] : []);
         setHistoryIndex(loadedSegments.length > 0 ? 0 : -1);
         setDirty(false);
+
+        // Запрашиваем preflight для получения cost_estimate / ETA
+        // Ошибки — некритичны, просто не показываем оценку
+        if (data.input_video && data.config?.professional_translation_provider) {
+          import('../api/client').then(({ preflightVideo }) => {
+            preflightVideo(data.input_video, data.config!.professional_translation_provider || 'fake')
+              .then(report => {
+                if (!cancelled) {
+                  setPreflightCost({
+                    cost: report.cost_estimate,
+                    eta: report.duration_estimate_seconds,
+                  });
+                }
+              })
+              .catch(() => {/* silent */});
+          });
+        }
       })
       .catch(e => console.error(e));
     return () => {
@@ -342,14 +363,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           <div className="running-card">
             <Loader2 size={40} className="animate-spin running-spinner" />
             <h3>{cancelling ? 'Отмена перевода…' : t('workspace.running', locale)}</h3>
+            {/* ETA из бэкенда */}
+            {project?.eta_seconds != null && project.eta_seconds > 0 && (
+              <p className="running-eta">
+                ⏱ {project.eta_seconds >= 60
+                  ? `~${Math.ceil(project.eta_seconds / 60)} мин`
+                  : `~${project.eta_seconds} сек`}
+              </p>
+            )}
             {runningStage && (
               <p className="running-stage">
                 ⚙️ {stageLabel(runningStage.stage, locale)}
               </p>
             )}
-            {totalStages > 0 && (
+            {/* Основной прогресс-бар: используем project.progress_percent если есть */}
+            {(project?.progress_percent != null || totalStages > 0) && (
               <div className="running-progress-wrap">
-                <div className="running-progress-bar" style={{ width: `${progress}%` }} />
+                <div
+                  className="running-progress-bar"
+                  style={{ width: `${project?.progress_percent ?? progress}%` }}
+                />
               </div>
             )}
             {runningStageProgress && (
@@ -984,6 +1017,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           segments={segments}
           locale={locale}
           stageRuns={project.stage_runs ?? []}
+          costEstimate={preflightCost.cost}
+          durationEstimateSec={preflightCost.eta}
           speedChanged={(() => {
             // Находим последний успешный timing_fit с metadata скорости
             const timingRun = [...(project.stage_runs ?? [])]

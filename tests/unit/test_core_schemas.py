@@ -121,6 +121,45 @@ class VideoProjectTest(unittest.TestCase):
         self.assertIsNone(run.progress_current)
         self.assertIsNone(run.progress_total)
 
+    def test_project_progress_fields_round_trip(self):
+        """TVIDEO-135: progress_percent, eta_seconds, started_at корректно сериализуются."""
+        from pathlib import Path
+        from translate_video.core.schemas import VideoProject
+        from translate_video.core.config import PipelineConfig
+
+        project = VideoProject(
+            input_video=Path("input.mp4"),
+            work_dir=Path("runs/proj"),
+            config=PipelineConfig(source_language="en", target_language="ru"),
+            progress_percent=42,
+            eta_seconds=123,
+            started_at="2026-05-04T07:00:00+00:00",
+        )
+        payload = project.to_dict()
+        self.assertEqual(payload["progress_percent"], 42)
+        self.assertEqual(payload["eta_seconds"], 123)
+        self.assertEqual(payload["started_at"], "2026-05-04T07:00:00+00:00")
+
+        restored = VideoProject.from_dict(payload)
+        self.assertEqual(restored.progress_percent, 42)
+        self.assertEqual(restored.eta_seconds, 123)
+        self.assertEqual(restored.started_at, "2026-05-04T07:00:00+00:00")
+
+    def test_project_progress_fields_default_none(self):
+        """Новый проект имеет progress_percent, eta_seconds, started_at = None."""
+        from pathlib import Path
+        from translate_video.core.schemas import VideoProject
+        from translate_video.core.config import PipelineConfig
+
+        project = VideoProject(
+            input_video=Path("input.mp4"),
+            work_dir=Path("runs/proj"),
+            config=PipelineConfig(source_language="en", target_language="ru"),
+        )
+        self.assertIsNone(project.progress_percent)
+        self.assertIsNone(project.eta_seconds)
+        self.assertIsNone(project.started_at)
+
 
 if __name__ == "__main__":
     unittest.main()

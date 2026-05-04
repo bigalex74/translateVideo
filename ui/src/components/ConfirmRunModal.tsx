@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Info, Play, RefreshCw, X, SkipForward } from 'lucide-react';
+import { AlertTriangle, Clock, DollarSign, Info, Play, RefreshCw, X, SkipForward } from 'lucide-react';
 import { needsReviewCount, providerWarning, t, stageLabel } from '../i18n';
 import type { AppLocale } from '../store/settings';
-import type { Segment, StageRun } from '../types/schemas';
+import type { CostEstimate, Segment, StageRun } from '../types/schemas';
 import './ConfirmRunModal.css';
 
 // Полный список этапов в РЕАЛЬНОМ порядке выполнения пайплайна
@@ -29,6 +29,10 @@ interface ConfirmRunModalProps {
   stageRuns?: StageRun[];
   /** Скорость изменена относительно сохранённых настроек — нужна переподгонка таймингов */
   speedChanged?: boolean;
+  /** Оценка стоимости из preflight */
+  costEstimate?: CostEstimate | null;
+  /** Оценка времени обработки в секундах из preflight */
+  durationEstimateSec?: number | null;
   onConfirm: (fromStage: string | null) => void;
   onCancel: () => void;
 }
@@ -49,6 +53,8 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
   locale,
   stageRuns = [],
   speedChanged = false,
+  costEstimate,
+  durationEstimateSec,
   onConfirm,
   onCancel,
 }) => {
@@ -86,6 +92,39 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
             <div className="modal-warning modal-warning--info">
               <Info size={14} />
               <span>{providerNote}</span>
+            </div>
+          )}
+
+          {/* ── Оценка стоимости и времени ── */}
+          {(costEstimate || durationEstimateSec) && (
+            <div className="modal-cost-estimate">
+              {durationEstimateSec != null && (
+                <div className="modal-cost-row">
+                  <Clock size={14} />
+                  <span>
+                    <strong>Время обработки:</strong>{' '}
+                    {durationEstimateSec >= 60
+                      ? `~${Math.ceil(durationEstimateSec / 60)} мин`
+                      : `~${durationEstimateSec} сек`}
+                  </span>
+                </div>
+              )}
+              {costEstimate && costEstimate.total_usd > 0 && (
+                <div className="modal-cost-row">
+                  <DollarSign size={14} />
+                  <span>
+                    <strong>Стоимость:</strong>{' '}
+                    ~${costEstimate.total_usd.toFixed(3)}{' '}
+                    <span className="modal-cost-note">({costEstimate.note})</span>
+                  </span>
+                </div>
+              )}
+              {costEstimate && costEstimate.total_usd === 0 && (
+                <div className="modal-cost-row modal-cost-row--free">
+                  <DollarSign size={14} />
+                  <span><strong>Стоимость:</strong> Бесплатно</span>
+                </div>
+              )}
             </div>
           )}
 

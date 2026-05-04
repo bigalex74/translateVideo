@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, CheckCircle2 } from 'lucide-react';
+import { Save, CheckCircle2, KeyRound, Copy, ExternalLink, BookOpen } from 'lucide-react';
 import { LOCALE_LABELS, providerLabels, t } from '../i18n';
 import {
   applyTheme,
@@ -23,6 +23,12 @@ interface SettingsProps {
   onLocaleChange: (locale: AppLocale) => void;
 }
 
+const API_KEY_STORAGE = 'tv_api_key';
+
+function getPersistedApiKey(): string {
+  return localStorage.getItem(API_KEY_STORAGE) ?? '';
+}
+
 export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) => {
   const [webhook,   setWebhook]   = useState(getPersistedWebhook);
   const [provider,  setProvider]  = useState(getPersistedProvider);
@@ -30,6 +36,8 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
   const [largeText, setLargeText] = useState(getPersistedLargeText);
   const [selectedLocale, setSelectedLocale] = useState<AppLocale>(getPersistedLocale);
   const [saved,     setSaved]     = useState(false);
+  const [apiKey,    setApiKey]    = useState(getPersistedApiKey);
+  const [keyCopied, setKeyCopied] = useState(false);
 
   useEffect(() => {
     applyTheme(theme, largeText);
@@ -41,10 +49,18 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
     persistTheme(theme);
     persistLargeText(largeText);
     persistLocale(selectedLocale);
+    localStorage.setItem(API_KEY_STORAGE, apiKey);
     applyTheme(theme, largeText);
     onLocaleChange(selectedLocale);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleCopyKey = () => {
+    navigator.clipboard.writeText(apiKey).then(() => {
+      setKeyCopied(true);
+      setTimeout(() => setKeyCopied(false), 1500);
+    });
   };
 
   return (
@@ -88,6 +104,37 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
             </select>
             <small className="help-text">
               {t('settings.providerHelp', locale)}
+            </small>
+          </div>
+
+          {/* API Key */}
+          <div className="form-group" style={{ marginTop: '16px' }}>
+            <label htmlFor="settings-apikey">
+              <KeyRound size={14} style={{ display: 'inline', marginRight: 5 }} />
+              API Key (X-API-Key)
+            </label>
+            <div className="api-key-row">
+              <input
+                id="settings-apikey"
+                className="text-input api-key-input"
+                type="password"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                placeholder="Оставьте пустым если API_KEY не настроен на сервере"
+              />
+              <button
+                type="button"
+                className="btn-secondary api-key-copy-btn"
+                onClick={handleCopyKey}
+                title="Копировать ключ"
+                disabled={!apiKey}
+              >
+                {keyCopied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+              </button>
+            </div>
+            <small className="help-text">
+              Если на сервере задана переменная <code>API_KEY</code> — введите её здесь.
+              Ключ сохраняется локально и добавляется в заголовок <code>X-API-Key</code>.
             </small>
           </div>
         </section>
@@ -136,6 +183,24 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
               ))}
             </select>
             <small className="help-text">{t('settings.languageHelp', locale)}</small>
+          </div>
+        </section>
+
+        {/* Разработчик / API */}
+        <section>
+          <h3 style={{ marginBottom: '12px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+            Для разработчиков
+          </h3>
+          <div className="dev-links">
+            <a href="/docs" target="_blank" rel="noopener" className="dev-link">
+              <BookOpen size={15} /> Swagger API Docs
+            </a>
+            <a href="/redoc" target="_blank" rel="noopener" className="dev-link">
+              <ExternalLink size={15} /> ReDoc
+            </a>
+            <a href="/openapi.json" target="_blank" rel="noopener" className="dev-link">
+              <ExternalLink size={15} /> openapi.json
+            </a>
           </div>
         </section>
 
