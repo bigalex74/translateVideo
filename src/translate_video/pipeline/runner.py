@@ -9,6 +9,7 @@ from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import JobStatus, ProjectStatus, Stage, StageRun
 from translate_video.pipeline.context import StageContext
 from translate_video.notifications import send_project_notification
+from translate_video.webhook import send_project_webhook
 
 _log = get_logger(__name__)
 
@@ -161,6 +162,13 @@ class PipelineRunner:
                         error_msg=f"Stage '{stage.stage.value}' failed",
                         elapsed_s=total.elapsed,
                     )
+                    # Webhook-уведомление о сбое (NM5-06)
+                    send_project_webhook(
+                        project_id=project_id,
+                        status="failed",
+                        elapsed_seconds=total.elapsed,
+                        error_message=f"Stage '{stage.stage.value}' failed",
+                    )
                     break
             else:
                 context.project.status = ProjectStatus.COMPLETED
@@ -170,6 +178,12 @@ class PipelineRunner:
                     project_id=project_id,
                     status="completed",
                     elapsed_s=total.elapsed,
+                )
+                # Webhook-уведомление о успехе (NM5-06)
+                send_project_webhook(
+                    project_id=project_id,
+                    status="completed",
+                    elapsed_seconds=total.elapsed,
                 )
 
         # ── Снапшот баланса ПОСЛЕ завершения этапов ────────────────────────

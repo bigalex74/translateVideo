@@ -26,6 +26,19 @@ router = APIRouter(tags=["metrics"])
 
 _START_TIME = time.time()
 
+# Thread-safe счётчик запросов к /metrics (NC5-02)
+import threading as _threading
+_REQUEST_COUNTER: dict[str, int] = {"total": 0, "errors": 0}
+_COUNTER_LOCK = _threading.Lock()
+
+
+def increment_request(error: bool = False) -> None:
+    """Увеличить счётчик запросов."""
+    with _COUNTER_LOCK:
+        _REQUEST_COUNTER["total"] += 1
+        if error:
+            _REQUEST_COUNTER["errors"] += 1
+
 
 def _text_gauge(name: str, value: float, help_text: str = "", labels: dict | None = None) -> str:
     """Сгенерировать Prometheus gauge строку."""
@@ -72,6 +85,12 @@ def prometheus_metrics(request: Request) -> str:
 
     uptime_s = time.time() - _START_TIME
 
+    # NC5-02: инкрементируем счётчик
+    increment_request()
+
+    with _COUNTER_LOCK:
+        req_total = _REQUEST_COUNTER["total"]
+
     lines = [
         _text_gauge(
             "translate_video_info",
@@ -93,6 +112,11 @@ def prometheus_metrics(request: Request) -> str:
             "translate_video_uptime_seconds",
             round(uptime_s, 1),
             "Application uptime in seconds",
+        ),
+        _text_gauge(
+            "translate_video_metrics_requests_total",
+            req_total,
+            "Total /metrics endpoint requests (NC5-02)",
         ),
     ]
 

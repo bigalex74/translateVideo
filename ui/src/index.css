@@ -511,3 +511,94 @@ code {
   flex-shrink: 0;
 }
 .disk-warning-dismiss:hover { color: #e2e8f0; }
+
+/* ─── NC5-03: Mobile touch targets (min 44px) ──────────────────────────── */
+@media (max-width: 768px) {
+  button, .btn-primary, .btn-secondary, .btn-icon,
+  .btn-back-projects, .pwa-install-btn, .pwa-dismiss-btn,
+  .disk-warning-dismiss, input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* NM5-07: Mobile dashboard cards */
+  .project-grid, .projects-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .stat-card {
+    padding: 10px 6px;
+  }
+  .stat-value {
+    font-size: 1.3rem !important;
+  }
+  /* Workspace header responsive */
+  .header-row-title {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .workspace-header h2 {
+    font-size: 1rem;
+    word-break: break-all;
+  }
+}
+
+/* ─── Nm5-11: PWA Splash Screen ─────────────────────────────────────────── */
+#pwa-splash {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+#pwa-splash.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+#pwa-splash .splash-logo {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: splash-pulse 1.5s ease-in-out infinite;
+}
+@keyframes splash-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.8; }
+}
+#pwa-splash .splash-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.5rem;
+  font-family: 'Inter', sans-serif;
+}
+#pwa-splash .splash-subtitle {
+  font-size: 0.9rem;
+  color: #6366f1;
+}
+#pwa-splash .splash-bar {
+  width: 120px;
+  height: 3px;
+  background: rgba(99,102,241,0.2);
+  border-radius: 2px;
+  margin-top: 1.5rem;
+  overflow: hidden;
+}
+#pwa-splash .splash-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  animation: splash-load 1.5s ease-in-out infinite;
+  transform-origin: left;
+}
+@keyframes splash-load {
+  0% { transform: scaleX(0); }
+  50% { transform: scaleX(1); }
+  100% { transform: scaleX(0) translateX(100%); }
+}

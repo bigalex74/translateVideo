@@ -20,10 +20,28 @@
     <title>AI Video Translator</title>
   </head>
   <body>
+    <!-- Nm5-11: PWA Splash Screen -->
+    <div id="pwa-splash" aria-hidden="true">
+      <div class="splash-logo">🎬</div>
+      <div class="splash-title">AI Video Translator</div>
+      <div class="splash-subtitle">Загрузка…</div>
+      <div class="splash-bar">
+        <div class="splash-bar-fill"></div>
+      </div>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <!-- PWA Service Worker registration -->
     <script>
+      // Hide splash when React is ready
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const splash = document.getElementById('pwa-splash');
+          if (splash) splash.classList.add('hidden');
+        }, 800);
+      });
+
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js', { scope: '/' })

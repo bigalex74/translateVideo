@@ -2798,3 +2798,11 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 - sw.js: динамическая версия кэша через APP_VERSION (Nm-11)
 - PWA иконки icon-192/512.png + скрипт generate_pwa_icons.mjs (NM-07)
 - CLI watch: graceful Ctrl+C с финальным статусом (NM-08)
+
+## [1.44.0] — 2026-05-04 — CI Round 2 Final
+### Added (Iter 5)
+- /metrics: request counter translate_video_metrics_requests_total (NC5-02)
+- webhook.py: WEBHOOK_URL+SECRET+TIMEOUT, HMAC-SHA256 подпись (NM5-06)
+- runner.py: send_project_webhook при completed/failed
+- CSS: mobile touch targets min 44px, mobile dashboard 1-col (NC5-03+NM5-07)
+- index.html: PWA splash screen с анимацией (Nm5-11)
