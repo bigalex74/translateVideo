@@ -7,7 +7,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Body
+from fastapi import Path as FastAPIPath
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -53,6 +54,14 @@ def project_payload(project: VideoProject, include_segments: bool = True) -> dic
         if include_segments
         else len(project.segments)
     )
+    # Nm3-12: created_at из mtime work_dir/project.json
+    try:
+        from datetime import datetime, timezone  # noqa: PLC0415
+        project_json = project.work_dir / "project.json"
+        mtime = project_json.stat().st_mtime if project_json.exists() else project.work_dir.stat().st_mtime
+        payload["created_at"] = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+    except Exception:  # noqa: BLE001
+        payload["created_at"] = None
     return payload
 
 
@@ -568,3 +577,54 @@ def _call_analysis_llm(prompt: str, config: PipelineConfig) -> tuple[str, str]:
         return data["choices"][0]["message"]["content"], provider_name
     except Exception as exc:
         return f"Ошибка вызова LLM: {exc}", provider_name
+
+
+# ─── NC3-02: Clone project endpoint ──────────────────────────────────────────
+
+class _CloneRequest(BaseModel):
+    new_project_id: str | None = None
+    copy_segments: bool = True
+
+
+@router.post("/{project_id}/clone", summary="Дублировать проект (NC3-02)")
+def clone_project(
+    project_id: str = FastAPIPath(...),
+    body: _CloneRequest = Body(default=_CloneRequest()),
+    store: ProjectStore = Depends(get_store),
+):
+    """Создать клон проекта с теми же настройками и (опционально) сегментами.
+
+    Статус сбрасывается в PENDING, stage_runs очищаются.
+    """
+    from translate_video.core.schemas import ProjectStatus  # lazy
+    import uuid as _uuid
+
+    safe_id = _safe_project_id(project_id)
+    project = _get_project_or_404(store, safe_id)
+
+    new_id = body.new_project_id or f"{safe_id}-clone-{_uuid.uuid4().hex[:6]}"
+    new_id = _safe_project_id(new_id)
+
+    new_dir = store.work_root / new_id
+    if new_dir.exists():
+        raise HTTPException(status_code=409, detail=f"Проект '{new_id}' уже существует.")
+
+    # Создаём клон
+    cloned = store.create_project(
+        input_video=project.input_video,
+        config=project.config,
+        project_id=new_id,
+    )
+    # Копируем сегменты если нужно
+    if body.copy_segments and project.segments:
+        cloned.segments = list(project.segments)
+    cloned.status = ProjectStatus.PENDING
+    cloned.stage_runs = []
+    store.save_project(cloned)
+
+    return {
+        "cloned_from": project_id,
+        "project_id": cloned.id,
+        "work_dir": str(cloned.work_dir),
+        "status": cloned.status.value,
+    }

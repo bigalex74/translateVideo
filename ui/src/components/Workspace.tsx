@@ -552,8 +552,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       <header className="workspace-header">
         {/* Строка 1: название + статус */}
         <div className="header-row header-row-title">
-          <button onClick={onBack} className="btn-icon" title={t('workspace.back', locale)}>
-            <ArrowLeft size={18} />
+          <button
+            onClick={onBack}
+            className="btn-back-projects"
+            aria-label={t('workspace.back', locale)}
+            title={t('workspace.back', locale)}
+          >
+            <ArrowLeft size={16} />
+            <span>{t('workspace.back', locale) || '← К проектам'}</span>
           </button>
           <h2 title={projectId}>{projectId}</h2>
           <span className={`badge ${project.status}`}>{statusLabel(project.status, locale)}</span>

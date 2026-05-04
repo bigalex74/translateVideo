@@ -152,6 +152,21 @@ def health_check():
     }
     if memory_mb is not None:
         payload["memory_mb"] = memory_mb
+
+    # NM3-08: disk usage для runs/
+    try:
+        work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
+        if work_root.exists():
+            total_bytes = sum(
+                f.stat().st_size
+                for f in work_root.rglob("*")
+                if f.is_file()
+            )
+            payload["disk_usage_mb"] = round(total_bytes / 1024 / 1024, 1)
+            payload["disk_work_root"] = str(work_root)
+    except Exception:  # noqa: BLE001
+        pass
+
     return payload
 
 

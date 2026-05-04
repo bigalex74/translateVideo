@@ -446,3 +446,36 @@ code {
 .stat-running .stat-icon { color: #f59e0b; }
 .stat-fail .stat-value { color: #fca5a5; }
 .stat-fail .stat-icon { color: #ef4444; }
+
+/* ─── Back to projects button (NC3-01) ─────────────────────────────────── */
+.btn-back-projects {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.btn-back-projects:hover {
+  background: rgba(99,102,241,0.15);
+  color: #a5b4fc;
+  border-color: rgba(99,102,241,0.3);
+}
+.btn-back-projects span { white-space: nowrap; }
+
+/* ─── Nm3-11: Увеличенный font-size списка проектов ─────────────────────── */
+.project-card .project-title,
+.project-list-item .project-name {
+  font-size: 0.96rem !important;
+}
+.project-card .project-meta,
+.project-list-item .project-meta {
+  font-size: 0.82rem !important;
+}
