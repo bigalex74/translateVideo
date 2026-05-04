@@ -352,3 +352,33 @@
   gap: 4px !important;
   text-decoration: none;
 }
+
+/* ─── Stale Warning (C-13/C-19) ─────────────────────────────────────────── */
+.stale-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-primary, #e2e8f0);
+  margin-bottom: 1rem;
+}
+.stale-warning svg { color: #f59e0b; flex-shrink: 0; margin-top: 1px; }
+
+/* ─── Human Error (C-17) ─────────────────────────────────────────────────── */
+.error-human {
+  display: flex;
+  gap: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-primary, #e2e8f0);
+  margin-bottom: 1rem;
+}
+.error-human svg { color: #ef4444; flex-shrink: 0; margin-top: 1px; }
+.error-human-msg { color: var(--text-secondary, #94a3b8); }

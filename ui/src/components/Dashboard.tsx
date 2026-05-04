@@ -97,6 +97,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
     return () => clearInterval(interval);
   }, [loadStatus, project?.project_id, project?.status]);
 
+  // C-13/C-19: Stale detection — если >5 мин работает без завершения → предупреждение
+  const [staleWarning, setStaleWarning] = useState(false);
+  useEffect(() => {
+    if (project?.status !== 'running') { setStaleWarning(false); return; }
+    const timer = setTimeout(() => setStaleWarning(true), 5 * 60 * 1000); // 5 мин
+    return () => clearTimeout(timer);
+  }, [project?.status, project?.project_id]);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed': return <CheckCircle2 size={16} className="text-success" />;
@@ -200,7 +208,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
               </div>
             </div>
 
-            <div className="card-body">
+            <div className="card-body" aria-live="polite" aria-atomic="false">
+              {/* C-13/C-19: Stale warning — если работает >5 мин */}
+              {staleWarning && project.status === 'running' && (
+                <div className="stale-warning" role="alert">
+                  <AlertCircle size={16} />
+                  <span>
+                    <b>Процесс идёт более 5 минут.</b> Это нормально для длинных видео.
+                    Если прогресс не изменился — попробуйте перезапустить.
+                  </span>
+                  <button
+                    className="btn-secondary btn-xs"
+                    onClick={() => setConfirm({ id: project.project_id, force: true })}
+                  >
+                    <RefreshCw size={13} /> Перезапустить
+                  </button>
+                </div>
+              )}
+              {/* C-17: человекочитаемые ошибки */}
+              {project.status === 'failed' && project.error && (
+                <div className="error-human" role="alert">
+                  <AlertCircle size={16} />
+                  <div>
+                    <b>Что пошло не так:</b><br />
+                    <span className="error-human-msg">
+                      {project.error.includes('StageError') ? '⚠️ Один из этапов обработки завершился с ошибкой.' :
+                       project.error.includes('ffmpeg') ? '🎬 Ошибка обработки видеофайла. Проверьте формат.' :
+                       project.error.includes('TimeoutError') ? '⏱ Превышено время ожидания сервиса.' :
+                       project.error.includes('quota') ? '💳 Исчерпан лимит API. Проверьте настройки.' :
+                       project.error.slice(0, 120)}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div className="meta-info">
                 <div className="meta-item">
                   <span className="meta-label">{t('dashboard.translationDirection', locale)}</span>

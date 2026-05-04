@@ -2752,3 +2752,13 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 - CSS для quick-downloads (responsive)
 ### Fixed
 - ProjectStatus тип — корректное сравнение с 'completed'
+
+## [1.37.0] — 2026-05-04 — CI Iteration 4
+### Added
+- Stale detection: предупреждение если перевод работает >5 мин (C-13/C-19)
+- Human-readable ошибки: StageError/ffmpeg/quota → понятный текст (C-17)
+- aria-live="polite" регион в card-body (UX accessibility)
+- PUBLIC_ROADMAP.md (PM агент)
+- error?: string в VideoProject schema
+### CSS
+- .stale-warning, .error-human стили

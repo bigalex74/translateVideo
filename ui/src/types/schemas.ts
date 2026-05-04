@@ -125,6 +125,8 @@ export interface VideoProject {
     eta_seconds?: number | null;
     /** ISO-дата начала пайплайна */
     started_at?: string | null;
+    /** Сообщение об ошибке (для failed статуса) */
+    error?: string | null;
 }
 
 export interface ProjectListResponse {
