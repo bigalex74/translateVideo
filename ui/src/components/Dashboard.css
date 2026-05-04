@@ -337,3 +337,18 @@
 .mini-card-meta {
   font-size: 0.87rem !important;
 }
+
+/* ─── Quick Downloads (C-12) ──────────────────────────────────────────────── */
+.quick-downloads {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  width: 100%;
+}
+.btn-xs {
+  font-size: 0.75rem !important;
+  padding: 0.25rem 0.6rem !important;
+  gap: 4px !important;
+  text-decoration: none;
+}

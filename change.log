@@ -2744,3 +2744,11 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 - Security headers: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection (Security агент)
 - Shared Tooltip компонент (Frontend агент)
 - Ctrl+S для Save сегментов в Workspace (UX агент)
+
+## [1.36.0] — 2026-05-04 — CI Iteration 3
+### Added
+- Quick download SRT/VTT/MP4 кнопки прямо на карточке Dashboard (C-12)
+- Тест консистентности версии в 3 файлах — test_version_consistency.py (QA агент)
+- CSS для quick-downloads (responsive)
+### Fixed
+- ProjectStatus тип — корректное сравнение с 'completed'

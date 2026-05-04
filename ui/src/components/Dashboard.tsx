@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getProjectStatus, listProjects, runPipeline } from '../api/client';
+import { getProjectStatus, listProjects, runPipeline, artifactDownloadUrl } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
 import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -7,7 +7,7 @@ import { ConfirmRunModal } from './ConfirmRunModal';
 import { getPersistedProvider } from '../store/settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
-  ArrowRight, RefreshCw, Clock, Search, BookOpen
+  ArrowRight, RefreshCw, Clock, Search, BookOpen, Download
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -174,6 +174,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                 >
                   <FolderOpen size={16} /> {t('dashboard.openEditor', locale)}
                 </button>
+                {/* C-12: быстрое скачивание готовых артефактов */}
+                {project.status === 'completed' &&
+                  Array.isArray(project.artifact_records) &&
+                  project.artifact_records.length > 0 && (
+                    <div className="quick-downloads">
+                      {(project.artifact_records as Array<{kind: string; path: string}>)
+                        .filter(r => ['translated_video', 'subtitles_srt', 'subtitles_vtt'].includes(r.kind))
+                        .slice(0, 3)
+                        .map(r => (
+                          <a
+                            key={r.kind}
+                            href={artifactDownloadUrl(project.project_id, r.kind)}
+                            className="btn-secondary btn-xs"
+                            download
+                            title={`Скачать ${r.kind}`}
+                          >
+                            <Download size={13} />
+                            {r.kind === 'translated_video' ? 'MP4' :
+                             r.kind === 'subtitles_srt' ? 'SRT' : 'VTT'}
+                          </a>
+                        ))}
+                    </div>
+                  )}
               </div>
             </div>
 
