@@ -142,6 +142,27 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     return () => clearTimeout(t);
   }, [cancelling]);
 
+  // ─── Autosave субтитров каждые 30с (C-07) ───────────────────────────────────
+  // Автосохранение: если есть несохранённые правки и проект не запущен — сохраняем тихо.
+  const [autosaveAt, setAutosaveAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (!dirty || !project || project.status === 'running') return;
+    const timer = setInterval(async () => {
+      try {
+        const segs = Array.isArray(project.segments) ? project.segments : [];
+        if (segs.length === 0) return;
+        await saveProjectSegments(project.project_id, segs);
+        setDirty(false);
+        const now = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        setAutosaveAt(now);
+        setTimeout(() => setAutosaveAt(null), 3000);
+      } catch {
+        // silent — не мешаем пользователю ошибкой autosave
+      }
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [dirty, project]);
+
   // ─── Live QA feed ─── (ДОЛЖЕН быть ДО любого раннего return — Rules of Hooks)
   const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
     translation_empty: 'critical', tts_invalid_slot: 'critical',
@@ -572,6 +593,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             {t('workspace.save', locale)}{dirty ? ' *' : ''}
           </button>
+          {/* Autosave indicator (C-07) */}
+          {autosaveAt && (
+            <span className="autosave-badge" title="Изменения автоматически сохранены">
+              <CheckCircle2 size={12} />
+              {locale === 'ru' ? `Сохранено ${autosaveAt}` : `Saved ${autosaveAt}`}
+            </span>
+          )}
         </div>
       </header>
 

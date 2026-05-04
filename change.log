@@ -2727,3 +2727,11 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 - Архитектура проекта, процесс разработки, webhook-план.
 - Пакет ядра: контракты конфигурации, проекта, сегментов, артефактов, этапов, webhook.
 - Сфокусированные модульные тесты контрактов ядра.
+
+## [1.34.0] — 2026-05-04 — CI Iteration 1
+### Added
+- `/api/health` расширен: uptime, running_projects, memory_mb (опц.)
+- Autosave субтитров каждые 30с в Workspace (C-07)
+- Upload progress bar с XHR (C-04)
+- Tooltips для технических терминов: TTS, Провайдер, Дубляж, Preflight, Пресет (C-03)
+- Индикатор автосохранения (CheckCircle + timestamp) в Workspace header

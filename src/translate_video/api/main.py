@@ -1,8 +1,11 @@
 """Инициализация FastAPI приложения."""
 
 import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+_START_TIME = time.time()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -100,8 +103,31 @@ app.include_router(video.router)
 
 @app.get("/api/health")
 def health_check():
-    """Проверка доступности сервиса."""
-    return {"status": "ok", "version": __version__}
+    """Расширенный health-check: статус, версия, uptime, метрики."""
+    from translate_video.api.routes.pipeline import _running_projects
+
+    uptime_s = int(time.time() - _START_TIME)
+    uptime_human = f"{uptime_s // 3600}h {(uptime_s % 3600) // 60}m {uptime_s % 60}s"
+
+    # Память процесса (опционально — только если psutil доступен)
+    memory_mb: float | None = None
+    try:
+        import psutil, os as _os
+        proc = psutil.Process(_os.getpid())
+        memory_mb = round(proc.memory_info().rss / 1024 / 1024, 1)
+    except ImportError:
+        pass
+
+    payload: dict = {
+        "status": "ok",
+        "version": __version__,
+        "uptime_seconds": uptime_s,
+        "uptime": uptime_human,
+        "running_projects": len(_running_projects),
+    }
+    if memory_mb is not None:
+        payload["memory_mb"] = memory_mb
+    return payload
 
 
 # Задел для будущей интеграции фронтенда (Статика из React Vite)

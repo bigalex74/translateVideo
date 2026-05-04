@@ -1181,3 +1181,20 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ─── Autosave badge (CI iter 1) ────────────────────────────────────── */
+.autosave-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--accent-success, #22c55e);
+  opacity: 1;
+  animation: autosave-fade 3s ease-out forwards;
+}
+
+@keyframes autosave-fade {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { createProject, preflightVideo, uploadProject } from '../api/client';
+import { createProject, preflightVideo } from '../api/client';
 import type { PipelineConfigDraft, PreflightReport } from '../types/schemas';
 import { providerLabels, providerWarning, t } from '../i18n';
 import { AdvancedSettings } from './AdvancedSettings';
@@ -8,10 +8,43 @@ import { getPersistedProvider, persistProvider, type AppLocale } from '../store/
 import type { PipelineConfig } from '../types/schemas';
 import {
   Play, UploadCloud, Link as LinkIcon, FileVideo, Loader2, ShieldCheck,
-  Info, Clock, ArrowRight, ArrowLeft, Zap,
+  Info, Clock, ArrowRight, ArrowLeft, Zap, HelpCircle,
   GraduationCap, Users, Monitor, FileText, Settings
 } from 'lucide-react';
 import './NewProject.css';
+
+// ─── Tooltip для технических терминов (C-03) ───────────────────────────────
+const TERM_GLOSSARY: Record<string, string> = {
+  'TTS': 'Text-to-Speech — синтез речи. Технология, которая превращает текст перевода в голос.',
+  'Провайдер': 'Сервис, который выполняет озвучку (например, OpenAI или Яндекс). Каждый провайдер имеет свои голоса и стоимость.',
+  'Движок обработки': 'Сервис AI, который озвучивает переведённый текст. OpenAI — высокое качество, Яндекс — оптимально для русского.',
+  'Дубляж': 'Режим, при котором оригинальная речь заменяется озвученным переводом.',
+  'Preflight': 'Предварительная проверка файла: формат, длина, наличие звука. Помогает убедиться что файл подходит до запуска.',
+  'Пресет': 'Готовый набор настроек для типичного сценария (Shorts, Лекция, Интервью). Выбери пресет — и не нужно настраивать вручную.',
+};
+
+const Tooltip: React.FC<{ term: string; children: React.ReactNode }> = ({ term, children }) => {
+  const [show, setShow] = useState(false);
+  const tip = TERM_GLOSSARY[term];
+  if (!tip) return <>{children}</>;
+  return (
+    <span className="term-tooltip-wrap">
+      {children}
+      <button
+        type="button"
+        className="term-help-btn"
+        aria-label={`Что такое ${term}?`}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onFocus={() => setShow(true)}
+        onBlur={() => setShow(false)}
+      >
+        <HelpCircle size={13} />
+      </button>
+      {show && <div className="term-tooltip" role="tooltip">{tip}</div>}
+    </span>
+  );
+};
 
 interface NewProjectProps {
   onProjectCreated: (id: string) => void;
@@ -115,6 +148,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
 
   // Общее
   const [loading, setLoading]       = useState(false);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [error, setError]           = useState('');
 
   const currentProviderWarning = providerWarning(provider, locale);
@@ -196,6 +230,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
       return;
     }
     setLoading(true);
+    setUploadPercent(inputType === 'upload' ? 0 : null);
     setError('');
     try {
       const config: PipelineConfigDraft = {
@@ -204,16 +239,41 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
         translation_mode: mode,
         ...advConfig,
       };
-      const project = inputType === 'upload' && file
-        ? await uploadProject(file, projectId || undefined, config)
-        : await createProject(videoUrl, projectId || undefined, config);
-      // Выбор движка на шаге создания считаем явным и используем для следующего запуска.
+      let project;
+      if (inputType === 'upload' && file) {
+        // XHR с progress tracking (C-04)
+        project = await new Promise<{ project_id: string }>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) setUploadPercent(Math.round(e.loaded / e.total * 100));
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(JSON.parse(xhr.responseText));
+            } else {
+              reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
+            }
+          };
+          xhr.onerror = () => reject(new Error('Network error'));
+          const fd = new FormData();
+          fd.append('file', file);
+          if (projectId) fd.append('project_id', projectId);
+          fd.append('config', JSON.stringify(config));
+          xhr.open('POST', '/api/v1/projects/upload');
+          const apiKey = localStorage.getItem('api_key');
+          if (apiKey) xhr.setRequestHeader('X-API-Key', apiKey);
+          xhr.send(fd);
+        });
+      } else {
+        project = await createProject(videoUrl, projectId || undefined, config);
+      }
       persistProvider(provider);
       onProjectCreated(project.project_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('newProject.createError', locale));
     } finally {
       setLoading(false);
+      setUploadPercent(null);
     }
   };
 
@@ -407,7 +467,9 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
 
             {/* Движок */}
             <div className="form-group">
-              <label>Движок обработки</label>
+              <label>
+                <Tooltip term="Движок обработки">Движок обработки</Tooltip>
+              </label>
               <select
                 className="select-input"
                 value={provider}
@@ -439,6 +501,19 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
 
         {error && <div className="error-banner" role="alert">{error}</div>}
 
+        {/* Upload progress bar (C-04) */}
+        {uploadPercent !== null && (
+          <div className="upload-progress-wrap" aria-label={`Загрузка файла: ${uploadPercent}%`}>
+            <div className="upload-progress-label">
+              <UploadCloud size={14} />
+              <span>Загрузка файла… {uploadPercent}%</span>
+            </div>
+            <div className="upload-progress-bar">
+              <div className="upload-progress-fill" style={{ width: `${uploadPercent}%` }} />
+            </div>
+          </div>
+        )}
+
         {/* ─── Навигация ─── */}
         <div className="wizard-nav">
           {step > 0 && (
@@ -466,7 +541,9 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
               disabled={loading || (inputType === 'upload' && !file)}
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-              {loading ? t('newProject.creatingProject', locale) : t('newProject.createProject', locale)}
+              {loading
+                ? (uploadPercent !== null ? `Загрузка ${uploadPercent}%…` : t('newProject.creatingProject', locale))
+                : t('newProject.createProject', locale)}
             </button>
           )}
           {step < 2 && step > 0 && (
