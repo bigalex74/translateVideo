@@ -2762,3 +2762,14 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 - error?: string в VideoProject schema
 ### CSS
 - .stale-warning, .error-human стили
+
+## [1.38.0] — 2026-05-04 — CI Iteration 5 (ФИНАЛЬНАЯ)
+### Added
+- FAQ секция в Settings с 8 вопросами (C-21)
+- Кнопка "Повторить онбординг" в Settings (C-22)
+- CompletionToast: уведомление при возврате на вкладку (C-20)
+- Toast CSS (.toast-notification)
+- FAQ CSS (.faq-list, .faq-item, .faq-q, .faq-a)
+### Updated
+- Skill continuous-improvement: Фаза 3б (Dev agent proposals) + CEO Арбитраж
+- PUBLIC_ROADMAP.md обновлён

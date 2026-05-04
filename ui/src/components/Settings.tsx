@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, CheckCircle2, KeyRound, Copy, ExternalLink, BookOpen } from 'lucide-react';
+import { Save, CheckCircle2, KeyRound, Copy, ExternalLink, BookOpen, HelpCircle, RotateCcw } from 'lucide-react';
 import { LOCALE_LABELS, providerLabels, t } from '../i18n';
 import {
   applyTheme,
@@ -202,6 +202,43 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
               <ExternalLink size={15} /> openapi.json
             </a>
           </div>
+        </section>
+
+        {/* FAQ секция (C-21, C-22) */}
+        <section>
+          <h3 style={{ marginBottom: '12px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+            <HelpCircle size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+            FAQ — Частые вопросы
+          </h3>
+          <div className="faq-list">
+            {([
+              ['Что такое TTS?', 'Text-to-Speech — синтез речи. Технология превращает переведённый текст в аудио с голосом.'],
+              ['Что такое «Провайдер»?', 'Сервис синтеза речи: OpenAI, Яндекс, ElevenLabs. У каждого свои голоса и стоимость.'],
+              ['Что такое «Пайплайн»?', 'Последовательность шагов: транскрипция → перевод → озвучка → рендер видео.'],
+              ['Как долго длится перевод?', 'Зависит от длины видео и провайдера. Обычно 2–10 мин на 10 мин видео.'],
+              ['Где найти переведённое видео?', 'Откройте проект → вкладка «Артефакты» → скачайте MP4, SRT или VTT.'],
+              ['Нужны ли мне API-ключи?', 'Если приложение развёрнуто администратором — нет. Иначе введите ключи в разделе выше.'],
+              ['Что делать если перевод завис?', 'Подождите 5 минут. Если прогресс не меняется — нажмите «Перезапустить» на карточке проекта.'],
+              ['Можно ли отредактировать субтитры?', 'Да! Откройте проект → редактируйте текст в каждом сегменте → Сохранить (или Ctrl+S).'],
+            ] as [string, string][]).map(([q, a]) => (
+              <details key={q} className="faq-item">
+                <summary className="faq-q">{q}</summary>
+                <p className="faq-a">{a}</p>
+              </details>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ marginTop: '12px', fontSize: '0.82rem' }}
+            onClick={() => {
+              localStorage.removeItem('tv_onboarded');
+              window.location.reload();
+            }}
+            title="Показать пошаговое руководство снова"
+          >
+            <RotateCcw size={14} /> Повторить онбординг
+          </button>
         </section>
 
         <div className="form-actions">

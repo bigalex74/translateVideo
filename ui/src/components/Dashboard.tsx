@@ -4,6 +4,7 @@ import type { VideoProject, Segment } from '../types/schemas';
 import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
 import { ConfirmRunModal } from './ConfirmRunModal';
+import { CompletionToast } from './CompletionToast';
 import { getPersistedProvider } from '../store/settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
@@ -117,6 +118,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const segments = Array.isArray(project?.segments) ? (project!.segments as Segment[]) : [];
 
   return (
+    <>
     <div className="dashboard page-container fade-in">
       <header className="page-header">
         <h2>{t('dashboard.title', locale)}</h2>
@@ -405,5 +407,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
         />
       )}
     </div>
+    <CompletionToast
+      projectId={project?.project_id ?? null}
+      status={project?.status}
+    />
+    </>
   );
 };
