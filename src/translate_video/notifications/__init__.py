@@ -148,6 +148,9 @@ AI Video Translator — Уведомление
     msg["Subject"] = subject
     msg["From"] = smtp_from
     msg["To"] = notify_to
+    reply_to = os.getenv("SMTP_REPLY_TO", smtp_from)
+    if reply_to:
+        msg["Reply-To"] = reply_to
     msg.attach(MIMEText(text_body, "plain", "utf-8"))
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 

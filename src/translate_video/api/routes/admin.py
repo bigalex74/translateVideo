@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import os
 import secrets
+import threading
+import time
+from collections import defaultdict, deque
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -18,8 +21,49 @@ from translate_video.api.middleware.auth import get_key_store, APIKeyStore
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
-def _require_admin(x_admin_key: str = Header(..., alias="X-Admin-Key")) -> None:
-    """Dependency: проверяет X-Admin-Key против ADMIN_API_KEY."""
+class _RateLimiter:
+    """Simple in-memory rate limiter (NC2-04): max N requests per window per IP."""
+
+    def __init__(self, max_requests: int = 10, window_s: float = 60.0) -> None:
+        self._max = max_requests
+        self._window = window_s
+        self._requests: dict[str, deque] = defaultdict(deque)
+        self._lock = threading.Lock()
+
+    def is_allowed(self, client_ip: str) -> bool:
+        now = time.monotonic()
+        with self._lock:
+            q = self._requests[client_ip]
+            # Удаляем устаревшие записи
+            while q and now - q[0] > self._window:
+                q.popleft()
+            if len(q) >= self._max:
+                return False
+            q.append(now)
+            return True
+
+
+_ADMIN_RATE_LIMITER = _RateLimiter(
+    max_requests=int(os.getenv("ADMIN_RATE_LIMIT", "10")),
+    window_s=float(os.getenv("ADMIN_RATE_WINDOW", "60")),
+)
+
+
+def _require_admin(
+    request: Request,
+    x_admin_key: str = Header(..., alias="X-Admin-Key"),
+) -> None:
+    """Dependency: проверяет X-Admin-Key + rate limit по IP (NC2-04)."""
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Rate limit проверка
+    if not _ADMIN_RATE_LIMITER.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Слишком много запросов к Admin API. Попробуйте через 60 сек.",
+            headers={"Retry-After": "60"},
+        )
+
     admin_key = os.getenv("ADMIN_API_KEY", "")
     if not admin_key:
         raise HTTPException(

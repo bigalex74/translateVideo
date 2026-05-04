@@ -357,3 +357,92 @@ code {
   color: var(--text-secondary, #94a3b8);
   opacity: 0.7;
 }
+
+/* ─── PWA Install Banner (NM2-07) ──────────────────────────────────────── */
+.pwa-install-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1));
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  animation: slideDown 0.3s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pwa-install-icon { font-size: 1.4rem; flex-shrink: 0; }
+.pwa-install-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pwa-install-text strong { font-size: 0.88rem; color: var(--text-primary, #e2e8f0); }
+.pwa-install-text span { font-size: 0.76rem; color: var(--text-secondary, #94a3b8); }
+.pwa-install-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.pwa-install-btn:hover { background: #4f46e5; }
+.pwa-dismiss-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.pwa-dismiss-btn:hover { color: var(--text-primary, #e2e8f0); }
+
+/* ─── Dashboard Stats (NM2-05) ─────────────────────────────────────────── */
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 640px) {
+  .dashboard-stats { grid-template-columns: repeat(2, 1fr); }
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  text-align: center;
+  transition: transform 0.15s;
+}
+.stat-card:hover { transform: translateY(-1px); }
+.stat-icon { opacity: 0.7; }
+.stat-value { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+.stat-label { font-size: 0.72rem; color: var(--text-secondary, #94a3b8); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-total .stat-value { color: #a5b4fc; }
+.stat-total .stat-icon { color: #6366f1; }
+.stat-ok .stat-value { color: #86efac; }
+.stat-ok .stat-icon { color: #22c55e; }
+.stat-running .stat-value { color: #fde68a; }
+.stat-running .stat-icon { color: #f59e0b; }
+.stat-fail .stat-value { color: #fca5a5; }
+.stat-fail .stat-icon { color: #ef4444; }

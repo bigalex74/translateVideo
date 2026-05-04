@@ -5,6 +5,8 @@ import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { CompletionToast } from './CompletionToast';
+import { DashboardStats } from './DashboardStats';
+import { InstallPWABanner } from './InstallPWABanner';
 import { getPersistedProvider } from '../store/settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
@@ -124,6 +126,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
         <h2>{t('dashboard.title', locale)}</h2>
         <p className="subtitle">{t('dashboard.subtitle', locale)}</p>
       </header>
+
+      {/* NM2-07: PWA Install Banner */}
+      <InstallPWABanner />
+
+      {/* NM2-05: Dashboard Stats */}
+      <DashboardStats projects={projects} />
 
       <form
         className="search-bar glass-panel"

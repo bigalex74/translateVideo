@@ -140,6 +140,15 @@ def health_check():
         "uptime_seconds": uptime_s,
         "uptime": uptime_human,
         "running_projects": len(_running_projects),
+        # Nm2-12: retry config параметры
+        "retry_config": {
+            "max_attempts": int(os.getenv("TTS_RETRY_ATTEMPTS", "3")),
+            "base_delay_s": float(os.getenv("TTS_RETRY_BASE_DELAY", "1.0")),
+            "max_delay_s": float(os.getenv("TTS_RETRY_MAX_DELAY", "30.0")),
+            "backoff_factor": float(os.getenv("TTS_RETRY_BACKOFF", "2.0")),
+        },
+        # auth статус (enabled/disabled)
+        "auth_enabled": bool(os.getenv("API_KEY") or os.getenv("API_KEYS")),
     }
     if memory_mb is not None:
         payload["memory_mb"] = memory_mb
