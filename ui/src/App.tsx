@@ -3,6 +3,7 @@ import { Dashboard } from './components/Dashboard';
 import { Workspace } from './components/Workspace';
 import { NewProject } from './components/NewProject';
 import { Settings as SettingsPage } from './components/Settings';
+import { OnboardingTour } from './components/OnboardingTour';
 import { t } from './i18n';
 import {
   applyLocale,
@@ -56,6 +57,7 @@ function App() {
   };
 
   return (
+    <>
     <div className="app-container">
       <aside className="sidebar">
         <div className="sidebar-header">
@@ -109,6 +111,8 @@ function App() {
         )}
       </div>
     </div>
+    <OnboardingTour />
+    </>
   );
 }
 

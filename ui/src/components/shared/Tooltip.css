@@ -1,0 +1,44 @@
+/* ─── Shared Tooltip ─────────────────────────────────────────── */
+.tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.tooltip-help-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.15s, color 0.15s;
+}
+.tooltip-help-btn:hover,
+.tooltip-help-btn:focus {
+  opacity: 1;
+  color: var(--accent, #6366f1);
+  outline: none;
+}
+
+.tooltip-popup {
+  position: absolute;
+  z-index: 300;
+  background: var(--surface-overlay, #1e293b);
+  color: var(--text-primary, #e2e8f0);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 400;
+  max-width: 280px;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  pointer-events: none;
+  line-height: 1.5;
+  left: 0;
+}
+.tooltip-popup--top    { bottom: calc(100% + 8px); }
+.tooltip-popup--bottom { top: calc(100% + 8px); }

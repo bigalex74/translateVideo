@@ -2735,3 +2735,12 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 - Upload progress bar с XHR (C-04)
 - Tooltips для технических терминов: TTS, Провайдер, Дубляж, Preflight, Пресет (C-03)
 - Индикатор автосохранения (CheckCircle + timestamp) в Workspace header
+
+## [1.35.0] — 2026-05-04 — CI Iteration 2
+### Added
+- OnboardingTour: 6-шаговый guided tour при первом визите (C-01)
+- System-preference тема по умолчанию — light/dark следует ОС (C-09)
+- Валидация размера файла 2ГБ с понятной ошибкой (C-11)
+- Security headers: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection (Security агент)
+- Shared Tooltip компонент (Frontend агент)
+- Ctrl+S для Save сегментов в Workspace (UX агент)

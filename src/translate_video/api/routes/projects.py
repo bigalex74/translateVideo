@@ -86,6 +86,27 @@ def create_project_from_file(
     store: ProjectStore = Depends(get_store),
 ):
     """Создать новый проект загрузив файл видео."""
+    # C-11: валидация размера файла с понятным сообщением
+    MAX_FILE_SIZE_MB = int(os.getenv("MAX_UPLOAD_MB", "2048"))  # 2 ГБ по умолчанию
+    MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+    try:
+        file.file.seek(0, 2)          # перемотать в конец
+        file_size = file.file.tell()  # позиция = размер
+        file.file.seek(0)             # вернуть в начало
+        if file_size > MAX_FILE_SIZE_BYTES:
+            size_gb = file_size / 1024 / 1024 / 1024
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"Файл слишком большой: {size_gb:.1f} ГБ. "
+                    f"Максимально допустимый размер: {MAX_FILE_SIZE_MB} МБ ({MAX_FILE_SIZE_MB // 1024} ГБ). "
+                    "Пожалуйста, сожмите видео или разбейте на части."
+                ),
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # если не удалось проверить — не блокируем
     try:
         conf_dict = json.loads(config)
         pipeline_config = PipelineConfig.from_dict(conf_dict) if conf_dict else PipelineConfig()

@@ -93,6 +93,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security headers (OWASP hardening — предложение Security агента)
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Добавить OWASP-рекомендованные security headers к каждому ответу."""
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(pipeline.tts_router)

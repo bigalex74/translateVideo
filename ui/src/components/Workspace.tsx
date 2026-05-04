@@ -163,6 +163,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     return () => clearInterval(timer);
   }, [dirty, project]);
 
+  // ─── Ctrl+S keyboard shortcut (UX агент — предложение iter 1) ───────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (dirty && project && project.status !== 'running') {
+          // Симулируем нажатие кнопки Save
+          document.getElementById('btn-save-segments')?.click();
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [dirty, project]);
+
   // ─── Live QA feed ─── (ДОЛЖЕН быть ДО любого раннего return — Rules of Hooks)
   const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
     translation_empty: 'critical', tts_invalid_slot: 'critical',
@@ -585,10 +600,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             <Settings size={15} />
           </button>
           <button
+            id="btn-save-segments"
             className="btn-primary btn-sm"
             onClick={handleSave}
             disabled={!dirty || saving || isRunning}
-            title={dirty ? t('workspace.saveSegments', locale) : t('workspace.noChanges', locale)}
+            title={dirty ? `${t('workspace.saveSegments', locale)} (Ctrl+S)` : t('workspace.noChanges', locale)}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             {t('workspace.save', locale)}{dirty ? ' *' : ''}

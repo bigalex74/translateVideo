@@ -24,7 +24,10 @@ export function getPersistedProvider(): string {
 }
 
 export function getPersistedTheme(): string {
-  return localStorage.getItem(LS_THEME) ?? 'dark';
+  const saved = localStorage.getItem(LS_THEME);
+  if (saved) return saved;
+  // C-09: по умолчанию следуем системной преференции
+  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
 export function getPersistedLargeText(): boolean {
