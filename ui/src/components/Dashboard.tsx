@@ -7,6 +7,7 @@ import { ConfirmRunModal } from './ConfirmRunModal';
 import { CompletionToast } from './CompletionToast';
 import { DashboardStats } from './DashboardStats';
 import { InstallPWABanner } from './InstallPWABanner';
+import { DiskUsageWarning } from './DiskUsageWarning';
 import { getPersistedProvider } from '../store/settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
@@ -129,6 +130,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
 
       {/* NM2-07: PWA Install Banner */}
       <InstallPWABanner />
+
+      {/* NC4-03: Disk Usage Warning */}
+      <DiskUsageWarning />
 
       {/* NM2-05: Dashboard Stats */}
       <DashboardStats projects={projects} />

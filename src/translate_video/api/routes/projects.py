@@ -628,3 +628,60 @@ def clone_project(
         "work_dir": str(cloned.work_dir),
         "status": cloned.status.value,
     }
+
+
+# ─── NC4-01: ZIP Export endpoint ──────────────────────────────────────────────
+
+@router.get("/{project_id}/export/zip", summary="Скачать все артефакты проекта ZIP (NC4-01)")
+def export_project_zip(
+    project_id: str,
+    store: ProjectStore = Depends(get_store),
+):
+    """Создать ZIP архив всех артефактов проекта и вернуть для скачивания."""
+    import io as _io, zipfile as _zip, shutil as _shutil  # noqa: PLC0415
+
+    safe_id = _safe_project_id(project_id)
+    project = _get_project_or_404(store, safe_id)
+
+    buf = _io.BytesIO()
+    with _zip.ZipFile(buf, mode="w", compression=_zip.ZIP_DEFLATED) as zf:
+        # Добавляем все артефакты
+        for record in project.artifact_records:
+            art_path = Path(record.path) if not Path(record.path).is_absolute() \
+                else Path(record.path)
+            if art_path.exists():
+                zf.write(art_path, arcname=art_path.name)
+        # project.json
+        pj = project.work_dir / "project.json"
+        if pj.exists():
+            zf.write(pj, arcname="project.json")
+    buf.seek(0)
+
+    from fastapi.responses import StreamingResponse  # noqa: PLC0415
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_id}.zip"',
+        },
+    )
+
+
+# ─── Nm4-12: Stats endpoint ───────────────────────────────────────────────────
+
+@router.get("/stats", summary="Агрегированная статистика по всем проектам (Nm4-12)")
+def get_global_stats(store: ProjectStore = Depends(get_store)):
+    """Вернуть сводную статистику по всем проектам в work_root."""
+    from translate_video.core.schemas import ProjectStatus  # noqa: PLC0415
+    projects = store.list_projects()
+    by_status: dict[str, int] = {}
+    for p in projects:
+        key = p.status.value if hasattr(p.status, "value") else str(p.status)
+        by_status[key] = by_status.get(key, 0) + 1
+
+    total_segments = sum(len(p.segments) for p in projects)
+    return {
+        "total_projects": len(projects),
+        "by_status": by_status,
+        "total_segments": total_segments,
+    }

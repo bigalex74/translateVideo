@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from translate_video import __version__
 from translate_video.api.middleware.auth import APIKeyMiddleware
-from translate_video.api.routes import admin, pipeline, preflight, projects, providers, video
+from translate_video.api.routes import admin, metrics, pipeline, preflight, projects, providers, video
 from translate_video.core.env import load_env_file
 from translate_video.core.log import configure_from_env, get_logger
 
@@ -116,6 +116,7 @@ app.include_router(preflight.router)
 app.include_router(providers.router)
 app.include_router(video.router)
 app.include_router(admin.router)
+app.include_router(metrics.router)
 
 @app.get("/api/health")
 def health_check():
