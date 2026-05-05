@@ -287,6 +287,10 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
   /* ─── Navigation ────────────────────────────────────────────────────────── */
 
   const canGoStep1 = inputType === 'upload' ? !!file : !!videoUrl;
+  // Z3.9: Privacy notice (показываем один раз за сессию)
+  const [privacyDismissed, setPrivacyDismissed] = React.useState(
+    () => sessionStorage.getItem('tv_privacy_ok') === '1'
+  );
 
   const stepTitles = [t('newProject.stepFile', locale), t('newProject.stepParams', locale), t('newProject.stepSettings', locale)];
 
@@ -533,6 +537,21 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
             </button>
           )}
           <div style={{ flex: 1 }} />
+          {/* Z3.9: Data Privacy Notice */}
+          {step === 0 && !privacyDismissed && (
+            <div className="privacy-notice">
+              <span className="privacy-notice-text">
+                🔒 Видео обрабатывается на вашем сервере. Внешним сервисам передаётся только текст субтитров (для перевода и TTS).
+              </span>
+              <button
+                type="button"
+                className="privacy-notice-ok"
+                onClick={() => { setPrivacyDismissed(true); sessionStorage.setItem('tv_privacy_ok', '1'); }}
+              >
+                Понятно
+              </button>
+            </div>
+          )}
           {step < 2 && (
             <button
               type="button"

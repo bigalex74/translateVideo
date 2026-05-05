@@ -16,7 +16,7 @@ import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings, X,
-  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info,
+  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info, Share2,
 } from 'lucide-react';
 import './Workspace.css';
 
@@ -623,13 +623,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               <RefreshCw size={14} /> {project.status === 'completed' ? t('workspace.run', locale) : t('workspace.restart', locale)}
             </button>
           )}
+          {/* Z1.8: Share link button */}
           <button
             className="btn-icon"
+            title={locale === 'ru' ? 'Скопировать ссылку на проект' : 'Copy project link'}
+            aria-label={locale === 'ru' ? 'Поделиться' : 'Share'}
+            onClick={() => {
+              const url = `${window.location.origin}${window.location.pathname}?project=${projectId}`;
+              navigator.clipboard.writeText(url).then(() => {
+                setMessage(locale === 'ru' ? '🔗 Ссылка скопирована!' : '🔗 Link copied!');
+                setTimeout(() => setMessage(''), 3000);
+              });
+            }}
+          >
+            <Share2 size={15} />
+          </button>
+          <button
+            className="btn-icon btn-icon--labeled"
             title={t('workspace.translationSettings', locale)}
             aria-label={t('workspace.translationSettings', locale)}
             onClick={() => setShowConfig(prev => !prev)}
           >
             <Settings size={15} />
+            <span className="btn-icon-label">{locale === 'ru' ? 'Настройки' : 'Settings'}</span>
           </button>
           <button
             id="btn-save-segments"

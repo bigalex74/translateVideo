@@ -171,13 +171,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                 </span>
               </div>
               <div className="card-actions">
-                {project.status !== 'running' && (
+                {project.status !== 'running' && project.status !== 'completed' && (
                   <button
                     id="btn-run-pipeline"
                     onClick={() => setConfirm({ id: project.project_id, force: false })}
-                    className="btn-secondary"
+                    className="btn-primary"
+                    title="Продолжить или начать перевод с первого незавершённого этапа"
                   >
-                    <Play size={16} /> {t('dashboard.run', locale)}
+                    <Play size={16} />
+                    {project.status === 'created'
+                      ? (locale === 'ru' ? '▶ Запустить перевод' : '▶ Start Translation')
+                      : (locale === 'ru' ? '▶ Продолжить' : '▶ Continue')}
                   </button>
                 )}
                 {project.status !== 'running' && (
@@ -185,8 +189,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                     id="btn-force-run-pipeline"
                     onClick={() => setConfirm({ id: project.project_id, force: true })}
                     className="btn-secondary"
+                    title="Запустить все этапы заново, включая уже выполненные"
                   >
-                    <RefreshCw size={16} /> {t('dashboard.restart', locale)}
+                    <RefreshCw size={16} />
+                    {locale === 'ru' ? '↺ Начать заново' : '↺ Restart All'}
                   </button>
                 )}
                 <button

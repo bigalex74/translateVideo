@@ -1093,3 +1093,141 @@ def get_project_activity(
         "events": events,
         "total": len(events),
     }
+
+# ─── NC5-01/Z3.4: Экспорт субтитров в разных форматах ─────────────────────
+
+@router.get(
+    "/{project_id}/subtitles",
+    summary="Экспортировать субтитры (SRT/VTT/ASS/SBV) (NC5-01, Z3.4)",
+)
+def download_subtitles(
+    project_id: str = FastAPIPath(...),
+    format: str = "srt",  # noqa: A002
+    store: ProjectStore = Depends(get_store),
+):
+    """Скачать субтитры в нужном формате.
+
+    Параметры:
+    - **format**: srt (по умолч.) | vtt | ass | sbv
+    - SRT — универсальный, Premiere, DaVinci, VLC
+    - VTT — браузерный player
+    - ASS — Aegisub, профессиональное субтитрование (NC5-01)
+    - SBV — YouTube Studio, Udemy (Z3.4)
+    """
+    valid_formats = ("srt", "vtt", "ass", "sbv")
+    if format not in valid_formats:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Формат '{format}' не поддерживается. Допустимые: {list(valid_formats)}",
+        )
+
+    safe_id = sanitize_project_id(project_id)
+    project = store.load_project(store.root / safe_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.segments:
+        raise HTTPException(status_code=404, detail="Субтитры ещё не созданы — запустите пайплайн")
+
+    try:
+        output_path = store.export_subtitles(project, fmt=format)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    content_types = {
+        "srt": "text/srt",
+        "vtt": "text/vtt",
+        "ass": "text/x-ass",
+        "sbv": "text/plain",
+    }
+    return FileResponse(
+        output_path,
+        media_type=content_types[format],
+        filename=f"{safe_id}_subtitles.{format}",
+    )
+
+# ─── Z5.4: Batch-создание проектов ────────────────────────────────────────
+
+class BatchCreateItem(BaseModel):
+    """Один элемент пакетного создания проекта."""
+    input_video: str          # путь к файлу или URL
+    project_id: str | None = None
+    config: dict | None = None
+
+
+class BatchCreateRequest(BaseModel):
+    """Тело запроса для batch-создания проектов."""
+    items: list[BatchCreateItem]
+    auto_run: bool = False   # если True — сразу запустить пайплайн
+    from_stage: str | None = None
+
+
+@router.post(
+    "/batch",
+    summary="Пакетное создание проектов (Z5.4)",
+    status_code=207,  # Multi-Status
+)
+def batch_create_projects(
+    req: BatchCreateRequest,
+    store: ProjectStore = Depends(get_store),
+):
+    """Создать несколько проектов за один запрос.
+
+    Возвращает статус 207 Multi-Status с результатами для каждого проекта.
+    Если ``auto_run=True`` — сразу ставит в очередь выполнение.
+
+    Ограничение: максимум 20 проектов за один batch-запрос.
+    """
+    MAX_BATCH = 20
+    if len(req.items) > MAX_BATCH:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Максимум {MAX_BATCH} проектов за один batch-запрос. Получено: {len(req.items)}",
+        )
+
+    from translate_video.core.config import PipelineConfig  # noqa: PLC0415
+
+    results = []
+    for item in req.items:
+        try:
+            safe_id = sanitize_project_id(item.project_id) if item.project_id else None
+            cfg = PipelineConfig.from_dict(item.config) if item.config else PipelineConfig()
+            project = store.create_project(
+                input_video=item.input_video,
+                config=cfg,
+                project_id=safe_id,
+            )
+            result: dict = {
+                "project_id": project.id,
+                "status": "created",
+                "input_video": item.input_video,
+            }
+            if req.auto_run:
+                # Делегируем пайплайн-запуск через BackgroundTasks не используем,
+                # но ставим в очередь через уже существующий механизм
+                try:
+                    from translate_video.api.routes import pipeline as pm  # noqa: PLC0415
+                    from translate_video.api.routes.pipeline import RunRequest as RR  # noqa: PLC0415
+                    run_result = pm.run_pipeline(
+                        project_id=project.id,
+                        req=RR(from_stage=req.from_stage),
+                        store=store,
+                    )
+                    result["run"] = run_result
+                except Exception as run_err:  # noqa: BLE001
+                    result["run_error"] = str(run_err)
+            results.append(result)
+        except Exception as err:  # noqa: BLE001
+            results.append({
+                "project_id": item.project_id,
+                "status": "error",
+                "error": str(err),
+                "input_video": item.input_video,
+            })
+
+    return {
+        "results": results,
+        "total": len(results),
+        "created": sum(1 for r in results if r["status"] == "created"),
+        "errors": sum(1 for r in results if r["status"] == "error"),
+    }

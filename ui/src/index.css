@@ -719,3 +719,45 @@ code {
   margin-left: 6px;
   font-variant-numeric: tabular-nums;
 }
+
+/* ─── Z4.9: Icon buttons with labels ───────────────────────────────────── */
+.btn-icon--labeled {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+.btn-icon-label {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .btn-icon-label { display: none; }
+}
+
+/* ─── Z3.9: Privacy Notice ─────────────────────────────────────────────── */
+.privacy-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  color: var(--color-muted, #94a3b8);
+  flex-wrap: wrap;
+}
+.privacy-notice-text { flex: 1; min-width: 200px; }
+.privacy-notice-ok {
+  padding: 3px 12px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--color-accent, #6366f1);
+  white-space: nowrap;
+}
+.privacy-notice-ok:hover { background: rgba(99,102,241,0.25); }
