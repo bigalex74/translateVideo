@@ -420,7 +420,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
             <strong>Режим «Только субтитры»</strong><br />
             <span className="adv-hint">
               В этом режиме TTS, тайминги и рендер не запускаются —
-              пайплайн остановится после экспорта SRT/VTT.
+              перевод остановится после экспорта субтитров.
               Настройки озвучки ниже неактивны.
             </span>
           </div>

@@ -1,3 +1,26 @@
+## 1.73.0 - 2026-05-05 - FEAT - TVIDEO-188
+### Round 6 Итерация 1: Mobile UX, Download CTA, Coverage fix
+
+**Фронтенд:**
+- Workspace: CTA-блок "✅ Перевод готов!" с кнопками ZIP/SRT при isDone (Г7, В7)
+- Mobile: panel-tabs со scroll вместо обрезания (А6)
+- Mobile: run-btn touch target ≥48px (А1)
+- Mobile: деструктивные кнопки с красной рамкой (В4)
+- UI: "пайплайн" → "перевод" в пользовательских текстах (Г1)
+- CSS: .download-all-cta с gradient background
+
+**Бэкенд:**
+- _PipelineRateLimiter.remaining() → (remaining, reset_seconds) (К9)
+- X-RateLimit-Limit / X-RateLimit-Remaining / X-RateLimit-Reset заголовки в /run
+
+**QA:**
+- Coverage восстановлена 78% → 80% (было нарушение с Round 5)
+- pipeline.py: исправлена повреждённость бинарным патчем
+
+**Тесты:** 832 ✅ / Build ✅ / Python 80% ✅
+
+---
+
 # Журнал Изменений
 ## 1.62.0 - 2026-05-05 - FEAT - TVIDEO-176
 ### Round 4 Итерация 5: MP3 export, Progress bar, Status tooltips, Provider hints

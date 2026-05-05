@@ -32,7 +32,7 @@ _cancel_tokens: dict[str, threading.Event] = {}
 _BLOCKED_HOSTNAMES = {"localhost", "localhost.localdomain"}
 
 
-# В3: Rate limiting для /run endpoint (макс N запусков в окно времени)
+# V3: Rate limiting
 import time as _time
 
 class _PipelineRateLimiter:
@@ -69,6 +69,19 @@ class _PipelineRateLimiter:
                 return False
             self._hits[client_ip].append(now)
             return True
+
+    def remaining(self, client_ip: str) -> tuple[int, int]:
+        """К9: Вернуть (remaining, reset_seconds) для X-RateLimit-* заголовков."""
+        if client_ip in ("127.0.0.1", "::1", "testclient", ""):
+            return self.MAX_RUNS, 0
+        now = _time.monotonic()
+        with self._lock:
+            hits = self._hits.get(client_ip, [])
+            cutoff = now - self.WINDOW_S
+            active = [t for t in hits if t > cutoff]
+            remaining = max(0, self.MAX_RUNS - len(active))
+            reset = int(self.WINDOW_S - (now - active[0])) if active else 0
+            return remaining, max(0, reset)
 
 
 _pipeline_rate_limiter = _PipelineRateLimiter()

@@ -336,6 +336,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   );
 
   const isRunning = project.status === 'running';
+  const isDone = project.status === 'completed';
   const segments = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
 
   // ─── Running overlay ──────────────────────────────────────────────────────
@@ -738,7 +739,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               title={
                 project.status === 'completed'
                   ? '🔄 Запустить перевод заново: все этапы будут выполнены повторно — извлечение аудио, распознавание речи, перевод текста, озвучка и монтаж. Старые файлы будут перезаписаны.'
-                  : '▶️ Запустить перевод с нуля: последовательно выполнятся все этапы пайплайна. Это может занять несколько минут в зависимости от длины видео.'
+                  : '▶️ Запустить перевод с нуля: последовательно выполнятся все этапы. Это может занять несколько минут в зависимости от длины видео.'
               }
             >
               <RefreshCw size={14} /> {project.status === 'completed' ? t('workspace.run', locale) : t('workspace.restart', locale)}
@@ -1402,6 +1403,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           {/* Вкладка: Статус */}
           {rightTab === 'status' && (
             <div className="right-tab-content">
+              {/* Г7/В7: CTA "Скачать всё" после завершения */}
+              {isDone && (
+                <div className="download-all-cta">
+                  <span className="cta-label">✅ Перевод готов!</span>
+                  <a href={subtitleExportZipUrl(projectId)} target="_blank" rel="noreferrer"
+                    className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>
+                    📦 Скачать всё (ZIP)
+                  </a>
+                  <a href={subtitleExportUrl(projectId, 'srt')} target="_blank" rel="noreferrer"
+                    className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
+                    📄 SRT
+                  </a>
+                </div>
+              )}
               <ul className="timeline">
                 {project.stage_runs?.map(run => {
                   const progressInfo = stageProgressInfo(run);
