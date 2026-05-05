@@ -227,6 +227,10 @@ class VideoProject:
     progress_percent: int | None = None
     eta_seconds: int | None = None
     started_at: str | None = None
+    # NC10-01: Теги/метки для организации проектов
+    tags: list[str] = field(default_factory=list)
+    # NC10-02: Архивирование (скрытие из основного списка)
+    archived: bool = False
 
     def __post_init__(self) -> None:
         self.status = ProjectStatus(self.status)
@@ -248,6 +252,8 @@ class VideoProject:
             "progress_percent": self.progress_percent,
             "eta_seconds": self.eta_seconds,
             "started_at": self.started_at,
+            "tags": self.tags,  # NC10-01
+            "archived": self.archived,  # NC10-02
         }
 
     @classmethod
@@ -270,4 +276,6 @@ class VideoProject:
             progress_percent=payload.get("progress_percent"),
             eta_seconds=payload.get("eta_seconds"),
             started_at=payload.get("started_at"),
+            tags=list(payload.get("tags", [])),  # NC10-01
+            archived=bool(payload.get("archived", False)),  # NC10-02
         )

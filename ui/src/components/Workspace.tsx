@@ -64,6 +64,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   // Z2.12: Segment search/filter
   const [segSearch, setSegSearch] = React.useState('');
   const [qaFlagFilter, setQaFlagFilter] = React.useState('');  // NC8-02
+  const [selectedSegIds, setSelectedSegIds] = React.useState<Set<string>>(new Set());  // Z2.15
   // Z4.10: Keyboard shortcuts help modal
   const [showShortcuts, setShowShortcuts] = useState(false);
   // Z3.11: Quality report state
@@ -926,6 +927,30 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 <option value="translation_fallback_source">Оригинал в переводе</option>
               </select>
             </div>
+            {/* Z2.15: Bulk actions bar */}
+            {selectedSegIds.size > 0 && (
+              <div className="bulk-actions-bar">
+                <span className="bulk-count">✓ {selectedSegIds.size} выбрано</span>
+                <button
+                  className="btn-secondary btn-xs"
+                  onClick={() => setSelectedSegIds(new Set(segments.map(s => s.id)))}
+                >Выбрать все</button>
+                <button
+                  className="btn-secondary btn-xs"
+                  onClick={() => {
+                    const texts = segments
+                      .filter(s => selectedSegIds.has(s.id))
+                      .map(s => s.translated_text || '')
+                      .join('\n');
+                    navigator.clipboard.writeText(texts);
+                  }}
+                >📋 Копировать</button>
+                <button
+                  className="btn-secondary btn-xs"
+                  onClick={() => setSelectedSegIds(new Set())}
+                >✕ Снять выбор</button>
+              </div>
+            )}
             <div className="segments-list">
               {segments
                 .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
@@ -939,12 +964,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     else segRefs.current.delete(seg.id);
                   }}
                   className={`segment-item ${seg.status}${activeSegId === seg.id ? ' segment-active' : ''}${
+                    selectedSegIds.has(seg.id) ? ' seg-selected' : ''
+                  }${
                     (seg.qa_flags ?? []).some((f: string) => ['translation_empty','tts_invalid_slot','timing_fit_invalid_slot'].includes(f)) ? ' seg-qa-critical' :
                     (seg.qa_flags ?? []).some((f: string) => ['timing_fit_failed','render_audio_trimmed','tts_overflow_after_rate'].includes(f)) ? ' seg-qa-error' :
                     (seg.qa_flags ?? []).length > 0 ? ' seg-qa-warning' : ''
                   }`}
                 >
                   <div className="seg-header">
+                    {/* Z2.15: Checkbox для batch-выбора */}
+                    <input
+                      type="checkbox"
+                      className="seg-checkbox"
+                      checked={selectedSegIds.has(seg.id)}
+                      onChange={(e) => {
+                        setSelectedSegIds(prev => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(seg.id);
+                          else next.delete(seg.id);
+                          return next;
+                        });
+                      }}
+                      aria-label={`Выбрать сегмент ${seg.id}`}
+                    />
                     <span
                       className="seg-timing seg-timing--clickable"
                       title="Перейти к этому моменту в видео"

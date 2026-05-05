@@ -301,15 +301,46 @@ def create_project_from_file(
 
 
 @router.get("")
-def list_projects(store: ProjectStore = Depends(get_store)):
-    """Вернуть список проектов из рабочего корня."""
+def list_projects(
+    store: ProjectStore = Depends(get_store),
+    page: int = 1,
+    page_size: int = 50,
+    archived: bool | None = None,
+    tag: str | None = None,
+):
+    """Вернуть список проектов из рабочего корня (Z3.18 pagination, NC10-01 tag filter, NC10-02 archived filter)."""
 
     try:
+        all_projects = list(store.list_projects())
+
+        # Фильтр по archived
+        if archived is not None:
+            all_projects = [p for p in all_projects if p.archived == archived]
+        else:
+            # По умолчанию скрываем архивные
+            all_projects = [p for p in all_projects if not p.archived]
+
+        # Фильтр по тегу
+        if tag:
+            all_projects = [p for p in all_projects if tag in (p.tags or [])]
+
+        total = len(all_projects)
+        page = max(1, page)
+        page_size = max(1, min(200, page_size))
+        offset = (page - 1) * page_size
+        paged = all_projects[offset: offset + page_size]
+
         return {
             "projects": [
                 project_payload(project, include_segments=False)
-                for project in store.list_projects()
-            ]
+                for project in paged
+            ],
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "pages": max(1, (total + page_size - 1) // page_size),
+            },
         }
     except Exception:
         logger.exception("Неожиданная ошибка при получении списка проектов")
@@ -1742,3 +1773,78 @@ def download_final_video(
         status_code=404,
         detail="Готовое видео не найдено — возможно рендеринг ещё не завершён",
     )
+
+# ─── NC10-01: Теги/метки проекта ─────────────────────────────────────────────
+
+class SetTagsRequest(BaseModel):
+    tags: list[str] = Field(default_factory=list, description="Список тегов. Пустой = очистить все")
+
+
+@router.put(
+    "/{project_id}/tags",
+    summary="Установить теги проекта (NC10-01)",
+)
+def set_project_tags(
+    project_id: str = FastAPIPath(...),
+    body: SetTagsRequest = Body(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Обновить теги проекта. Перезаписывает все существующие теги.
+
+    Возвращает: обновлённые теги.
+    """
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.tags = [str(t).strip()[:50] for t in body.tags if str(t).strip()][:20]
+    store.save_project(project)
+
+    return {"project_id": project_id, "tags": project.tags}
+
+
+# ─── NC10-02: Архивирование проекта ──────────────────────────────────────────
+
+@router.post(
+    "/{project_id}/archive",
+    summary="Архивировать проект (NC10-02)",
+)
+def archive_project(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Пометить проект как архивный (скрывается из основного списка).
+
+    Архивный проект можно разархивировать через /unarchive.
+    """
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.archived = True
+    store.save_project(project)
+    return {"project_id": project_id, "archived": True}
+
+
+@router.post(
+    "/{project_id}/unarchive",
+    summary="Разархивировать проект (NC10-02)",
+)
+def unarchive_project(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Восстановить архивный проект в основной список."""
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.archived = False
+    store.save_project(project)
+    return {"project_id": project_id, "archived": False}
