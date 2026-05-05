@@ -841,3 +841,70 @@ code {
   text-align: center;
 }
 .shortcut-row span { color: var(--color-muted, #94a3b8); }
+
+/* ─── Z2.12: Segment search bar ────────────────────────────────────────── */
+.seg-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.seg-search-input {
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  color: inherit;
+  font-size: 0.82rem;
+}
+.seg-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--color-muted, #94a3b8);
+  padding: 0 4px;
+}
+
+/* ─── Z4.11: Segment diff badge ────────────────────────────────────────── */
+.seg-source-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.seg-source-row .seg-source { flex: 1; }
+.seg-diff-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-family: monospace;
+  border-radius: 4px;
+  padding: 2px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+  cursor: help;
+}
+.seg-diff--ok { background: rgba(16,185,129,0.12); color: #10b981; }
+.seg-diff--long { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.seg-diff--short { background: rgba(99,102,241,0.12); color: #6366f1; }
+
+/* ─── Z4.12: Minimap / scroll hint ─────────────────────────────────────── */
+.segments-list {
+  scroll-behavior: smooth;
+}
+
+/* ─── Z2.11: Segment notes input ────────────────────────────────────────── */
+.seg-notes-input {
+  width: 100%;
+  padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.03);
+  color: var(--color-muted, #94a3b8);
+  font-size: 0.76rem;
+  font-style: italic;
+  box-sizing: border-box;
+}
+.seg-notes-input::placeholder { color: rgba(148,163,184,0.4); }

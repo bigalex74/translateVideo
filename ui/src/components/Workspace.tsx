@@ -61,6 +61,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
 
   const [history, setHistory] = useState<Segment[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  // Z2.12: Segment search/filter
+  const [segSearch, setSegSearch] = React.useState('');
   // Z4.10: Keyboard shortcuts help modal
   const [showShortcuts, setShowShortcuts] = useState(false);
   // Z3.11: Quality report state
@@ -279,11 +281,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     setHistoryIndex(trimmed.length - 1);
   };
 
-  const handleTextChange = (segId: string, newText: string) => {
+  const handleTextChange = (segId: string, newText: string, field: 'translated_text' | 'notes' = 'translated_text') => {
     setProject(prev => {
       if (!prev) return prev;
       const newSegments = (prev.segments as Segment[]).map(s =>
-        s.id === segId ? { ...s, translated_text: newText } : s
+        s.id === segId ? { ...s, [field]: newText } : s
       );
       pushHistory(newSegments);
       return { ...prev, segments: newSegments };
@@ -840,8 +842,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 {dirty && <span className="dirty-indicator"> · {t('workspace.unsaved', locale)}</span>}
               </span>
             </div>
+            {/* Z2.12: Поиск по сегментам */}
+            <div className="seg-search-bar">
+              <input
+                id="seg-search-input"
+                className="seg-search-input"
+                type="text"
+                placeholder={locale === 'ru' ? '🔍 Поиск по тексту...' : '🔍 Search segments...'}
+                value={segSearch}
+                onChange={e => setSegSearch(e.target.value)}
+              />
+              {segSearch && (
+                <button className="seg-search-clear" onClick={() => setSegSearch('')} aria-label="Очистить">×</button>
+              )}
+            </div>
             <div className="segments-list">
-              {segments.map((seg) => (
+              {segments
+                .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
+                  seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))
+                .map((seg) => (
                 <div
                   key={seg.id}
                   ref={(el) => {
@@ -877,7 +896,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       </button>
                     )}
                   </div>
-                  <div className="seg-source">{seg.source_text}</div>
+                  <div className="seg-source-row">
+                    <div className="seg-source">{seg.source_text}</div>
+                    {/* Z4.11: diff — кол-во символов до/после */}
+                    {seg.translated_text && seg.source_text && (
+                      <span className={`seg-diff-badge ${
+                        seg.translated_text.length > seg.source_text.length * 1.3 ? 'seg-diff--long' :
+                        seg.translated_text.length < seg.source_text.length * 0.7 ? 'seg-diff--short' :
+                        'seg-diff--ok'}`}
+                        title={`Оригинал: ${seg.source_text.length} символов → Перевод: ${seg.translated_text.length} символов`}
+                      >
+                        {seg.source_text.length} → {seg.translated_text.length}
+                      </span>
+                    )}
+                  </div>
 
                   {/* TTS-тулбар — показывается только при Яндекс TTS */}
                   {project.config?.professional_tts_provider === 'yandex' && (() => {
@@ -985,6 +1017,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       </div>
                     );
                   })()}
+                  {/* Z2.11: Notes — комментарий редактора */}
+                  <input
+                    type="text"
+                    className="seg-notes-input"
+                    placeholder={locale === 'ru' ? '💬 Заметка редактора...' : '💬 Note...'}
+                    value={seg.notes ?? ''}
+                    onChange={(e) => handleTextChange(seg.id, e.target.value, 'notes')}
+                  />
                 </div>
               ))}
               {segments.length === 0 && !isRunning && (

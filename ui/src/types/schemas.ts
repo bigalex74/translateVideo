@@ -83,6 +83,7 @@ export interface Segment {
     tts_path?: string;
     tts_text?: string;
     qa_flags?: string[];
+    notes?: string;  // Z2.11: комментарий редактора
 }
 
 export interface StageRun {

@@ -173,6 +173,8 @@ class Segment:
     #   Формат: plain text с тегами Яндекс SpeechKit SSML или `+` для ударений.
     #   Пример: "во+да течёт <break time=\"350ms\"/> по трубам"
     qa_flags: list[str] = field(default_factory=list)
+    # Z2.11: Комментарий редактора к сегменту (не влияет на пайплайн)
+    notes: str = ""
 
     def __post_init__(self) -> None:
         if self.end < self.start:

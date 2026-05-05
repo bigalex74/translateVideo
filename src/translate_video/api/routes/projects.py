@@ -1354,3 +1354,118 @@ def _parse_vtt_time(ts: str) -> float:
         s, ms = (s_ms + ".000")[:7].split(".")[:2]
         return int(m) * 60 + int(s) + int(ms[:3]) / 1000
     return 0.0
+
+# ─── Z3.13/Z3.14: Экспорт финального скрипта ──────────────────────────────
+
+@router.get(
+    "/{project_id}/export/script",
+    summary="Финальный скрипт перевода в TXT (Z3.14)",
+)
+def export_script_txt(
+    project_id: str = FastAPIPath(...),
+    format: str = "txt",  # noqa: A002
+    include_timecodes: bool = True,
+    include_source: bool = False,
+    store: ProjectStore = Depends(get_store),
+):
+    """Экспортировать переведённый скрипт как текстовый документ.
+
+    Форматы:
+    - **txt** — простой текст с таймкодами (для документалистов, Z3.14)
+    - **tsv** — таблица с колонками: start | end | source | translated
+
+    Полезно для:
+    - Проверки качества перевода перед рендером
+    - Передачи диктору для начитки
+    - Создания транскрипта для SEO
+    """
+    safe_id = sanitize_project_id(project_id)
+    project = store.load_project(store.root / safe_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not project.segments:
+        raise HTTPException(status_code=404, detail="Скрипт пуст — запустите перевод")
+
+    from io import StringIO  # noqa: PLC0415
+    from fastapi.responses import Response  # noqa: PLC0415
+
+    if format == "tsv":
+        buf = StringIO()
+        buf.write("start\tend\tsource\ttranslated\n")
+        for seg in project.segments:
+            start = f"{seg.start:.2f}"
+            end = f"{seg.end:.2f}"
+            src = (seg.source_text or "").replace("\t", " ")
+            tgt = (seg.translated_text or "").replace("\t", " ")
+            buf.write(f"{start}\t{end}\t{src}\t{tgt}\n")
+        return Response(
+            content=buf.getvalue().encode("utf-8"),
+            media_type="text/tab-separated-values",
+            headers={"Content-Disposition": f'attachment; filename="{safe_id}_script.tsv"'},
+        )
+
+    # TXT
+    buf = StringIO()
+    buf.write(f"ПЕРЕВОД: {safe_id}\n")
+    buf.write("=" * 60 + "\n\n")
+    for i, seg in enumerate(project.segments, 1):
+        if include_timecodes:
+            start_ts = f"{int(seg.start // 60):02d}:{seg.start % 60:05.2f}"
+            end_ts = f"{int(seg.end // 60):02d}:{seg.end % 60:05.2f}"
+            buf.write(f"[{i}] {start_ts} → {end_ts}\n")
+        if include_source:
+            buf.write(f"  ОР: {seg.source_text or ''}\n")
+        buf.write(f"  ПЕР: {seg.translated_text or '(нет перевода)'}\n\n")
+    return Response(
+        content=buf.getvalue().encode("utf-8"),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{safe_id}_script.txt"'},
+    )
+
+
+# ─── Z1.12: Batch export всех субтитров в ZIP ─────────────────────────────
+
+@router.get(
+    "/{project_id}/export/subtitles-all",
+    summary="Скачать все форматы субтитров в ZIP (Z1.12)",
+)
+def export_all_subtitles(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Скачать SRT + VTT + ASS + SBV в одном ZIP-архиве.
+
+    Удобно для публикации видео на разных платформах:
+    - YouTube — SRT или SBV
+    - Vimeo — VTT
+    - Aegisub / профред — ASS
+    - Местный плеер — SRT
+    """
+    import zipfile  # noqa: PLC0415
+    import io  # noqa: PLC0415
+    from fastapi.responses import Response  # noqa: PLC0415
+
+    safe_id = sanitize_project_id(project_id)
+    project = store.load_project(store.root / safe_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not project.segments:
+        raise HTTPException(status_code=404, detail="Субтитры ещё не созданы — запустите перевод")
+
+    from translate_video.export.srt import segments_to_srt  # noqa: PLC0415
+    from translate_video.export.vtt import segments_to_vtt  # noqa: PLC0415
+    from translate_video.export.ass import segments_to_ass  # noqa: PLC0415
+    from translate_video.export.sbv import segments_to_sbv  # noqa: PLC0415
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"{safe_id}.srt", segments_to_srt(project.segments))
+        zf.writestr(f"{safe_id}.vtt", segments_to_vtt(project.segments))
+        zf.writestr(f"{safe_id}.ass", segments_to_ass(project.segments))
+        zf.writestr(f"{safe_id}.sbv", segments_to_sbv(project.segments))
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{safe_id}_subtitles.zip"'},
+    )
