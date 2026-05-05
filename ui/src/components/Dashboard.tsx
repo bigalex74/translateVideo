@@ -223,6 +223,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                              r.kind === 'subtitles_srt' ? 'SRT' : 'VTT'}
                           </a>
                         ))}
+                        {/* Z1.14: Скачать готовое видео */}
+                        {project.status === 'completed' && (
+                          <a
+                            href={`/api/v1/projects/${project.project_id}/download-video`}
+                            className="btn-primary btn-xs"
+                            download
+                            title="Скачать переведённое видео"
+                          >
+                            <Download size={13} />
+                            📽 MP4
+                          </a>
+                        )}
                     </div>
                   )}
               </div>

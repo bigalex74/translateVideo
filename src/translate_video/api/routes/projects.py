@@ -1620,3 +1620,125 @@ def get_webhook_history(
         "webhook_events": events[-limit:],
         "total": len(events),
     }
+
+# ─── NC9-01: Разделение сегмента ─────────────────────────────────────────────
+
+class SplitSegmentRequest(BaseModel):
+    split_at_char: int = Field(..., description="Позиция в тексте перевода для разделения")
+    mid_time: float | None = Field(None, description="Время разделения в секундах (если None — пропорционально длине строк)")
+
+
+@router.post(
+    "/{project_id}/segments/{segment_id}/split",
+    summary="Разделить сегмент на два (NC9-01)",
+)
+def split_segment(
+    project_id: str = FastAPIPath(...),
+    segment_id: str = FastAPIPath(...),
+    body: SplitSegmentRequest = Body(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Разделяет сегмент на два по указанной позиции в тексте перевода.
+
+    mid_time: если не указан — рассчитывается пропорционально длине частей текста.
+    Возвращает: обновлённый список сегментов.
+    """
+    import uuid as _uuid
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    segs = list(project.segments or [])
+    idx = next((i for i, s in enumerate(segs) if s.id == segment_id), -1)
+    if idx < 0:
+        raise HTTPException(status_code=404, detail=f"Сегмент '{segment_id}' не найден")
+
+    seg = segs[idx]
+    full_text = seg.translated_text or ""
+    char_pos = max(0, min(body.split_at_char, len(full_text)))
+
+    text_a = full_text[:char_pos].strip()
+    text_b = full_text[char_pos:].strip()
+
+    if not text_a or not text_b:
+        raise HTTPException(status_code=422, detail="Позиция разделения создаёт пустой сегмент")
+
+    # Вычисляем время разделения
+    if body.mid_time is not None:
+        mid_t = max(seg.start, min(body.mid_time, seg.end))
+    else:
+        ratio = len(text_a) / max(len(full_text), 1)
+        mid_t = round(seg.start + (seg.end - seg.start) * ratio, 3)
+
+    # Аналогично для исходного текста
+    src_full = seg.source_text or ""
+    src_pos = int(len(src_full) * (char_pos / max(len(full_text), 1)))
+    src_a = src_full[:src_pos].strip()
+    src_b = src_full[src_pos:].strip()
+
+    seg_a = Segment(
+        id=seg.id,
+        start=seg.start,
+        end=mid_t,
+        source_text=src_a or seg.source_text,
+        translated_text=text_a,
+        status=seg.status,
+    )
+    seg_b = Segment(
+        id=f"{seg.id}_b_{_uuid.uuid4().hex[:6]}",
+        start=mid_t,
+        end=seg.end,
+        source_text=src_b or seg.source_text,
+        translated_text=text_b,
+        status=seg.status,
+    )
+    new_segs = segs[:idx] + [seg_a, seg_b] + segs[idx + 1:]
+    store.save_segments(project, new_segs, translated=bool(any(s.translated_text for s in new_segs)))
+
+    return {
+        "project_id": project_id,
+        "split_from": segment_id,
+        "segment_a": seg_a.to_dict(),
+        "segment_b": seg_b.to_dict(),
+        "segments_total": len(new_segs),
+    }
+
+
+# ─── Z1.14: Скачать готовое видео ────────────────────────────────────────────
+
+@router.get(
+    "/{project_id}/download-video",
+    summary="Скачать переведённое видео (Z1.14)",
+)
+def download_final_video(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Скачать готовое переведённое видео (output_video или output_video_with_subs).
+
+    Возвращает 404 если рендеринг ещё не завершён.
+    """
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Пытаемся взять output_video_with_subs, потом output_video
+    for kind_val in ("output_video_with_subs", "output_video"):
+        rel_path = project.artifacts.get(kind_val)
+        if rel_path:
+            abs_path = project.work_dir / rel_path
+            if abs_path.exists():
+                return FileResponse(
+                    str(abs_path),
+                    media_type="video/mp4",
+                    filename=f"{project_id}_translated.mp4",
+                )
+
+    raise HTTPException(
+        status_code=404,
+        detail="Готовое видео не найдено — возможно рендеринг ещё не завершён",
+    )

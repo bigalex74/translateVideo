@@ -272,3 +272,58 @@ def _compute_billing(
             else "снапшоты недоступны — запустите перевод повторно"
         ),
     }
+
+# ── Z3.17: Оценка качества отдельного сегмента ──────────────────────────────
+
+_CRITICAL_FLAGS = {"translation_empty", "tts_invalid_slot", "timing_fit_invalid_slot"}
+_ERROR_FLAGS = {"timing_fit_failed", "render_audio_trimmed", "tts_overflow_after_rate"}
+_WARNING_FLAGS = {"tts_overflow_natural_rate", "tts_rate_adapted", "translation_rewritten_for_timing",
+                  "render_audio_overflow", "tts_pretrim", "translation_fallback_source"}
+
+
+def compute_segment_score(segment: Any) -> dict[str, Any]:
+    """Вернуть числовую оценку качества одного сегмента (Z3.17).
+
+    score: 0.0 (критично) .. 1.0 (идеально)
+    grade: A/B/C/D
+    flags_penalty: суммарный штраф за флаги
+    """
+    from translate_video.core.schemas import Segment as _Seg  # noqa: PLC0415
+
+    flags: list[str] = segment.qa_flags if hasattr(segment, "qa_flags") else (segment.get("qa_flags") or [])
+    translated = (
+        segment.translated_text if hasattr(segment, "translated_text")
+        else (segment.get("translated_text") or "")
+    )
+
+    penalty = 0.0
+    for flag in flags:
+        if flag in _CRITICAL_FLAGS:
+            penalty += 0.5
+        elif flag in _ERROR_FLAGS:
+            penalty += 0.25
+        elif flag in _WARNING_FLAGS:
+            penalty += 0.1
+
+    # Пустой перевод — автоматически 0
+    if not (translated or "").strip():
+        penalty = max(penalty, 1.0)
+
+    score = round(max(0.0, 1.0 - penalty), 3)
+
+    if score >= 0.9:
+        grade = "A"
+    elif score >= 0.7:
+        grade = "B"
+    elif score >= 0.5:
+        grade = "C"
+    else:
+        grade = "D"
+
+    return {
+        "score": score,
+        "grade": grade,
+        "flags_penalty": round(penalty, 3),
+        "flags_count": len(flags),
+        "has_translation": bool((translated or "").strip()),
+    }

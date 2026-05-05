@@ -241,6 +241,33 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
           </button>
         </section>
 
+        {/* Z5.15: О проекте */}
+        <section>
+          <h3 style={{ marginBottom: '12px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+            ℹ️ О проекте
+          </h3>
+          <div style={{ fontSize: '0.85rem', lineHeight: '1.7', color: 'var(--text-secondary)' }}>
+            <p><strong>translateVideo</strong> — ИИ-движок перевода видео с сохранением голоса и тайминга.</p>
+            <ul style={{ paddingLeft: '1.2rem', marginTop: '8px' }}>
+              <li>🐍 Python 3.11+ · FastAPI · Pydantic v2</li>
+              <li>⚛️ React 18 · TypeScript · Vite</li>
+              <li>🎞️ FFmpeg · ffprobe</li>
+              <li>🤖 OpenAI · Yandex TTS · ElevenLabs</li>
+            </ul>
+            <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <a href="/api/health" target="_blank" rel="noopener" className="dev-link">
+                🟢 API Health
+              </a>
+              <a href="/docs" target="_blank" rel="noopener" className="dev-link">
+                📖 API Docs
+              </a>
+              <a href="https://github.com/bigalex74/translateVideo" target="_blank" rel="noopener" className="dev-link">
+                🐙 GitHub
+              </a>
+            </div>
+          </div>
+        </section>
+
         <div className="form-actions">
           <button className="btn-primary" onClick={handleSave}>
             {saved ? <CheckCircle2 size={16} /> : <Save size={16} />}

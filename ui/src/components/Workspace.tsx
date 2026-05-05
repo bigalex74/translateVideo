@@ -938,7 +938,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     if (el) segRefs.current.set(seg.id, el);
                     else segRefs.current.delete(seg.id);
                   }}
-                  className={`segment-item ${seg.status}${activeSegId === seg.id ? ' segment-active' : ''}`}
+                  className={`segment-item ${seg.status}${activeSegId === seg.id ? ' segment-active' : ''}${
+                    (seg.qa_flags ?? []).some((f: string) => ['translation_empty','tts_invalid_slot','timing_fit_invalid_slot'].includes(f)) ? ' seg-qa-critical' :
+                    (seg.qa_flags ?? []).some((f: string) => ['timing_fit_failed','render_audio_trimmed','tts_overflow_after_rate'].includes(f)) ? ' seg-qa-error' :
+                    (seg.qa_flags ?? []).length > 0 ? ' seg-qa-warning' : ''
+                  }`}
                 >
                   <div className="seg-header">
                     <span

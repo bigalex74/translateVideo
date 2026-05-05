@@ -939,3 +939,17 @@ code {
   transition: opacity 0.15s;
 }
 .seg-merge-btn:hover { opacity: 1; border-color: var(--accent); color: var(--accent); }
+
+/* ─── Z4.13: Цветовая маркировка сегментов по QA-статусу ────────────────── */
+.segment-item.seg-qa-critical {
+  border-left: 3px solid var(--color-error, #ef4444);
+  background: rgba(239, 68, 68, 0.04);
+}
+.segment-item.seg-qa-error {
+  border-left: 3px solid var(--color-warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.04);
+}
+.segment-item.seg-qa-warning {
+  border-left: 3px solid var(--color-info, #3b82f6);
+  background: rgba(59, 130, 246, 0.03);
+}
