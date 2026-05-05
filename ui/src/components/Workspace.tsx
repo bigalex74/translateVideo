@@ -61,6 +61,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
 
   const [history, setHistory] = useState<Segment[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  // Z4.10: Keyboard shortcuts help modal
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  // Z3.11: Quality report state
+  const [qualityReport, setQualityReport] = useState<Record<string, unknown> | null>(null);
+  const [loadingQR, setLoadingQR] = useState(false);
+
+  const fetchQualityReport = async () => {
+    setLoadingQR(true);
+    try {
+      const resp = await fetch(`${window.location.pathname.includes('localhost') ? '' : ''}/api/v1/projects/${projectId}/quality-report`);
+      if (resp.ok) setQualityReport(await resp.json());
+    } catch {/* ignore */}
+    finally { setLoadingQR(false); }
+  };
   // Оценка стоимости из последнего preflight (для ConfirmRunModal)
   const [preflightCost, setPreflightCost] = useState<{
     cost?: CostEstimate | null;
@@ -623,6 +637,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               <RefreshCw size={14} /> {project.status === 'completed' ? t('workspace.run', locale) : t('workspace.restart', locale)}
             </button>
           )}
+          {/* Z4.10: Keyboard shortcuts help */}
+          <button
+            className="btn-icon"
+            title="Горячие клавиши (Keyboard shortcuts)"
+            aria-label="Справка по горячим клавишам"
+            onClick={() => setShowShortcuts(true)}
+          >
+            ?
+          </button>
           {/* Z1.8: Share link button */}
           <button
             className="btn-icon"
@@ -782,7 +805,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 <Film size={14} /> {t('workspace.aiTranslation', locale)}
               </button>
             </div>
-            <div className="video-container">
+            <div className={`video-container${videoRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight && videoRef.current.videoWidth < videoRef.current.videoHeight ? ' is-portrait' : ''}`}>
               <video
                 ref={videoRef}
                 controls
@@ -842,6 +865,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       <span className="seg-duration">({(seg.end - seg.start).toFixed(1)}с)</span>
                     </span>
                     <span className="seg-status">{statusLabel(seg.status ?? '', locale)}</span>
+                    {/* Z2.10: copy translated text */}
+                    {seg.translated_text && (
+                      <button
+                        className="seg-copy-btn"
+                        title={locale === 'ru' ? 'Скопировать перевод' : 'Copy translation'}
+                        onClick={() => navigator.clipboard.writeText(seg.translated_text).catch(() => {})}
+                        aria-label="Скопировать перевод"
+                      >
+                        📋
+                      </button>
+                    )}
                   </div>
                   <div className="seg-source">{seg.source_text}</div>
 
@@ -1070,6 +1104,39 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   <p className="empty-text">{t('dashboard.notStarted', locale)}</p>
                 )}
               </ul>
+
+              {/* Z3.11: Quality Report */}
+              {project.status === 'completed' && (
+                <div className="quality-report-section">
+                  <button
+                    className="btn-secondary btn-sm"
+                    onClick={fetchQualityReport}
+                    disabled={loadingQR}
+                  >
+                    {loadingQR ? '...' : '📊 Оценить качество перевода'}
+                  </button>
+                  {qualityReport && (
+                    <div className="quality-report-card">
+                      <div className="qr-grade-row">
+                        <span className={`qr-grade qr-grade--${String(qualityReport.grade).toLowerCase()}`}>
+                          {String(qualityReport.grade)}
+                        </span>
+                        <span className="qr-grade-label">{String(qualityReport.grade_label)}</span>
+                        <span className="qr-issues">
+                          {Number(qualityReport.segments_with_issues)} / {Number(qualityReport.segments_total)} сегментов с проблемами
+                        </span>
+                      </div>
+                      {Array.isArray(qualityReport.recommendations) && (
+                        <ul className="qr-recommendations">
+                          {(qualityReport.recommendations as string[]).map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1204,6 +1271,27 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               >
                 Сбросить правки
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Z4.10: Keyboard shortcuts modal */}
+      {showShortcuts && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setShowShortcuts(false)}>
+          <div className="modal-box shortcuts-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>⌨️ Горячие клавиши</h3>
+              <button className="btn-icon" onClick={() => setShowShortcuts(false)} aria-label="Закрыть"><X size={18} /></button>
+            </div>
+            <div className="shortcuts-grid">
+              <div className="shortcut-row"><kbd>Ctrl+S</kbd><span>Сохранить изменения</span></div>
+              <div className="shortcut-row"><kbd>Ctrl+Z</kbd><span>Отменить последнее изменение</span></div>
+              <div className="shortcut-row"><kbd>Ctrl+Y</kbd><span>Повторить</span></div>
+              <div className="shortcut-row"><kbd>Ctrl+Enter</kbd><span>Запустить / продолжить перевод</span></div>
+              <div className="shortcut-row"><kbd>Esc</kbd><span>Закрыть панель настроек</span></div>
+              <div className="shortcut-row"><kbd>Space</kbd><span>Пауза / воспроизведение видео</span></div>
+              <div className="shortcut-row"><kbd>←</kbd> / <kbd>→</kbd><span>Перемотка ±5 сек</span></div>
+              <div className="shortcut-row"><kbd>Tab</kbd><span>Следующий сегмент</span></div>
             </div>
           </div>
         </div>

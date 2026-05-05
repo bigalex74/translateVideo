@@ -761,3 +761,83 @@ code {
   white-space: nowrap;
 }
 .privacy-notice-ok:hover { background: rgba(99,102,241,0.25); }
+
+/* ─── Z3.11: Quality Report Card ───────────────────────────────────────── */
+.quality-report-section {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quality-report-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.qr-grade-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qr-grade {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+.qr-grade--a { background: rgba(16,185,129,0.2); color: #10b981; }
+.qr-grade--b { background: rgba(59,130,246,0.2); color: #3b82f6; }
+.qr-grade--c { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.qr-grade--d { background: rgba(239,68,68,0.2);  color: #ef4444; }
+.qr-grade-label { font-weight: 600; font-size: 0.9rem; }
+.qr-issues { font-size: 0.78rem; color: var(--color-muted, #94a3b8); margin-left: auto; }
+.qr-recommendations {
+  margin: 0; padding: 0 0 0 18px;
+  font-size: 0.78rem;
+  color: var(--color-muted, #94a3b8);
+  line-height: 1.7;
+}
+
+/* ─── Z2.10: Segment copy button ────────────────────────────────────────── */
+.seg-copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 4px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  margin-left: auto;
+}
+.seg-copy-btn:hover { opacity: 0.9; }
+
+/* ─── Z4.10: Keyboard shortcuts modal ──────────────────────────────────── */
+.shortcuts-modal { max-width: 420px; width: 95%; }
+.shortcuts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.82rem;
+}
+.shortcut-row kbd {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  font-family: monospace;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
+}
+.shortcut-row span { color: var(--color-muted, #94a3b8); }

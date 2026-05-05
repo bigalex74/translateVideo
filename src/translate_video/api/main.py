@@ -148,12 +148,17 @@ def health_check():
     uptime_s = int(time.time() - _START_TIME)
     uptime_human = f"{uptime_s // 3600}h {(uptime_s % 3600) // 60}m {uptime_s % 60}s"
 
-    # Память процесса (опционально — только если psutil доступен)
+    # Память и CPU процесса (опционально — только если psutil доступен)
     memory_mb: float | None = None
+    cpu_percent: float | None = None
+    cpu_count: int | None = None
     try:
-        import psutil, os as _os
+        import psutil, os as _os  # noqa: E401
         proc = psutil.Process(_os.getpid())
         memory_mb = round(proc.memory_info().rss / 1024 / 1024, 1)
+        # Z5.12: CPU метрики
+        cpu_percent = round(psutil.cpu_percent(interval=0.1), 1)
+        cpu_count = psutil.cpu_count(logical=True)
     except ImportError:
         pass
 
@@ -177,6 +182,10 @@ def health_check():
     }
     if memory_mb is not None:
         payload["memory_mb"] = memory_mb
+    if cpu_percent is not None:
+        payload["cpu_percent"] = cpu_percent
+    if cpu_count is not None:
+        payload["cpu_count"] = cpu_count
 
     # NM3-08: disk usage для runs/
     try:

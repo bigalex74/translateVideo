@@ -1231,3 +1231,126 @@ def batch_create_projects(
         "created": sum(1 for r in results if r["status"] == "created"),
         "errors": sum(1 for r in results if r["status"] == "error"),
     }
+
+# ─── NC6-01: Импорт субтитров из SRT/VTT/ASS ──────────────────────────────
+
+@router.post(
+    "/{project_id}/import-subtitles",
+    summary="Импортировать субтитры из SRT/VTT файла как переводы (NC6-01)",
+)
+async def import_subtitles(
+    project_id: str = FastAPIPath(...),
+    file: UploadFile = File(..., description="SRT или VTT файл субтитров"),
+    apply_as_translation: bool = True,
+    store: ProjectStore = Depends(get_store),
+):
+    """Загрузить файл субтитров и применить как переводы к сегментам.
+
+    Алгоритм:
+    1. Парсим SRT/VTT текст в блоки {start, end, text}
+    2. Для каждого существующего сегмента ищем совпадение по времени (±200ms)
+    3. Если найдено — заменяем ``translated_text``
+    4. Если ``apply_as_translation=True`` — сохраняем как основной перевод
+
+    Используется для:
+    - Редактирования субтитров в Aegisub с последующей загрузкой обратно
+    - Ручного улучшения машинного перевода
+    """
+    safe_id = sanitize_project_id(project_id)
+    project = store.load_project(store.root / safe_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Читаем загруженный файл
+    content_bytes = await file.read()
+    try:
+        content = content_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            content = content_bytes.decode("cp1251")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=422, detail="Не удалось прочитать файл: неизвестная кодировка")
+
+    filename = (file.filename or "").lower()
+
+    # Парсим субтитры
+    import re  # noqa: PLC0415
+    sub_blocks: list[dict] = []
+
+    if filename.endswith(".vtt") or content.startswith("WEBVTT"):
+        # VTT парсер
+        for match in re.finditer(
+            r"(\d{2}:\d{2}:\d{2}\.\d+)\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d+)[^\n]*\n(.*?)(?=\n\n|\Z)",
+            content, re.DOTALL
+        ):
+            start_s = _parse_vtt_time(match.group(1))
+            end_s = _parse_vtt_time(match.group(2))
+            text = match.group(3).strip()
+            if text and not text.startswith("<"):
+                sub_blocks.append({"start": start_s, "end": end_s, "text": text})
+    else:
+        # SRT парсер
+        for match in re.finditer(
+            r"\d+\r?\n(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\r?\n(.*?)(?=\r?\n\r?\n|\Z)",
+            content, re.DOTALL
+        ):
+            start_s = _parse_srt_time(match.group(1))
+            end_s = _parse_srt_time(match.group(2))
+            text = match.group(3).strip().replace("\r\n", "\n")
+            if text:
+                sub_blocks.append({"start": start_s, "end": end_s, "text": text})
+
+    if not sub_blocks:
+        raise HTTPException(status_code=422, detail="Не найдено ни одного блока субтитров в файле")
+
+    # Матчим к сегментам (±200ms толерантность)
+    TOLERANCE = 0.2
+    matched = 0
+    unmatched_subs = []
+
+    if apply_as_translation and project.segments:
+        for seg in project.segments:
+            best = None
+            best_dist = float("inf")
+            for sub in sub_blocks:
+                dist = abs(seg.start - sub["start"]) + abs(seg.end - sub["end"])
+                if dist < best_dist and dist <= TOLERANCE * 2:
+                    best_dist = dist
+                    best = sub
+            if best:
+                seg.translated_text = best["text"]
+                matched += 1
+            else:
+                unmatched_subs.append({"start": seg.start, "end": seg.end})
+
+        store.save_segments(project, project.segments, translated=True)
+
+    return {
+        "project_id": project_id,
+        "subtitle_blocks_parsed": len(sub_blocks),
+        "segments_matched": matched,
+        "segments_total": len(project.segments),
+        "unmatched_segments": len(unmatched_subs),
+        "applied": apply_as_translation,
+    }
+
+
+def _parse_srt_time(ts: str) -> float:
+    """HH:MM:SS,mmm → секунды."""
+    h, m, rest = ts.split(":")
+    s, ms = rest.split(",")
+    return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
+
+
+def _parse_vtt_time(ts: str) -> float:
+    """HH:MM:SS.mmm → секунды."""
+    parts = ts.split(":")
+    if len(parts) == 3:
+        h, m, s_ms = parts
+        s, ms = (s_ms + ".000")[:7].split(".")[:2]
+        return int(h) * 3600 + int(m) * 60 + int(s) + int(ms[:3]) / 1000
+    elif len(parts) == 2:
+        m, s_ms = parts
+        s, ms = (s_ms + ".000")[:7].split(".")[:2]
+        return int(m) * 60 + int(s) + int(ms[:3]) / 1000
+    return 0.0

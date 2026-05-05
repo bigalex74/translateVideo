@@ -1198,3 +1198,24 @@
   70%  { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* ─── Z1.11: Portrait (вертикальное) видео в плеере ─────────────────────── */
+.video-container video {
+  /* Центрируем вертикальное видео — object-fit уже contain */
+  max-width: 100%;
+}
+/* Если видео меньше 75% соотношения сторон — вертикальное (9:16 = 0.5625) */
+@media (orientation: portrait) {
+  .video-container video {
+    max-height: 50vh;
+  }
+}
+/* Детектируем вертикальное видео по data-атрибуту */
+.video-container.is-portrait {
+  background: linear-gradient(#000, #000);
+}
+.video-container.is-portrait video {
+  max-height: 380px;
+  max-width: 200px;
+  margin: auto;
+}
