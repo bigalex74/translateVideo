@@ -105,6 +105,25 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
             <small className="help-text">
               {t('settings.providerHelp', locale)}
             </small>
+            {/* K4: Описание выбранного провайдера */}
+            {provider && (
+              <div className="provider-hint" style={{
+                marginTop: '8px',
+                padding: '8px 12px',
+                background: 'var(--bg-elevated)',
+                borderRadius: '6px',
+                fontSize: '0.82rem',
+                color: 'var(--text-secondary)',
+                borderLeft: '3px solid var(--accent-primary)',
+              }}>
+                {{
+                  'polza':    '💎 Polza.ai — высокое качество, русскоязычные голоса, платный сервис. Хорош для контента на русском языке.',
+                  'neuroapi': '⚡ NeuroAPI — быстрый и доступный, поддерживает OpenAI-совместимые модели.',
+                  'legacy':   '🔧 Legacy (Яндекс/OpenAI) — классический набор провайдеров. Нужны API-ключи OPENAI_API_KEY или YANDEX_API_KEY.',
+                  'fake':     '🧪 Fake — только для разработки и тестирования. Реальной озвучки нет.',
+                }[provider] || `Провайдер: ${provider}`}
+              </div>
+            )}
           </div>
 
           {/* API Key */}

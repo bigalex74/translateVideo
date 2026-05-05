@@ -262,25 +262,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                              r.kind === 'subtitles_srt' ? 'SRT' : 'VTT'}
                           </a>
                         ))}
-                        {/* Z1.14: Скачать готовое видео */}
-                        {project.status === 'completed' && (
-                          <a
-                            href={`/api/v1/projects/${project.project_id}/download-video`}
-                            className="btn-primary btn-xs"
-                            download
-                            title="Скачать переведённое видео"
-                          >
-                            <Download size={13} />
-                            📽 MP4
-                          </a>
-                        )}
+                        {/* I7: Экспорт MP3 (аудио дубляжа без видео) */}
+                        <a
+                          href={`/api/v1/projects/${project.project_id}/export-audio?format=mp3`}
+                          className="btn-secondary btn-xs"
+                          download
+                          title="Скачать аудиодорожку дубляжа (MP3)"
+                        >
+                          <Download size={13} />
+                          🎧 MP3
+                        </a>
                     </div>
                   )}
               </div>
             </div>
 
             <div className="card-body" aria-live="polite" aria-atomic="false">
-              {/* C-13/C-19: Stale warning — если работает >5 мин */}
+              {/* K7: Progress bar для running проектов */}
+              {project.status === 'running' && (
+                <div className="card-progress-bar" role="progressbar"
+                  aria-valuenow={project.progress_percent ?? 0}
+                  aria-valuemin={0} aria-valuemax={100}
+                  title={`Прогресс: ${project.progress_percent ?? 0}%`}
+                >
+                  <div
+                    className="card-progress-fill"
+                    style={{ width: `${project.progress_percent ?? 5}%` }}
+                  />
+                  <span className="card-progress-label">
+                    {project.progress_percent ? `${project.progress_percent}%` : 'Обработка…'}
+                  </span>
+                </div>
+              )}
+              {/* C-13/C-19: Stale warning */}
               {staleWarning && project.status === 'running' && (
                 <div className="stale-warning" role="alert">
                   <AlertCircle size={16} />
@@ -458,7 +472,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
               <article key={item.project_id} className="project-mini-card">
                 <div className="mini-card-title">
                   <strong>{item.project_id}</strong>
-                  <span className={`badge ${item.status}`}>
+                  <span
+                    className={`badge ${item.status}`}
+                    title={
+                      item.status === 'created'   ? '⏳ Проект создан, ещё не запущен' :
+                      item.status === 'running'   ? '🔄 Перевод выполняется прямо сейчас' :
+                      item.status === 'completed' ? '✅ Перевод успешно завершён — файлы готовы к скачиванию' :
+                      item.status === 'failed'    ? '❌ Ошибка при переводе — нажмите для деталей' :
+                      item.status
+                    }
+                  >
                     {STATUS_EMOJI[item.status] ?? ''} {statusLabel(item.status, locale)}
                   </span>
                 </div>

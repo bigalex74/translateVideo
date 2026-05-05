@@ -382,3 +382,44 @@
 }
 .error-human svg { color: #ef4444; flex-shrink: 0; margin-top: 1px; }
 .error-human-msg { color: var(--text-secondary, #94a3b8); }
+
+/* K7: Progress bar для running проектов в Dashboard */
+.card-progress-bar {
+  position: relative;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0 0 8px;
+}
+
+.card-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), #60a5fa);
+  border-radius: 3px;
+  transition: width 0.8s ease;
+  animation: progress-pulse 2s ease-in-out infinite;
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.card-progress-label {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* D-013: Tooltip стиль для badge статусов */
+.badge[title] {
+  position: relative;
+  cursor: help;
+}
+
+/* Dashboard stats дополнительные карточки */
+.stat-card.stat-words { border-color: rgba(59, 130, 246, 0.3); }
+.stat-card.stat-time  { border-color: rgba(16, 185, 129, 0.3); }
