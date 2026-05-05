@@ -1,4 +1,36 @@
 # Журнал Изменений
+## 1.56.0 - 2026-05-05 - FIX+TEST - TVIDEO-170
+
+### QA Monitor: Восстановление покрытия кода 76%→80%
+
+**Причина:** Порог покрытия был снижен без санкции CEO. QA Monitor устраняет нарушение.
+
+**Тесты добавлены:**
+- tests/api/test_projects_r4.py — 47 тестов: NC8-01 delete, NC9-01 split, NC10-01 tags,
+  NC10-02 archive/unarchive, NC11-01 ZIP, Z3.18 pagination, Z3.19 word_count,
+  Z2.16 edit_count, VideoProject теги+archived
+- tests/api/test_coverage_boost.py — 15 тестов: providers API (50%→100%),
+  retry mechanism (83%→95%) включая HTTP 404/429/backoff/jitter
+- tests/api/test_projects_r4b.py — 16 тестов: upload endpoint, bulk-translate,
+  pagination edge cases, tags+archive интеграция
+- tests/api/test_metrics_admin.py — 15 тестов: /metrics (31%→90%), /admin, OpenAPI
+
+**Баги исправлены:**
+- projects.py: `_safe_project_id` → `sanitize_project_id` (NameError)
+- projects.py: `_get_project_or_404` → прямой `store.load_project` (NameError)
+- projects.py: `export_project_zip` обновлён — включает TXT+TSV скрипты (NC11-01)
+- Makefile: `fail-under=80` восстановлен (было 78 — нарушение правил)
+
+**Агенты наняты:**
+- .agents/qa-monitor/AGENT.md — QA Monitor (правила, покрытие, деплой-чеклист)
+- .agents/tech-writer/AGENT.md — Технический писатель (user stories, changelog, release notes)
+- .agents/designer/AGENT.md — Дизайнер (UX/UI ревью, дизайн-система, backlog)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅ / Makefile порог 80% ✅
+
+**Версия:** 1.56.0
+
+
 ## 1.55.0 - 2026-05-05 - FEAT - TVIDEO-169
 
 ### Round 3 Итерация 10 (финал): ZIP export, DnD Dashboard, Tags, word_count, edit_count

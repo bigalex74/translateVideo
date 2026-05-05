@@ -774,11 +774,14 @@ def clone_project(
     from translate_video.core.schemas import ProjectStatus  # lazy
     import uuid as _uuid
 
-    safe_id = _safe_project_id(project_id)
-    project = _get_project_or_404(store, safe_id)
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     new_id = body.new_project_id or f"{safe_id}-clone-{_uuid.uuid4().hex[:6]}"
-    new_id = _safe_project_id(new_id)
+    new_id = sanitize_project_id(new_id)
 
     new_dir = store.work_root / new_id
     if new_dir.exists():
@@ -815,21 +818,36 @@ def export_project_zip(
     """Создать ZIP архив всех артефактов проекта и вернуть для скачивания."""
     import io as _io, zipfile as _zip, shutil as _shutil  # noqa: PLC0415
 
-    safe_id = _safe_project_id(project_id)
-    project = _get_project_or_404(store, safe_id)
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     buf = _io.BytesIO()
     with _zip.ZipFile(buf, mode="w", compression=_zip.ZIP_DEFLATED) as zf:
-        # Добавляем все артефакты
+        import json as _json  # noqa: PLC0415
+        # project.json
+        zf.writestr("project.json", _json.dumps(
+            project.to_dict(), ensure_ascii=False, indent=2, default=str
+        ))
+        # Бинарные артефакты (субтитры, аудио и т.д.)
         for record in project.artifact_records:
-            art_path = Path(record.path) if not Path(record.path).is_absolute() \
-                else Path(record.path)
+            art_path = Path(record.path) if not Path(record.path).is_absolute() else Path(record.path)
             if art_path.exists():
                 zf.write(art_path, arcname=art_path.name)
-        # project.json
-        pj = project.work_dir / "project.json"
-        if pj.exists():
-            zf.write(pj, arcname="project.json")
+        # NC11-01: Скрипт перевода (TXT + TSV) если есть сегменты
+        if project.segments:
+            script_lines = [
+                f"[{s.start:.1f}-{s.end:.1f}] {s.translated_text or ''}"
+                for s in project.segments
+            ]
+            zf.writestr(f"{safe_id}_script.txt", "\n".join(script_lines))
+            tsv_lines = ["start\tend\tsource\ttranslation"] + [
+                f"{s.start}\t{s.end}\t{s.source_text or ''}\t{s.translated_text or ''}"
+                for s in project.segments
+            ]
+            zf.writestr(f"{safe_id}_script.tsv", "\n".join(tsv_lines))
     buf.seek(0)
 
     from fastapi.responses import StreamingResponse  # noqa: PLC0415

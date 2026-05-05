@@ -70,15 +70,15 @@ test\:all:
 	PYTHONPATH=src python3 -m unittest discover -s tests -q
 	cd ui && npm test
 
-## test:coverage: Проверить покрытие кода (Python ≥78%, TypeScript ≥80%)
-# TODO(coverage): Python порог растёт до 82%+ по мере написания API-тестов для projects.py (текущий: 78%)
+## test:coverage: Проверить покрытие кода (Python ≥80%, TypeScript ≥80%)
+# QA Monitor: порог НЕЛЬЗЯ снижать. Рост: projects.py (60%→80%) + providers.py (90%+)
 test\:coverage:
 	@echo "$(CYAN)▶ Coverage: Python...$(RESET)"
 	PYTHONPATH=src python3 -m coverage run \
 	  --source=translate_video \
 	  --omit="*/legacy.py" \
 	  -m unittest discover -s tests -q
-	python3 -m coverage report --fail-under=78
+	python3 -m coverage report --fail-under=80
 	@echo "$(CYAN)▶ Coverage: TypeScript...$(RESET)"
 	cd ui && npm run test -- --coverage
 
