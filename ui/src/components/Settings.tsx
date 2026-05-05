@@ -182,7 +182,40 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
                 <option key={key} value={key}>{label}</option>
               ))}
             </select>
-            <small className="help-text">{t('settings.languageHelp', locale)}</small>
+          <small className="help-text">{t('settings.languageHelp', locale)}</small>
+          </div>
+        </section>
+
+        {/* D2: Шаблоны настроек (пресеты) */}
+        <section>
+          <h3 style={{ marginBottom: '12px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+            🗂 Шаблоны настроек
+          </h3>
+          <p className="help-text" style={{ marginBottom: '12px' }}>
+            Быстрые пресеты для типовых задач — нажмите чтобы применить настройки одним кликом.
+          </p>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {([
+              { id: 'preset-youtube', label: '🎬 YouTube RU→EN', provider: 'legacy', webhook: '' },
+              { id: 'preset-anime',   label: '🎌 Аниме JP→RU',   provider: 'legacy', webhook: '' },
+              { id: 'preset-course',  label: '📚 Курс EN→RU',    provider: 'polza',  webhook: '' },
+              { id: 'preset-auto',    label: '⚡ Авто (быстро)', provider: 'legacy', webhook: '' },
+            ] as const).map(preset => (
+              <button
+                key={preset.id}
+                id={preset.id}
+                type="button"
+                className="btn-secondary"
+                style={{ fontSize: '0.85rem', padding: '6px 12px' }}
+                onClick={() => {
+                  setProvider(preset.provider as string);
+                  if (preset.webhook) setWebhook(preset.webhook);
+                }}
+                title={`Применить пресет: ${preset.label}`}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
         </section>
 

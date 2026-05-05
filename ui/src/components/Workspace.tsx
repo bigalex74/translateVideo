@@ -196,6 +196,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     return () => window.removeEventListener('keydown', handler);
   }, [dirty, project]);
 
+  // D-012: Прогресс в title браузера — '🔄 45% | AI Video Translator'
+  useEffect(() => {
+    if (!project) return;
+    const base = 'AI Video Translator';
+    if (project.status === 'running') {
+      const pct = project.progress_percent ?? 0;
+      document.title = `🔄 ${pct}% | ${base}`;
+    } else if (project.status === 'completed') {
+      document.title = `✅ Готово | ${base}`;
+    } else if (project.status === 'failed') {
+      document.title = `❌ Ошибка | ${base}`;
+    } else {
+      document.title = base;
+    }
+    return () => { document.title = base; };
+  }, [project?.status, project?.progress_percent]);
+
   // ─── Z4.12: Alt+↑/↓ навигация по сегментам в редакторе ──────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
