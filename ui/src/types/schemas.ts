@@ -97,6 +97,8 @@ export interface StageRun {
     progress_total?: number | null;
     progress_message?: string | null;
     metadata?: Record<string, unknown>;
+    /** Z2.7: Время выполнения этапа в секундах */
+    elapsed?: number | null;
 }
 
 export interface ArtifactRecord {

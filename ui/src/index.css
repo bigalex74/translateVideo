@@ -602,3 +602,33 @@ code {
   50% { transform: scaleX(1); }
   100% { transform: scaleX(0) translateX(100%); }
 }
+
+/* ─── Z4.7: Autosave badge — заметнее ───────────────────────────────────── */
+.autosave-badge {
+  animation: autosave-flash 0.5s ease;
+}
+@keyframes autosave-flash {
+  0% { background: rgba(16, 185, 129, 0.4); transform: scale(1.08); }
+  100% { background: transparent; transform: scale(1); }
+}
+
+/* ─── Z2.5: QA flag hint icon ────────────────────────────────────────────── */
+.running-qa-hint {
+  cursor: help;
+  font-size: 10px;
+  margin: 0 2px;
+  opacity: 0.7;
+}
+
+/* ─── Z3.7: TTS speed badge ──────────────────────────────────────────────── */
+.adv-tts-speed-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--color-accent, #6366f1);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+}

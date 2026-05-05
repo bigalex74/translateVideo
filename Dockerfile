@@ -61,6 +61,12 @@ RUN mkdir -p /app/runs
 
 EXPOSE 8002
 
+# Z5.10: Docker image labels для rollback/canary управления
+ARG APP_VERSION=dev
+LABEL org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.title="AI Video Translator" \
+      org.opencontainers.image.source="https://github.com/user/translateVideo"
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/api/health')" || exit 1

@@ -42,7 +42,84 @@ class SaveSegmentsRequest(BaseModel):
     translated: bool = True
 
 
-def project_payload(project: VideoProject, include_segments: bool = True) -> dict[str, Any]:
+# ─── Z5.5/Z1.3/Z3.1: Прогресс и ETA ──────────────────────────────────────────
+
+# Веса этапов (относительное время выполнения).
+# Если этап пропущен или нет данных — используем 1.
+_STAGE_WEIGHTS: dict[str, float] = {
+    "extract_audio": 0.05,
+    "transcribe": 0.30,
+    "translate": 0.20,
+    "tts": 0.35,
+    "merge": 0.10,
+}
+_TOTAL_WEIGHT: float = sum(_STAGE_WEIGHTS.values())
+
+
+def _compute_progress(project: "VideoProject") -> dict[str, Any]:
+    """Вычислить progress_percent и eta_seconds из stage_runs.
+
+    Алгоритм:
+    - Суммируем веса завершённых этапов → базовый прогресс
+    - Для running этапа — интерполируем по elapsed времени vs avg времени предыдущих запусков
+    - ETA = оставшийся вес / средний вес в секунду
+    """
+    import time as _time  # noqa: PLC0415
+    from translate_video.core.schemas import JobStatus  # noqa: PLC0415
+
+    stage_runs = project.stage_runs
+
+    completed_weight = 0.0
+    running_elapsed = 0.0
+    running_weight = 0.0
+    started_at: float | None = None
+
+    for run in stage_runs:
+        stage_key = run.stage.value if hasattr(run.stage, "value") else str(run.stage)
+        weight = _STAGE_WEIGHTS.get(stage_key, 1.0 / max(len(_STAGE_WEIGHTS), 1))
+
+        if run.status == JobStatus.COMPLETED:
+            completed_weight += weight
+        elif run.status == JobStatus.RUNNING:
+            running_weight = weight
+            # Пробуем получить время старта из run.started_at если есть
+            if hasattr(run, "started_at") and run.started_at:
+                try:
+                    import datetime as _dt  # noqa: PLC0415
+                    if isinstance(run.started_at, str):
+                        started_at = _dt.datetime.fromisoformat(run.started_at).timestamp()
+                    else:
+                        started_at = float(run.started_at)
+                    running_elapsed = max(0.0, _time.time() - started_at)
+                except Exception:  # noqa: BLE001
+                    running_elapsed = 0.0
+
+    # Базовый прогресс из завершённых + частичный вклад текущего этапа
+    partial = min(0.5, running_elapsed / 120.0) * running_weight  # 50% за 2 минуты
+    progress_raw = (completed_weight + partial) / _TOTAL_WEIGHT
+    progress_pct = round(min(99.0, max(0.0, progress_raw * 100.0)), 1)
+
+    # ETA: оставшийся вес / скорость выполнения
+    eta_seconds: float | None = None
+    if project.status.value == "running" and completed_weight > 0:
+        # Суммируем реальное время завершённых этапов
+        total_elapsed = sum(
+            getattr(run, "elapsed", 0.0) or 0.0
+            for run in stage_runs
+            if run.status == JobStatus.COMPLETED
+        )
+        if total_elapsed > 0:
+            speed = completed_weight / total_elapsed  # weight per second
+            remaining_weight = _TOTAL_WEIGHT - completed_weight - partial
+            eta_seconds = round(max(0.0, remaining_weight / speed), 0)
+
+    return {
+        "progress_percent": progress_pct,
+        "eta_seconds": eta_seconds,
+    }
+
+
+def project_payload(project: "VideoProject", include_segments: bool = True) -> dict[str, Any]:
     """Вернуть API-представление проекта для UI и внешних интеграций."""
 
     payload = _project_summary(project)
@@ -62,6 +139,8 @@ def project_payload(project: VideoProject, include_segments: bool = True) -> dic
         payload["created_at"] = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
     except Exception:  # noqa: BLE001
         payload["created_at"] = None
+    # Z5.5/Z1.3: progress + ETA
+    payload.update(_compute_progress(project))
     return payload
 
 

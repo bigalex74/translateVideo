@@ -109,6 +109,28 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+
+class TraceIDMiddleware(BaseHTTPMiddleware):
+    """Добавить X-Trace-ID к каждому ответу (Z5.7).
+
+    Если клиент прислал X-Request-ID — отражаем его.
+    Иначе — генерируем новый UUID4.
+    Используется для корреляции логов с запросами.
+    """
+    async def dispatch(self, request: StarletteRequest, call_next):
+        import uuid as _uuid  # noqa: PLC0415
+        trace_id = (
+            request.headers.get("X-Request-ID")
+            or request.headers.get("X-Trace-ID")
+            or _uuid.uuid4().hex
+        )
+        response = await call_next(request)
+        response.headers["X-Trace-ID"] = trace_id
+        return response
+
+
+app.add_middleware(TraceIDMiddleware)
+
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(pipeline.tts_router)
@@ -150,6 +172,8 @@ def health_check():
         },
         # auth статус (enabled/disabled)
         "auth_enabled": bool(os.getenv("API_KEY") or os.getenv("API_KEYS")),
+        # Z5.1: ссылки на API документацию
+        "docs": {"swagger": "/docs", "redoc": "/redoc", "openapi_json": "/openapi.json"},
     }
     if memory_mb is not None:
         payload["memory_mb"] = memory_mb

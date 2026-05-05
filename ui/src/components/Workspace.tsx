@@ -191,6 +191,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     rewrite_provider_quota_limited: 'warning', rewrite_provider_cooldown: 'warning',
   };
 
+  // Z2.5: Подсказки "что делать" для каждого QA-флага
+  const QA_FLAG_ACTIONS: Record<string, string> = {
+    translation_empty: 'Откройте сегмент и введите перевод вручную.',
+    translation_fallback_source: 'Перевод совпал с оригиналом — проверьте язык перевода в настройках.',
+    timing_fit_failed: 'Озвучка не помещается в слот. Сократите перевод в редакторе или уменьшите скорость.',
+    render_audio_trimmed: 'Аудио обрезано — попробуйте уменьшить текст перевода или увеличить скорость речи.',
+    tts_overflow_after_rate: 'Даже на максимальной скорости не помещается. Сократите текст перевода.',
+    timeline_shift_limit_reached: 'Субтитр выходит за рамки. Скорректируйте тайминг вручную.',
+    timeline_audio_extends_video: 'Озвучка длиннее видео — сократите последний сегмент.',
+    tts_rate_adapted: 'TTS ускорен — при необходимости сократите текст перевода.',
+    tts_pretrim: 'Текст обрезан перед отправкой в TTS — проверьте перевод.',
+    translation_rewritten_for_timing: 'Перевод был автоматически сокращён — проверьте качество.',
+  };
+
   // Какие флаги принадлежат каждой стадии пайплайна (импортировано из qa_stage_filter.ts).
   // Используется чтобы в live-ленте показывать ТОЛЬКО флаги текущей стадии,
   // а не флаги от предыдущих запусков (timing_fit, translate и т.д.).
@@ -450,10 +464,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                                : sev === 'warning'  ? <AlertTriangle size={10} />
                                :                      <Info size={10} />;
                     const label = t(`qa.flag.${flag}`, locale);
+                    const action = QA_FLAG_ACTIONS[flag];
                     return (
-                      <li key={flag} className={`running-qa-item running-qa-item--${sev}`}>
+                      <li
+                        key={flag}
+                        className={`running-qa-item running-qa-item--${sev}`}
+                        title={action || label}
+                      >
                         {icon}
                         <span className="running-qa-label">{label}</span>
+                        {action && <span className="running-qa-hint" title={action}>💡</span>}
                         <span className="running-qa-count">{count}</span>
                       </li>
                     );
@@ -974,6 +994,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       <div className="timeline-content">
                         <strong>{stageLabel(run.stage, locale)}</strong>
                         <span className="status-text">{statusLabel(run.status, locale)}</span>
+                        {/* Z2.7: elapsed time */}
+                        {run.elapsed != null && run.elapsed > 0 && (
+                          <span className="stage-elapsed">
+                            {run.elapsed >= 60
+                              ? `${Math.floor(run.elapsed / 60)}м ${Math.round(run.elapsed % 60)}с`
+                              : `${Math.round(run.elapsed)}с`}
+                          </span>
+                        )}
                         {progressInfo && (
                           <div className="timeline-progress">
                             <div className="timeline-progress-head">

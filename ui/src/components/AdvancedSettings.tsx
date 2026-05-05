@@ -594,6 +594,14 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                       <div className="adv-tts-slider-row">
                         <label className="adv-tts-slider-label">
                           🎚 Скорость речи: <strong>{ttsSpeed1.toFixed(2)}×</strong>
+                          {' '}
+                          <span className="adv-tts-speed-badge">
+                            {ttsSpeed1 <= 0.85 ? '🐢 Медленная' :
+                             ttsSpeed1 <= 1.1  ? '😊 Нормальная' :
+                             ttsSpeed1 <= 1.4  ? '⚡ Чуть быстрее' :
+                             ttsSpeed1 <= 1.7  ? '🚀 Быстрая' :
+                                                 '💨 Очень быстрая'}
+                          </span>
                           <span className="adv-tts-slider-hint">
                             ~{Math.round(14.0 * 0.78 * ttsSpeed1)} симв/с · рек. 1.3× для gpt-4o-mini-tts
                           </span>
