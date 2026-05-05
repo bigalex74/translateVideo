@@ -8,9 +8,12 @@ import { t } from './i18n';
 import {
   applyLocale,
   applyTheme,
+  applyFontLevel,
   getPersistedLargeText,
   getPersistedLocale,
   getPersistedTheme,
+  getPersistedFontLevel,
+  getPersistedCompactMode,
   persistLocale,
   type AppLocale,
 } from './store/settings';
@@ -24,11 +27,14 @@ function App() {
   const [locale, setLocale] = useState<AppLocale>(getPersistedLocale);
   const [sidebarOpen, setSidebarOpen] = useState(false);  // R1-R5: мобильный sidebar
   const largeText = getPersistedLargeText();
+  const fontLevel = getPersistedFontLevel();
+  const compactMode = getPersistedCompactMode();
 
   // Применяем тему при монтировании и при изменении
   useEffect(() => {
     applyTheme(theme, largeText);
-  }, [theme, largeText]);
+    applyFontLevel(fontLevel, compactMode);
+  }, [theme, largeText, fontLevel, compactMode]);
 
   useEffect(() => {
     applyLocale(locale);

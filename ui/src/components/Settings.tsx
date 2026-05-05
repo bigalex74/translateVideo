@@ -3,17 +3,22 @@ import { Save, CheckCircle2, KeyRound, Copy, ExternalLink, BookOpen, HelpCircle,
 import { LOCALE_LABELS, providerLabels, t } from '../i18n';
 import {
   applyTheme,
+  applyFontLevel,
   type AppLocale,
   getPersistedLargeText,
   getPersistedLocale,
   getPersistedProvider,
   getPersistedTheme,
   getPersistedWebhook,
+  getPersistedFontLevel,
+  getPersistedCompactMode,
   persistLargeText,
   persistLocale,
   persistProvider,
   persistTheme,
   persistWebhook,
+  persistFontLevel,
+  persistCompactMode,
 } from '../store/settings';
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -34,6 +39,8 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
   const [provider,  setProvider]  = useState(getPersistedProvider);
   const [theme,     setTheme]     = useState(getPersistedTheme);
   const [largeText, setLargeText] = useState(getPersistedLargeText);
+  const [fontLevel, setFontLevel] = useState<'small' | 'medium' | 'large'>(getPersistedFontLevel);
+  const [compactMode, setCompactMode] = useState(getPersistedCompactMode);
   const [selectedLocale, setSelectedLocale] = useState<AppLocale>(getPersistedLocale);
   const [saved,     setSaved]     = useState(false);
   const [apiKey,    setApiKey]    = useState(getPersistedApiKey);
@@ -41,16 +48,20 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
 
   useEffect(() => {
     applyTheme(theme, largeText);
-  }, [theme, largeText]);
+    applyFontLevel(fontLevel, compactMode);
+  }, [theme, largeText, fontLevel, compactMode]);
 
   const handleSave = () => {
     persistWebhook(webhook);
     persistProvider(provider);
     persistTheme(theme);
     persistLargeText(largeText);
+    persistFontLevel(fontLevel);
+    persistCompactMode(compactMode);
     persistLocale(selectedLocale);
     localStorage.setItem(API_KEY_STORAGE, apiKey);
     applyTheme(theme, largeText);
+    applyFontLevel(fontLevel, compactMode);
     onLocaleChange(selectedLocale);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -186,6 +197,39 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
               aria-pressed={largeText}
             >
               {largeText ? t('settings.on', locale) : t('settings.off', locale)}
+            </button>
+          </div>
+
+          {/* С1: Размер шрифта сегментов */}
+          <div className="form-group" style={{ marginTop: '12px' }}>
+            <label htmlFor="settings-font-level">
+              {locale === 'ru' ? 'Размер шрифта (Сегменты)' : 'Segment Font Size'}
+            </label>
+            <select
+              id="settings-font-level"
+              className="select-input"
+              value={fontLevel}
+              onChange={e => setFontLevel(e.target.value as 'small' | 'medium' | 'large')}
+            >
+              <option value="small">{locale === 'ru' ? 'Мелкий' : 'Small'}</option>
+              <option value="medium">{locale === 'ru' ? 'Нормальный' : 'Medium'}</option>
+              <option value="large">{locale === 'ru' ? 'Крупный' : 'Large'}</option>
+            </select>
+          </div>
+
+          {/* С4: Компактный режим */}
+          <div className="form-group" style={{ marginTop: '12px', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label htmlFor="settings-compact" style={{ margin: 0 }}>
+              {locale === 'ru' ? 'Компактный режим (сегменты)' : 'Compact Mode (Segments)'}
+            </label>
+            <button
+              id="settings-compact"
+              type="button"
+              className={`adv-toggle ${compactMode ? 'adv-toggle--on' : ''}`}
+              onClick={() => setCompactMode(v => !v)}
+              aria-pressed={compactMode}
+            >
+              {compactMode ? t('settings.on', locale) : t('settings.off', locale)}
             </button>
           </div>
 

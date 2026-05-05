@@ -95,6 +95,17 @@ p {
   margin: 0;
 }
 
+/* С1: Уровни шрифта для сегментов (data-font-level на html) */
+[data-font-level="small"] .seg-translated,
+[data-font-level="small"] .seg-source { font-size: 0.82rem; }
+[data-font-level="large"] .seg-translated,
+[data-font-level="large"] .seg-source { font-size: 1.05rem; }
+
+/* С4: Compact mode — уменьшение отступов сегментов */
+.compact-mode .segment-item { padding: 6px 8px !important; }
+.compact-mode .segment-item + .segment-item { margin-top: 4px !important; }
+.compact-mode .seg-translated { rows: 1; min-height: 32px !important; }
+
 code,
 .counter {
   font-family: var(--mono);
