@@ -11,7 +11,7 @@
  */
 
 // Версия кэша — ОБНОВЛЯЕТСЯ при каждом make deploy (sed-заменой)
-const APP_VERSION = '1.63.0';
+const APP_VERSION = '1.64.0';
 const CACHE_NAME = `av-static-${APP_VERSION}`;
 
 // НЕ кэшируем index.html — всегда с сети (Network First для HTML)

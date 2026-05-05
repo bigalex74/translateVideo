@@ -1993,7 +1993,7 @@ def rename_project(
     """
     safe_id = sanitize_project_id(project_id)
     try:
-        project = store.load_project(store.work_root / safe_id)
+        project = store.load_project(store.root / safe_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Проект {safe_id!r} не найден")
 

@@ -495,12 +495,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   ].filter(item => findArtifact(item.kind));
 
   const downloadableArtifacts = [
-    { kind: 'output_video',           label: '🎬 Готовое видео' },
-    { kind: 'output_video_with_subs', label: '🎬💬 Видео с субтитрами' },
-    { kind: 'subtitles',              label: '📄 Субтитры (SRT)' },
-    { kind: 'subtitles_vtt',          label: '📄 Субтитры (VTT)' },
-    { kind: 'qa_report',              label: '✅ QA-отчёт' },
-    { kind: 'translated_transcript',  label: '📝 Перевод (JSON)' },
+    { kind: 'output_video',           label: '🎬 Готовое видео (MP4)',         title: 'Финальный MP4 — видео с переведённой озвучкой и/или субтитрами. Оригинальный файл заменён.' },
+    { kind: 'output_video_with_subs', label: '🎬💬 Видео + субтитры (MP4)',   title: 'MP4 с встроенными субтитрами поверх видео.' },
+    { kind: 'subtitles',              label: '📄 Субтитры (SRT)',              title: 'Файл субтитров формата SRT — совместим с большинством видеоплееров и YouTube.' },
+    { kind: 'subtitles_vtt',          label: '📄 Субтитры (VTT)',              title: 'WebVTT — для использования в браузере и HTML5-видео.' },
+    { kind: 'qa_report',              label: '✅ QA-отчёт (JSON)',             title: 'Машинная проверка качества перевода: пустые сегменты, превышения тайминга, несоответствия.' },
+    { kind: 'translated_transcript',  label: '📝 Перевод (JSON)',              title: 'Полный JSON с оригинальными и переведёнными сегментами — для дальнейшей обработки.' },
   ].filter(item => findArtifact(item.kind));
 
   const canUndo = historyIndex > 0;
@@ -1434,7 +1434,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   .map(r => <ArtifactCard key={r.kind} record={r} projectId={projectId} locale={locale} />)
               ) : downloadableArtifacts.length > 0 ? (
                 downloadableArtifacts.map(item => (
-                  <a key={item.kind} className="artifact-link" href={artifactDownloadUrl(projectId, item.kind)} target="_blank" rel="noreferrer">
+                  <a key={item.kind} className="artifact-link"
+                    href={artifactDownloadUrl(projectId, item.kind)}
+                    target="_blank" rel="noreferrer"
+                    title={(item as { kind: string; label: string; title?: string }).title}
+                  >
                     <Download size={14} /> {item.label}
                   </a>
                 ))
