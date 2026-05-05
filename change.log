@@ -1,3 +1,25 @@
+## 1.78.0 - 2026-05-05 - FEAT - TVIDEO-193
+### Round 7 Итерация 1: Тёмная тема (fix), Удаление проекта, Docker Hygiene
+
+**Фронтенд:**
+- CSS: Добавлены [data-theme="dark"] и [data-theme="light"] CSS-селекторы — ручное переключение темы в Settings теперь РЕАЛЬНО работает (Нина Н7, Глеб Г4)
+- Dashboard: Кнопка 🗑 удаления проекта с диалогом подтверждения (Нина Н3)
+- Dashboard: Модальный overlay с красной кнопкой «Удалить» — случайное удаление невозможно
+
+**Бэкенд:**
+- DELETE /api/projects/{project_id} — новый endpoint (R7-И1)
+- Безопасное удаление через shutil.rmtree с sanitize_project_id
+
+**API клиент:**
+- deleteProject() — новая функция в client.ts
+
+**Инфраструктура:**
+- translate-video/SKILL.md + qa-monitor/AGENT.md: добавлены правила Docker Hygiene (причина: 106GB build cache, май 2026)
+
+**Тесты:** 832 ✅ / Build ✅ 233ms / Coverage 80% ✅
+
+---
+
 ## 1.77.0 - 2026-05-05 - FEAT - TVIDEO-189-192
 ### Round 6 Итерации 2-5: Find&Replace, Completion Toast, Shortcuts, Mobile Polish
 

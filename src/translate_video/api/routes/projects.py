@@ -1657,6 +1657,33 @@ def delete_segment(
     }
 
 
+# ─── R7-И1: Удаление проекта целиком ─────────────────────────────────────────
+
+@router.delete(
+    "/{project_id}",
+    summary="Удалить проект (R7-И1)",
+)
+def delete_project(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Удаляет проект и все связанные файлы из рабочей директории.
+
+    Возвращает: {"deleted": project_id, "ok": true}
+    """
+    safe_id = sanitize_project_id(project_id)
+    project_dir = store.root / safe_id
+    if not project_dir.exists():
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        shutil.rmtree(project_dir)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Не удалось удалить: {exc}")
+
+    return {"deleted": project_id, "ok": True}
+
+
 # ─── Z5.14: История вебхуков проекта ─────────────────────────────────────────
 
 @router.get(

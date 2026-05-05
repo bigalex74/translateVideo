@@ -210,3 +210,12 @@ export function subtitleExportUrl(project_id: string, format: 'srt' | 'vtt' | 'a
 export function subtitleExportZipUrl(project_id: string): string {
     return `${API_BASE}/projects/${project_id}/subtitles/all`;
 }
+
+/** R7-И1: Удаление проекта целиком. */
+export async function deleteProject(project_id: string): Promise<{ deleted: string; ok: boolean }> {
+    const res = await fetch(`${API_BASE}/projects/${encodeURIComponent(project_id)}`, {
+        method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}

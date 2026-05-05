@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getProjectStatus, listProjects, runPipeline, artifactDownloadUrl, renameProject } from '../api/client';
+import { getProjectStatus, listProjects, runPipeline, artifactDownloadUrl, renameProject, deleteProject } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
 import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -11,7 +11,7 @@ import { DiskUsageWarning } from './DiskUsageWarning';
 import { getPersistedProvider } from '../store/settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
-  ArrowRight, RefreshCw, Clock, Search, BookOpen, Download, Pencil, Check, X
+  ArrowRight, RefreshCw, Clock, Search, BookOpen, Download, Pencil, Check, X, Trash2
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -53,6 +53,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<{ id: string; force: boolean } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // R7-И1: id проекта для удаления
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dragOver, setDragOver] = useState(false);  // Z4.15: DnD upload
   // О1: Inline rename состояние
@@ -119,6 +120,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
       setError(e instanceof Error ? e.message : t('dashboard.runError', locale));
     }
   };
+
+  // R7-И1: Удаление проекта
+  const handleDeleteProject = useCallback(async (id: string) => {
+    try {
+      await deleteProject(id);
+      setProjects(prev => prev.filter(p => p.project_id !== id));
+      if (project?.project_id === id) setProject(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка удаления');
+    } finally {
+      setConfirmDelete(null);
+    }
+  }, [project]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -266,6 +281,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                   >
                     <RefreshCw size={16} />
                     {locale === 'ru' ? '↺ Начать заново' : '↺ Restart All'}
+                  </button>
+                )}
+                {/* R7-И1: Удаление проекта с подтверждением */}
+                {project.status !== 'running' && (
+                  <button
+                    id="btn-delete-project"
+                    onClick={() => setConfirmDelete(project.project_id)}
+                    className="btn-secondary btn-delete-project"
+                    title="Удалить проект"
+                  >
+                    <Trash2 size={16} />
                   </button>
                 )}
                 <button
@@ -596,6 +622,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
         />
       )}
     </div>
+    {/* R7-И1: Диалог подтверждения удаления проекта */}
+    {confirmDelete && (
+      <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
+        <div className="modal-box delete-confirm-modal" onClick={e => e.stopPropagation()}>
+          <h3>🗑 Удалить проект?</h3>
+          <p>Проект <b>{confirmDelete}</b> и все его файлы будут удалены безвозвратно.</p>
+          <div className="modal-actions">
+            <button className="btn-secondary" onClick={() => setConfirmDelete(null)}>
+              <X size={16} /> Отмена
+            </button>
+            <button className="btn-danger" onClick={() => handleDeleteProject(confirmDelete)}>
+              <Trash2 size={16} /> Удалить
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <CompletionToast
       projectId={project?.project_id ?? null}
       status={project?.status}

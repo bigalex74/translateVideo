@@ -55,10 +55,32 @@ PYTHONPATH=src python3 -m coverage run --source=translate_video -m pytest tests/
 python3 -m coverage report --fail-under=80
 ```
 
+### Еженедельный аудит диска и Docker (ОБЯЗАТЕЛЬНО):
+```bash
+# 1. Проверка диска
+df -h / | awk 'NR==2 {print "Disk: " $5 " used (свободно: " $4 ")"} '
+
+# 2. Статус Docker
+docker system df
+
+# 3. Авточистка (build cache + dangling images)
+docker builder prune -f && docker image prune -f
+```
+
+### Пороги мониторинга:
+| Метрика | ✅ Норма | ⚠️ Предупреждение | 🔴 БЛОК |
+|---------|---------|---------------|--------|
+| Диск `/` | < 70% | 70–85% | **> 85%** |
+| Docker build cache | < 5 GB | 5–20 GB | **> 20 GB** |
+| Docker images reclaimable | < 10 GB | 10–30 GB | **> 30 GB** |
+| Docker volumes unused | < 2 GB | 2–5 GB | **> 5 GB** |
+
 ## Отчёт QA Monitor
-Формат: `[QA-YYYYMMDD] Статус: ✅/⚠️/❌ | Python: X% | TS: X% | Тестов: N | Деплой: vX.Y.Z`
+Формат: `[QA-YYYYMMDD] Статус: ✅/⚠️/❌ | Python: X% | TS: X% | Тестов: N | Деплой: vX.Y.Z | Диск: X% | Docker cache: X GB`
 
 ## Эскалация к CEO
 - Покрытие < 75% → немедленно
 - Деплой упал в проде → немедленно
 - Правило нарушено → в течение 1 часа
+- **Диск > 85% → немедленно, блок любых деплоев** (историческая причина: Docker build cache 106 GB, май 2026)
+- **Docker build cache > 20 GB → очистка перед началом следующего деплоя**
