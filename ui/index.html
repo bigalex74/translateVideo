@@ -20,7 +20,8 @@
     <title>AI Video Translator</title>
   </head>
   <body>
-    <!-- Nm5-11: PWA Splash Screen -->
+    <!-- PWA Splash Screen (Nm5-11) -->
+    <!-- Скрывается из React main.tsx через window.__hideSplash() -->
     <div id="pwa-splash" aria-hidden="true">
       <div class="splash-logo">🎬</div>
       <div class="splash-title">AI Video Translator</div>
@@ -32,27 +33,33 @@
 
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- PWA Service Worker registration -->
-    <script>
-      // Hide splash when React is ready
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          const splash = document.getElementById('pwa-splash');
-          if (splash) splash.classList.add('hidden');
-        }, 800);
-      });
 
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
+    <!-- Service Worker + Splash fallback -->
+    <script>
+      // window.__hideSplash вызывается из React (main.tsx → AppErrorBoundary.componentDidMount)
+      // Здесь — только fallback на случай если React не отрисовался за 5 секунд
+      window.__hideSplash = function() {
+        var splash = document.getElementById('pwa-splash');
+        if (splash && !splash.classList.contains('hidden')) {
+          splash.classList.add('hidden');
+        }
+      };
+
+      window.addEventListener('load', function() {
+        // Принудительное скрытие через 5с (экстренный fallback)
+        setTimeout(window.__hideSplash, 5000);
+
+        // Service Worker регистрация
+        if ('serviceWorker' in navigator) {
           navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then((reg) => {
+            .then(function(reg) {
               console.info('[SW] registered, scope:', reg.scope);
             })
-            .catch((err) => {
+            .catch(function(err) {
               console.warn('[SW] registration failed:', err);
             });
-        });
-      }
+        }
+      });
     </script>
   </body>
 </html>

@@ -1,42 +1,39 @@
 /**
- * Service Worker для AI Video Translator (PWA — backlog)
+ * Service Worker для AI Video Translator (PWA)
  *
- * Стратегия:
- * - Shell (HTML/CSS/JS) → Cache First (офлайн)
- * - API запросы (/api/*) → Network Only (всегда свежие данные)
- * - Статические ассеты → Stale While Revalidate
+ * СТРАТЕГИЯ v2 (фикс бага с кэшированием):
+ * - HTML → Network First (всегда свежий, обновляется при деплое)
+ * - API запросы → Network Only
+ * - Статические ассеты с хэшем (/assets/*.js) → Cache First (безопасно, т.к. хэш меняется)
+ * - Прочее → Network First
+ *
+ * ВАЖНО: APP_VERSION обновляется при каждом деплое через make deploy
  */
 
-// Версия кэша = версия приложения (инжектируется при деплое через sed или Vite)
-// Изменение версии → браузер удалит старый кэш и установит новый SW
-const APP_VERSION = self.__APP_VERSION__ || '1.39.0';
-const CACHE_NAME = `ai-video-translator-${APP_VERSION}`;
-const SHELL_CACHE = `shell-${APP_VERSION}`;
+// Версия кэша — ОБНОВЛЯЕТСЯ при каждом make deploy (sed-заменой)
+const APP_VERSION = '1.57.0';
+const CACHE_NAME = `av-static-${APP_VERSION}`;
 
-// Ресурсы для precaching (app shell)
-const SHELL_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/favicon.svg',
-];
+// НЕ кэшируем index.html — всегда с сети (Network First для HTML)
+// Кэшируем ТОЛЬКО хэшированные ассеты (они неизменны по хэшу)
 
-// Установка SW — precache shell
+// Установка SW — минимальный precache
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS))
-      .then(() => self.skipWaiting())
-  );
+  // Немедленно активируем новый SW, не ждём закрытия вкладок
+  event.waitUntil(self.skipWaiting());
 });
 
-// Активация — удаляем старые кэши
+// Активация — УДАЛЯЕМ все старые кэши
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE_NAME && k !== SHELL_CACHE)
-          .map((k) => caches.delete(k))
+          .filter((k) => k !== CACHE_NAME)
+          .map((k) => {
+            console.info('[SW] Deleting old cache:', k);
+            return caches.delete(k);
+          })
       )
     ).then(() => self.clients.claim())
   );
@@ -47,7 +44,7 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // API запросы — всегда сеть (актуальные данные)
+  // 1. API запросы — ВСЕГДА сеть (свежие данные)
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/runs/')) {
     event.respondWith(
       fetch(request).catch(() =>
@@ -60,43 +57,42 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML — Shell (app) — Cache First с fallback на сеть
+  // 2. HTML (навигация) — Network First, без кэша
+  // ВАЖНО: index.html НЕ кэшируется, чтобы деплой всегда давал новый бандл
   if (request.mode === 'navigate' || request.headers.get('Accept')?.includes('text/html')) {
     event.respondWith(
-      caches.match('/index.html').then((cached) =>
-        cached || fetch(request).then((res) => {
-          const clone = res.clone();
-          caches.open(SHELL_CACHE).then((c) => c.put('/index.html', clone));
-          return res;
-        })
+      fetch(request).catch(() =>
+        new Response('<h1>Нет соединения</h1><p>Проверьте подключение и перезагрузите страницу.</p>',
+          { headers: { 'Content-Type': 'text/html' } })
       )
     );
     return;
   }
 
-  // Статические ассеты — Stale While Revalidate
-  if (url.pathname.startsWith('/assets/') || url.pathname.endsWith('.svg')) {
+  // 3. Хэшированные ассеты /assets/*.js, /assets/*.css — Cache First (безопасно)
+  // Vite генерирует уникальные имена файлов с хэшем при каждой сборке
+  if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match(request).then((cached) => {
-          const fetchPromise = fetch(request).then((res) => {
-            cache.put(request, res.clone());
+          if (cached) return cached;
+          return fetch(request).then((res) => {
+            if (res.ok) cache.put(request, res.clone());
             return res;
           });
-          return cached || fetchPromise;
         })
       )
     );
     return;
   }
 
-  // Всё остальное — Network First
+  // 4. Всё остальное (favicon, manifest, icons) — Network First
   event.respondWith(
     fetch(request).catch(() => caches.match(request))
   );
 });
 
-// Push notifications (если браузер поддерживает и разрешены)
+// Push notifications
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   const data = event.data.json();

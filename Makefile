@@ -21,6 +21,12 @@ build:
 ## deploy: Пересобрать образ и перезапустить контейнер (= выкатить на сайт)
 deploy:
 	@echo "$(CYAN)▶ Деплой на video.bigalexn8n.ru...$(RESET)"
+	@# Обновить версию SW для инвалидации кэша браузера
+	@VERSION=$$(cat VERSION 2>/dev/null || echo "0.0.0"); \
+	  sed -i "s/const APP_VERSION = '[^']*'/const APP_VERSION = '$$VERSION'/" ui/public/sw.js; \
+	  echo "$(CYAN)  SW версия: $$VERSION$(RESET)"
+	@# Пересобрать UI с новым sw.js
+	cd ui && npm run build
 	docker compose build
 	docker compose up -d
 	@echo "$(GREEN)✔ Готово. Версия:$(RESET)"
