@@ -175,6 +175,8 @@ class Segment:
     qa_flags: list[str] = field(default_factory=list)
     # Z2.11: Комментарий редактора к сегменту (не влияет на пайплайн)
     notes: str = ""
+    # Z2.16: Счётчик ручных правок перевода (инкрементируется при каждом изменении)
+    edit_count: int = 0
 
     def __post_init__(self) -> None:
         if self.end < self.start:
@@ -188,9 +190,13 @@ class Segment:
         return self.end - self.start
 
     def to_dict(self) -> dict[str, Any]:
-        """Вернуть JSON-совместимое представление сегмента."""
-
-        return asdict(self)
+        """Вернуть JSON-совместимое представление сегмента (Z3.19: word_count)."""
+        import re as _re  # noqa: PLC0415
+        d = asdict(self)
+        # Вычисляемые поля — не сохраняются в JSON, добавляются на лету
+        d["word_count_source"] = len(_re.findall(r"\S+", self.source_text or ""))
+        d["word_count_translated"] = len(_re.findall(r"\S+", self.translated_text or ""))
+        return d
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Segment":

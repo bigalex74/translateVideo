@@ -46,6 +46,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<{ id: string; force: boolean } | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dragOver, setDragOver] = useState(false);  // Z4.15: DnD upload
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -122,7 +123,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
 
   return (
     <>
-    <div className="dashboard page-container fade-in">
+    <div
+      className={`dashboard page-container fade-in${dragOver ? ' dashboard-drag-over' : ''}`}
+      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={async e => {
+        e.preventDefault();
+        setDragOver(false);
+        const file = e.dataTransfer.files[0];
+        if (!file || !file.type.startsWith('video/')) {
+          setError(locale === 'ru' ? 'Только видеофайлы' : 'Only video files allowed');
+          return;
+        }
+        setLoading(true);
+        try {
+          const { uploadProject } = await import('../api/client');
+          const created = await uploadProject(file);
+          onOpenProject(created.project_id);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Upload failed');
+        } finally { setLoading(false); }
+      }}
+    >
+      {/* Z4.15: Drag-and-drop overlay */}
+      {dragOver && (
+        <div className="dashboard-dnd-overlay">
+          <span>📽 Перетащите видео для создания проекта</span>
+        </div>
+      )}
       <header className="page-header">
         <h2>{t('dashboard.title', locale)}</h2>
         <p className="subtitle">{t('dashboard.subtitle', locale)}</p>
@@ -169,6 +197,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                   {getStatusIcon(project.status)}
                     {statusLabel(project.status, locale)}
                 </span>
+                {/* Z5.16: Теги проекта */}
+                {((project as unknown as {tags?: string[]}).tags ?? []).length > 0 && (
+                  <div className="project-tags">
+                    {((project as unknown as {tags?: string[]}).tags ?? []).map(tag => (
+                      <span key={tag} className="project-tag">{tag}</span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="card-actions">
                 {project.status !== 'running' && project.status !== 'completed' && (

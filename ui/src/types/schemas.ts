@@ -84,6 +84,9 @@ export interface Segment {
     tts_text?: string;
     qa_flags?: string[];
     notes?: string;  // Z2.11: комментарий редактора
+    edit_count?: number;  // Z2.16: счётчик ручных правок
+    word_count_source?: number;  // Z3.19
+    word_count_translated?: number;  // Z3.19
 }
 
 export interface StageRun {

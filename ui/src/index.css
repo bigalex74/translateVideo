@@ -977,3 +977,48 @@ code {
   font-size: 0.8rem;
 }
 .bulk-count { font-weight: 600; color: var(--accent); flex: 1; }
+
+/* ─── Z4.15: Dashboard drag-and-drop upload ─────────────────────────────── */
+.dashboard-drag-over {
+  outline: 3px dashed var(--accent);
+  outline-offset: -4px;
+}
+.dashboard-dnd-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 999;
+  pointer-events: none;
+}
+.dashboard-dnd-overlay span {
+  font-size: 2rem;
+  color: #fff;
+  background: var(--accent);
+  padding: 1.5rem 3rem;
+  border-radius: 16px;
+  text-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+
+/* ─── Z5.16: Project tags ────────────────────────────────────────────────── */
+.project-tags { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 4px; }
+.project-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  opacity: 0.85;
+}
+
+/* ─── Z2.16: Edit count badge ────────────────────────────────────────────── */
+.seg-edit-count {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 9999px;
+  background: var(--surface-2, #f0f0f0);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

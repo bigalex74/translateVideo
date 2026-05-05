@@ -1848,3 +1848,77 @@ def unarchive_project(
     project.archived = False
     store.save_project(project)
     return {"project_id": project_id, "archived": False}
+
+# ─── NC11-01: Экспорт проекта в ZIP-архив ────────────────────────────────────
+
+@router.get(
+    "/{project_id}/export/zip",
+    summary="Экспортировать весь проект как ZIP (NC11-01)",
+)
+def export_project_zip(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Экспортирует все артефакты проекта в ZIP-архив.
+
+    Включает: все форматы субтитров (SRT, VTT, ASS, SBV), скрипт перевода (TXT, TSV), project.json.
+    Большие видеофайлы НЕ включаются в ZIP — только текстовые артефакты.
+    """
+    import zipfile as _zip
+    import io as _io
+    from fastapi.responses import StreamingResponse  # noqa: PLC0415
+
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    buf = _io.BytesIO()
+    with _zip.ZipFile(buf, "w", compression=_zip.ZIP_DEFLATED) as zf:
+        # project.json
+        import json as _json  # noqa: PLC0415
+        zf.writestr("project.json", _json.dumps(project.to_dict(), ensure_ascii=False, indent=2, default=str))
+
+        # Субтитры — если есть сегменты
+        if project.segments:
+            from translate_video.core.store import ProjectStore as _PS  # noqa: PLC0415
+            try:
+                srt = store.export_subtitles(project, "srt")
+                zf.writestr(f"{project_id}.srt", srt)
+            except Exception:
+                pass
+            try:
+                vtt = store.export_subtitles(project, "vtt")
+                zf.writestr(f"{project_id}.vtt", vtt)
+            except Exception:
+                pass
+            try:
+                ass = store.export_subtitles(project, "ass")
+                zf.writestr(f"{project_id}.ass", ass)
+            except Exception:
+                pass
+            try:
+                sbv = store.export_subtitles(project, "sbv")
+                zf.writestr(f"{project_id}.sbv", sbv)
+            except Exception:
+                pass
+
+            # Скрипт перевода (TXT)
+            script_lines = []
+            for s in project.segments:
+                script_lines.append(f"[{s.start:.1f}-{s.end:.1f}] {s.translated_text or ''}")
+            zf.writestr(f"{project_id}_script.txt", "\n".join(script_lines))
+
+            # TSV
+            tsv_lines = ["start\tend\tsource\ttranslation"]
+            for s in project.segments:
+                tsv_lines.append(f"{s.start}\t{s.end}\t{s.source_text or ''}\t{s.translated_text or ''}")
+            zf.writestr(f"{project_id}_script.tsv", "\n".join(tsv_lines))
+
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={safe_id}.zip"},
+    )

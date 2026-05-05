@@ -1,4 +1,97 @@
 # Журнал Изменений
+## 1.55.0 - 2026-05-05 - FEAT - TVIDEO-169
+
+### Round 3 Итерация 10 (финал): ZIP export, DnD Dashboard, Tags, word_count, edit_count
+
+**Бэкенд:**
+- projects.py: GET /{id}/export/zip — полный ZIP-экспорт (SRT+VTT+ASS+SBV+TXT+TSV+project.json) (NC11-01)
+- schemas.py: Segment.edit_count — счётчик ручных правок (Z2.16)
+- schemas.py: Segment.to_dict() добавляет word_count_source/translated (Z3.19)
+- schemas.py: VideoProject.tags + VideoProject.archived (NC10-01/NC10-02)
+
+**Фронтенд:**
+- Dashboard: Z4.15 Drag-and-drop видео → мгновенный upload и открытие проекта
+- Dashboard: Z5.16 теги-пиллы в карточке проекта
+- Workspace: Z2.16 badge счётчика правок ✏️ N на сегменте
+- Workspace: handleTextChange инкрементирует edit_count при правке перевода
+- schemas.ts: Segment.edit_count + word_count_source/translated типы добавлены
+- index.css: .dashboard-dnd-overlay, .project-tag, .seg-edit-count стили
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.55.0
+
+## 1.54.0 - 2026-05-05 - FEAT - TVIDEO-168
+
+### Round 3 Итерация 9: Tags, Archive, Pagination, Bulk select
+
+**Бэкенд:**
+- schemas.py: VideoProject.tags + archived поля + сериализация (NC10-01, NC10-02)
+- projects.py: PUT /{id}/tags (NC10-01)
+- projects.py: POST /{id}/archive, /unarchive (NC10-02)
+- projects.py: list_projects с pagination page/page_size/tag/archived (Z3.18)
+
+**Фронтенд:**
+- Workspace: Z2.15 checkbox выбора сегментов + bulk-actions-bar (выбрать все, скопировать)
+- index.css: .seg-checkbox, .seg-selected, .bulk-actions-bar
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.54.0
+
+## 1.53.0 - 2026-05-05 - FEAT - TVIDEO-167
+
+### Round 3 Итерация 8: Split сегмента, Download видео, QA badge, segment_score, About
+
+**Бэкенд:**
+- projects.py: POST /{id}/segments/{seg_id}/split — разбивка сегмента (NC9-01)
+- projects.py: GET /{id}/download-video — скачать готовое MP4 (Z1.14)
+- stats.py: compute_segment_score() — оценка A/B/C/D + штрафы за QA-флаги (Z3.17)
+
+**Фронтенд:**
+- Workspace: Z4.13 цветовая маркировка сегментов (critical/error/warning border-left)
+- Settings: Z5.15 секция «О проекте» с tech stack + ссылки
+- Dashboard: кнопка 📽 MP4 для готовых проектов (Z1.14)
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.53.0
+
+## 1.52.0 - 2026-05-05 - FEAT - TVIDEO-166
+
+### Round 3 Итерация 7: DELETE segment, Merge, QA-фильтр, Webhook history
+
+**Бэкенд:**
+- projects.py: DELETE /{id}/segments/{segment_id} (NC8-01)
+- projects.py: GET /{id}/webhook-history (Z5.14)
+
+**Фронтенд:**
+- Workspace: Z2.14 handleMergeSegments — объединение двух соседних сегментов + кнопка ⤵
+- Workspace: NC8-02 qaFlagFilter dropdown — фильтр сегментов по QA-флагу
+- index.css: .seg-qa-filter, .seg-merge-btn
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.52.0
+
+## 1.51.0 - 2026-05-05 - FEAT - TVIDEO-165
+
+### Round 3 Итерация 6: Alt+↑↓ навигация, bulk-translate API, min/max длительность, Open Video
+
+**Бэкенд:**
+- projects.py: POST /{id}/bulk-translate — пакетный перевод выбранных сегментов (Z2.13)
+- stats.py: min_duration_s + max_duration_s в segment_stats (Z5.13)
+
+**Фронтенд:**
+- Workspace: Alt+ArrowUp/Down навигация по сегментам (Z4.12)
+- Workspace: кнопка «Открыть видео» ExternalLink в новой вкладке (Z1.13)
+- Shortcuts modal: добавлена Alt+↑/↓ запись
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.51.0
+
+
 
 ## 1.49.0 - 2026-05-05 - FEAT - TVIDEO-163
 

@@ -307,7 +307,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     setProject(prev => {
       if (!prev) return prev;
       const newSegments = (prev.segments as Segment[]).map(s =>
-        s.id === segId ? { ...s, [field]: newText } : s
+        s.id === segId ? {
+          ...s,
+          [field]: newText,
+          // Z2.16: Счётчик правок инкрементируется при изменении перевода
+          ...(field === 'translated_text' ? { edit_count: (s.edit_count ?? 0) + 1 } : {}),
+        } : s
       );
       pushHistory(newSegments);
       return { ...prev, segments: newSegments };
@@ -1001,6 +1006,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       <span className="seg-duration">({(seg.end - seg.start).toFixed(1)}с)</span>
                     </span>
                     <span className="seg-status">{statusLabel(seg.status ?? '', locale)}</span>
+                    {/* Z2.16: Badge счётчика правок */}
+                    {(seg.edit_count ?? 0) > 0 && (
+                      <span className="seg-edit-count" title="Количество ручных правок">
+                        ✏️ {seg.edit_count}
+                      </span>
+                    )}
                     {/* Z2.10: copy translated text */}
                     {seg.translated_text && (
                       <button
