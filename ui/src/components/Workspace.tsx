@@ -63,6 +63,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [historyIndex, setHistoryIndex] = useState(-1);
   // Z2.12: Segment search/filter
   const [segSearch, setSegSearch] = React.useState('');
+  const [qaFlagFilter, setQaFlagFilter] = React.useState('');  // NC8-02
   // Z4.10: Keyboard shortcuts help modal
   const [showShortcuts, setShowShortcuts] = useState(false);
   // Z3.11: Quality report state
@@ -351,6 +352,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     const ni = historyIndex + 1;
     setHistoryIndex(ni);
     setProject(prev => prev ? { ...prev, segments: history[ni] } : prev);
+    setDirty(true);
+  };
+
+  // ─── Z2.14: Объединение двух соседних сегментов ──────────────────────────────
+  const handleMergeSegments = (segId: string) => {
+    setProject(prev => {
+      if (!prev) return prev;
+      const segs = prev.segments as Segment[];
+      const idx = segs.findIndex(s => s.id === segId);
+      if (idx < 0 || idx >= segs.length - 1) return prev;
+
+      const curr = segs[idx];
+      const next = segs[idx + 1];
+      const merged: Segment = {
+        ...curr,
+        end: next.end,
+        source_text: [curr.source_text, next.source_text].filter(Boolean).join(' '),
+        translated_text: [curr.translated_text, next.translated_text].filter(Boolean).join(' '),
+        notes: [curr.notes, next.notes].filter(Boolean).join(' | '),
+      };
+      const newSegs = [...segs.slice(0, idx), merged, ...segs.slice(idx + 2)];
+      return { ...prev, segments: newSegs };
+    });
     setDirty(true);
   };
 
@@ -887,11 +911,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               {segSearch && (
                 <button className="seg-search-clear" onClick={() => setSegSearch('')} aria-label="Очистить">×</button>
               )}
+              {/* NC8-02: Фильтр по QA-флагу */}
+              <select
+                className="seg-qa-filter"
+                value={qaFlagFilter}
+                onChange={e => setQaFlagFilter(e.target.value)}
+                title="Фильтр по QA-флагу"
+              >
+                <option value="">Все сегменты</option>
+                <option value="translation_empty">Пустой перевод</option>
+                <option value="timing_fit_failed">Не влезает в слот</option>
+                <option value="tts_overflow">Переполнение TTS</option>
+                <option value="render_audio_trimmed">Обрезка аудио</option>
+                <option value="translation_fallback_source">Оригинал в переводе</option>
+              </select>
             </div>
             <div className="segments-list">
               {segments
                 .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
                   seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))
+                .filter(seg => !qaFlagFilter || (seg.qa_flags ?? []).includes(qaFlagFilter))  // NC8-02
                 .map((seg) => (
                 <div
                   key={seg.id}
@@ -1057,6 +1096,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     value={seg.notes ?? ''}
                     onChange={(e) => handleTextChange(seg.id, e.target.value, 'notes')}
                   />
+                  {/* Z2.14: Объединить с следующим сегментом */}
+                  {segments.indexOf(seg) < segments.length - 1 && (
+                    <button
+                      className="seg-merge-btn"
+                      title={locale === 'ru' ? 'Объединить с следующим сегментом' : 'Merge with next segment'}
+                      onClick={() => handleMergeSegments(seg.id)}
+                    >
+                      ⤵ Объединить
+                    </button>
+                  )}
                 </div>
               ))}
               {segments.length === 0 && !isRunning && (

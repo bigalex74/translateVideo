@@ -1538,3 +1538,85 @@ def bulk_translate_segments(
         "segment_ids": [s.id for s in target_segs],
         "message": f"{len(target_segs)} сегментов помечены для перевода. Запустите пайплайн с from_stage=translate",
     }
+
+# ─── NC8-01: Удаление сегмента из проекта ────────────────────────────────────
+
+@router.delete(
+    "/{project_id}/segments/{segment_id}",
+    summary="Удалить сегмент из проекта (NC8-01)",
+)
+def delete_segment(
+    project_id: str = FastAPIPath(...),
+    segment_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Удаляет один сегмент из проекта по его ID.
+
+    После удаления транскрипт пересохраняется.
+    Возвращает: обновлённый список сегментов.
+    """
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    original_count = len(project.segments or [])
+    new_segments = [s for s in (project.segments or []) if s.id != segment_id]
+
+    if len(new_segments) == original_count:
+        raise HTTPException(status_code=404, detail=f"Сегмент '{segment_id}' не найден")
+
+    store.save_segments(project, new_segments, translated=bool(
+        any(s.translated_text for s in new_segments)
+    ))
+
+    return {
+        "project_id": project_id,
+        "deleted_id": segment_id,
+        "segments_remaining": len(new_segments),
+        "segments": [s.to_dict() for s in new_segments],
+    }
+
+
+# ─── Z5.14: История вебхуков проекта ─────────────────────────────────────────
+
+@router.get(
+    "/{project_id}/webhook-history",
+    summary="История отправленных вебхуков проекта (Z5.14)",
+)
+def get_webhook_history(
+    project_id: str = FastAPIPath(...),
+    limit: int = 50,
+    store: ProjectStore = Depends(get_store),
+):
+    """Вернуть список вебхук-событий отправленных для данного проекта.
+
+    Восстанавливает историю из webhook_events в project.json.
+    Каждая запись: event_type, url, payload_preview, sent_at.
+    """
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Webhook events хранятся в stage_runs metadata
+    events = []
+    for run in (project.stage_runs or []):
+        metadata = run.to_dict().get("metadata") or {}
+        webhook_sent = metadata.get("webhook_sent")
+        if webhook_sent:
+            events.append({
+                "stage": run.stage if hasattr(run, "stage") else "unknown",
+                "status": run.status if hasattr(run, "status") else "unknown",
+                "sent_at": run.to_dict().get("completed_at") or run.to_dict().get("started_at"),
+                "webhook_url": metadata.get("webhook_url", ""),
+                "event_type": f"project.stage.{run.status if hasattr(run, 'status') else 'unknown'}",
+            })
+
+    return {
+        "project_id": project_id,
+        "webhook_events": events[-limit:],
+        "total": len(events),
+    }
