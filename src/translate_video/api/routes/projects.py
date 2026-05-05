@@ -10,11 +10,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Body
 from fastapi import Path as FastAPIPath
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from translate_video.cli import _project_summary
 from translate_video.core.config import PipelineConfig
-from translate_video.core.schemas import ArtifactKind, Segment, VideoProject
+from translate_video.core.schemas import ArtifactKind, Segment, SegmentStatus, VideoProject
 from translate_video.core.store import ProjectStore, sanitize_filename, sanitize_project_id
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
@@ -1478,3 +1478,63 @@ def export_all_subtitles(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{safe_id}_subtitles.zip"'},
     )
+
+# ─── Z2.13: Bulk translate выбранных сегментов ────────────────────────────────
+
+class BulkTranslateRequest(BaseModel):
+    segment_ids: list[str] = Field(default_factory=list, description="IDs сегментов для перевода. Пустой = все непереведённые")
+    force: bool = Field(False, description="Перевести даже если уже переведены")
+    target_language: str | None = Field(None, description="Язык перевода (переопределяет config)")
+
+
+@router.post(
+    "/{project_id}/bulk-translate",
+    summary="Пакетный перевод выбранных сегментов (Z2.13)",
+)
+def bulk_translate_segments(
+    project_id: str = FastAPIPath(...),
+    body: BulkTranslateRequest = Body(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Запустить перевод для выбранных сегментов в фоне.
+
+    Если segment_ids пустой — переводятся все сегменты без перевода.
+    Возвращает: список ID сегментов поставленных в очередь и статус.
+    """
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.segments:
+        raise HTTPException(status_code=404, detail="Сегменты не найдены — запустите транскрипцию")
+
+    # Определяем какие сегменты переводить
+    target_segs = [
+        s for s in project.segments
+        if (not body.segment_ids or s.id in body.segment_ids)
+        and (body.force or not (s.translated_text or "").strip())
+    ]
+
+    if not target_segs:
+        return {
+            "project_id": project_id,
+            "queued": 0,
+            "segment_ids": [],
+            "message": "Нет сегментов для перевода (все уже переведены или ids не совпали)",
+        }
+
+    # Помечаем отобранные сегменты как draft для повторного перевода
+    for seg in target_segs:
+        seg.translated_text = ""
+        seg.status = SegmentStatus.DRAFT
+
+    store.save_project(project)
+
+    return {
+        "project_id": project_id,
+        "queued": len(target_segs),
+        "segment_ids": [s.id for s in target_segs],
+        "message": f"{len(target_segs)} сегментов помечены для перевода. Запустите пайплайн с from_stage=translate",
+    }

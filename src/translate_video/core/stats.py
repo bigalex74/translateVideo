@@ -108,6 +108,8 @@ def compute_project_stats(project: VideoProject) -> dict[str, Any]:
         "target_chars": target_chars,
         "compression_ratio": compression_ratio,
         "avg_duration_s": avg_duration,
+        "min_duration_s": round(min(durations), 2) if durations else None,  # Z5.13
+        "max_duration_s": round(max(durations), 2) if durations else None,  # Z5.13
         "total_audio_duration_s": round(sum(durations), 1) if durations else None,
         "segments_rewritten": segments_rewritten,
         "empty_translations": empty_translations,

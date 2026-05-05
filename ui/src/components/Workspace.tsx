@@ -16,7 +16,7 @@ import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings, X,
-  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info, Share2,
+  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info, Share2, ExternalLink,
 } from 'lucide-react';
 import './Workspace.css';
 
@@ -193,6 +193,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [dirty, project]);
+
+  // ─── Z4.12: Alt+↑/↓ навигация по сегментам в редакторе ──────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.altKey || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+      const segs = (project?.segments ?? []) as Segment[];
+      if (!segs.length) return;
+      e.preventDefault();
+      setActiveSegId(prev => {
+        const idx = prev ? segs.findIndex(s => s.id === prev) : -1;
+        if (e.key === 'ArrowDown') {
+          return segs[Math.min(idx + 1, segs.length - 1)]?.id ?? prev;
+        } else {
+          return segs[Math.max(idx - 1, 0)]?.id ?? prev;
+        }
+      });
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [project]);
 
   // ─── Live QA feed ─── (ДОЛЖЕН быть ДО любого раннего return — Rules of Hooks)
   const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
@@ -663,6 +683,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           >
             <Share2 size={15} />
           </button>
+          {/* Z1.13: Открыть исходное видео */}
+          {project?.input_video && (
+            <a
+              className="btn-icon btn-icon--labeled"
+              href={`/api/v1/projects/${projectId}/video`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={locale === 'ru' ? 'Открыть видео в новой вкладке' : 'Open video in new tab'}
+            >
+              <ExternalLink size={15} />
+            </a>
+          )}
           <button
             className="btn-icon btn-icon--labeled"
             title={t('workspace.translationSettings', locale)}
@@ -1332,6 +1364,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               <div className="shortcut-row"><kbd>Space</kbd><span>Пауза / воспроизведение видео</span></div>
               <div className="shortcut-row"><kbd>←</kbd> / <kbd>→</kbd><span>Перемотка ±5 сек</span></div>
               <div className="shortcut-row"><kbd>Tab</kbd><span>Следующий сегмент</span></div>
+              <div className="shortcut-row"><kbd>Alt+↑</kbd> / <kbd>Alt+↓</kbd><span>Навигация по сегментам (Z4.12)</span></div>
             </div>
           </div>
         </div>
