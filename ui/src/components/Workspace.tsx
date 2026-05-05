@@ -210,13 +210,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     return () => window.removeEventListener('keydown', handler);
   }, [dirty, project]);
 
-  // D-012: Прогресс в title браузера — '🔄 45% | AI Video Translator'
+  // D-012 + О2: Прогресс + ETA в title браузера — '🔄 45% ~3мин | AI Video Translator'
   useEffect(() => {
     if (!project) return;
     const base = 'AI Video Translator';
     if (project.status === 'running') {
       const pct = project.progress_percent ?? 0;
-      document.title = `🔄 ${pct}% | ${base}`;
+      const eta = project.eta_seconds;
+      const etaStr = eta != null && eta > 0
+        ? (eta >= 60 ? ` ~${Math.ceil(eta / 60)}мин` : ` ~${eta}с`)
+        : '';
+      document.title = `🔄 ${pct}%${etaStr} | ${base}`;
     } else if (project.status === 'completed') {
       document.title = `✅ Готово | ${base}`;
     } else if (project.status === 'failed') {
@@ -225,7 +229,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       document.title = base;
     }
     return () => { document.title = base; };
-  }, [project?.status, project?.progress_percent]);
+  }, [project?.status, project?.progress_percent, project?.eta_seconds]);
 
   // ─── Z4.12: Alt+↑/↓ навигация по сегментам в редакторе ──────────────────────
   useEffect(() => {
@@ -807,6 +811,38 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
         <div className="workspace-message" role="status">{message}</div>
       )}
 
+      {/* С3: Error Recovery Guide — показывается при status=failed */}
+      {!isRunning && project.status === 'failed' && (() => {
+        const failedStage = project.stage_runs?.find((r: { status: string }) => r.status === 'failed');
+        const stageHints: Record<string, string> = {
+          extract_audio: '🔊 Проверьте формат видеофайла (MP4/MKV/AVI). Попробуйте перекодировать видео.',
+          transcribe: '🎙️ Возможно аудио слишком тихое или с шумом. Увеличьте громкость или используйте другой файл.',
+          translate: '🌐 Проверьте API-ключ провайдера перевода и баланс счёта в настройках.',
+          tts: '🔈 Проверьте API-ключ TTS-провайдера и баланс. Попробуйте другого провайдера.',
+          timing_fit: '⏱️ Слишком длинный перевод. Попробуйте скорость TTS 1.2× или уменьшить текст сегментов.',
+          render: '🎬 Ошибка монтажа. Проверьте что файл не удалён. Нажмите «Продолжить» для повтора.',
+          export: '📦 Ошибка экспорта. Убедитесь что есть свободное место на диске. Нажмите «Продолжить».',
+        };
+        const stageKey = failedStage ? String((failedStage as { stage?: string }).stage ?? '') : '';
+        const hint = stageHints[stageKey] || '❓ Нажмите «Продолжить» для повтора с проваленного этапа или «Перезапустить» для полного старта.';
+        return (
+          <div style={{
+            display: 'flex', gap: '10px', alignItems: 'flex-start',
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: '10px', padding: '10px 14px', marginBottom: '12px',
+            fontSize: '0.84rem', color: '#fca5a5',
+          }}>
+            <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>🆘</span>
+            <div>
+              <strong style={{ display: 'block', marginBottom: '2px', color: '#fca5a5' }}>
+                Что делать при ошибке{stageKey ? ` (этап: ${stageKey})` : ''}
+              </strong>
+              {hint}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ═══ Config Panel ═══ */}
       {showConfig && (
         <div className="workspace-config-panel glass-panel">
@@ -1229,6 +1265,28 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     }
                     rows={2}
                   />
+                  {/* Л4: Счётчик символов — предупреждение при > 84 (стандарт субтитров) */}
+                  {(() => {
+                    const txt = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override || seg.translated_text || '';
+                    const len = txt.length;
+                    const maxLine = Math.max(...(txt.split('\n').map(l => l.length)));
+                    const isOverLimit = maxLine > 84;
+                    const isWarning = maxLine > 60;
+                    if (len === 0) return null;
+                    return (
+                      <div style={{
+                        display: 'flex', justifyContent: 'flex-end',
+                        fontSize: '0.7rem', marginTop: '2px',
+                        color: isOverLimit ? '#ef4444' : isWarning ? '#f59e0b' : 'var(--text-muted)',
+                      }}
+                        title={isOverLimit
+                          ? `⚠️ Строка ${maxLine} символов — превышает стандарт 84 знака. Субтитры могут обрезаться.`
+                          : `${len} символов`}
+                      >
+                        {isOverLimit ? '⚠️' : ''} {len} / 84
+                      </div>
+                    );
+                  })()}
                   {/* TTS Rich Preview — визуализация разметки */}
                   {(() => {
                     const ov = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override;
