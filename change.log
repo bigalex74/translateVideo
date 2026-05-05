@@ -1,4 +1,87 @@
 # Журнал Изменений
+## 1.62.0 - 2026-05-05 - FEAT - TVIDEO-176
+### Round 4 Итерация 5: MP3 export, Progress bar, Status tooltips, Provider hints
+
+**Фронтенд:**
+- Dashboard: кнопка 🎧 MP3 экспорта аудиодорожки (I7 Инга)
+- Dashboard: анимированный progress bar для running проектов (K7 Кемал)
+- Dashboard: tooltip статусов (⏳🔄✅❌) для проектов в списке (K4/D-013)
+- Settings: описание выбранного TTS-провайдера под select (K4 Кемал)
+
+**Исправления:** JSX нарушение иерархии div в Dashboard, восстановлен card-body
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.61.0 - 2026-05-05 - FEAT - TVIDEO-175
+### Round 4 Итерация 4: Stats dashboard, /health/providers, DashboardStats+
+
+**Бэкенд:**
+- /api/health/providers — новый endpoint проверки доступности провайдеров (S6 Степан)
+- OpenAI: HTTP ping, Yandex/Polza: configured/not_configured статус
+
+**Фронтенд:**
+- DashboardStats: подсчёт слов переведённых сегментов по всем проектам (D5 Дарья)
+- DashboardStats: среднее время завершённых проектов из stage_runs.finished_at
+
+**Известно:** CLI translate-video run/batch/watch/server — уже реализован (S2 ✅)
+**Известно:** JSON-логи LOG_FORMAT=json — по умолчанию (S7 ✅)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.60.0 - 2026-05-05 - FEAT - TVIDEO-174
+### Round 4 Итерация 3: Subtitle overlay, Copy segment, Alt+N hotkey
+
+**Фронтенд:**
+- Workspace: оверлей субтитров поверх видео (I5 Инга) — показывает translated_text активного сегмента
+- Workspace: кнопка 📋 копирования перевода/SSML в буфер (D8 Дарья)
+- Workspace: Alt+N → прыжок к первому непереведённому сегменту (D9 Дарья)
+- Workspace: счётчик слов в source_text на каждом сегменте
+
+**Известно:** Undo/Redo история реализована (I3 ✅), Save toast реализован (D10 ✅)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.59.0 - 2026-05-05 - FEAT - TVIDEO-173
+### Round 4 Итерация 2: Преsets настроек, прогресс в title
+
+**Фронтенд:**
+- Settings: 4 пресета настроек (🎬 YouTube RU→EN / 🎌 Аниме / 📚 Курс / ⚡ Авто) (D2 Дарья)
+- Workspace: прогресс % в title браузера при переводе (D-012 Дизайнер)
+  - 🔄 45% | AI Video Translator → ✅ Готово | … → ❌ Ошибка | …
+
+**Известно:** Auth X-API-Key реализован (S1 ✅), Webhook реализован (S3 ✅)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.58.0 - 2026-05-05 - FEAT - TVIDEO-172
+### Round 4 Итерация 1: Мобильный sidebar, поиск проектов, номера сегментов
+
+**Фронтенд:**
+- App.tsx/App.css: мобильный hamburger sidebar (R1–R5)
+  - @media ≤768px — sidebar как выдвижная панель + overlay backdrop
+  - min-height: 44px touch targets, overflow-x: hidden
+- Dashboard: поиск по имени проекта в списке (K3 Кемал)
+- Dashboard: сортировка (🕐🔤📊) через select (K3)
+- Workspace: номера сегментов #1, #2, … с tooltip (D6 Дарья)
+
+**Бэкенд:**
+- /api/v1/projects: ?search=, ?sort_by=, ?sort_dir= параметры (K3)
+- listProjects() API client принимает params объект
+
+**Известно:** Кнопка отмены перевода — уже реализована (K6 ✅)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
 ## 1.56.0 - 2026-05-05 - FIX+TEST - TVIDEO-170
 
 ### QA Monitor: Восстановление покрытия кода 76%→80%
