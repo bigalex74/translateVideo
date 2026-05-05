@@ -204,6 +204,48 @@ def health_check():
     return payload
 
 
+@app.get("/api/health/providers")
+async def health_providers():
+    """S6: Проверить доступность внешних провайдеров (TTS, перевод).
+
+    Возвращает статус каждого провайдера: ok | unreachable | not_configured.
+    Не раскрывает API-ключи, только состояние доступности.
+    """
+    import asyncio  # noqa: PLC0415
+    import httpx     # noqa: PLC0415
+
+    providers_status: dict[str, str] = {}
+
+    # Проверка OpenAI TTS
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            async with httpx.AsyncClient(timeout=3) as client:
+                r = await client.get("https://api.openai.com/v1/models",
+                                     headers={"Authorization": f"Bearer {openai_key}"})
+                providers_status["openai"] = "ok" if r.status_code in (200, 401) else "unreachable"
+        except Exception:
+            providers_status["openai"] = "unreachable"
+    else:
+        providers_status["openai"] = "not_configured"
+
+    # Проверка Yandex SpeechKit
+    yandex_key = os.getenv("YANDEX_API_KEY") or os.getenv("YANDEX_SPEECHKIT_KEY")
+    providers_status["yandex"] = "not_configured" if not yandex_key else "configured"
+
+    # Проверка Polza / NeuroAPI (через переменную)
+    polza_key = os.getenv("POLZA_API_KEY") or os.getenv("NEUROAPI_KEY")
+    providers_status["polza"] = "not_configured" if not polza_key else "configured"
+
+    all_ok = all(v in ("ok", "configured", "not_configured") for v in providers_status.values())
+
+    return {
+        "status": "ok" if all_ok else "degraded",
+        "providers": providers_status,
+        "auth_enabled": bool(os.getenv("API_KEY") or os.getenv("API_KEYS")),
+    }
+
+
 # Задел для будущей интеграции фронтенда (Статика из React Vite)
 ui_dist = Path(__file__).parent.parent.parent.parent / "ui" / "dist"
 if ui_dist.exists():
