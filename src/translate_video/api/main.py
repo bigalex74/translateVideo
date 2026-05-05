@@ -204,6 +204,20 @@ def health_check():
     return payload
 
 
+@app.get("/api/version", summary="В10: Версия приложения (быстрый endpoint)")
+def api_version():
+    """В10: Возвращает только версию и статус.
+
+    Более лёгкий аналог /api/health — только версия.
+    Полезен для CI/CD и внешних мониторингов.
+    """
+    return {
+        "version": __version__,
+        "status": "ok",
+        "app": "AI Video Translator",
+    }
+
+
 @app.get("/api/health/providers")
 async def health_providers():
     """S6: Проверить доступность внешних провайдеров (TTS, перевод).

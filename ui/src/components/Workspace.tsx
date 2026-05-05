@@ -63,6 +63,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [historyIndex, setHistoryIndex] = useState(-1);
   // Z2.12: Segment search/filter
   const [segSearch, setSegSearch] = React.useState('');
+  const [filterEmptyOnly, setFilterEmptyOnly] = React.useState(false);  // Л6: показывать только пустые
   const [qaFlagFilter, setQaFlagFilter] = React.useState('');  // NC8-02
   const [selectedSegIds, setSelectedSegIds] = React.useState<Set<string>>(new Set());  // Z2.15
   // Z4.10: Keyboard shortcuts help modal
@@ -714,7 +715,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             <button
               className="btn-secondary btn-sm"
               onClick={() => setConfirm({ force: true })}
-              title={project.status === 'completed' ? 'Запустить все этапы заново' : 'Перезапустить всё с начала'}
+              title={
+                project.status === 'completed'
+                  ? '🔄 Запустить перевод заново: все этапы будут выполнены повторно — извлечение аудио, распознавание речи, перевод текста, озвучка и монтаж. Старые файлы будут перезаписаны.'
+                  : '▶️ Запустить перевод с нуля: последовательно выполнятся все этапы пайплайна. Это может занять несколько минут в зависимости от длины видео.'
+              }
             >
               <RefreshCw size={14} /> {project.status === 'completed' ? t('workspace.run', locale) : t('workspace.restart', locale)}
             </button>
@@ -972,6 +977,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 <option value="render_audio_trimmed">Обрезка аудио</option>
                 <option value="translation_fallback_source">Оригинал в переводе</option>
               </select>
+              {/* Л6: Фильтр пустых (непереведённых) сегментов */}
+              <button
+                id="btn-filter-empty"
+                className={`btn-secondary btn-xs${filterEmptyOnly ? ' active' : ''}`}
+                onClick={() => setFilterEmptyOnly(f => !f)}
+                title={filterEmptyOnly ? 'Показать все сегменты' : 'Показать только непереведённые (пустые)'}
+                style={{
+                  flexShrink: 0,
+                  background: filterEmptyOnly ? 'rgba(245,158,11,0.2)' : undefined,
+                  borderColor: filterEmptyOnly ? '#f59e0b' : undefined,
+                  color: filterEmptyOnly ? '#fde68a' : undefined,
+                }}
+              >
+                {filterEmptyOnly ? '⚠️ Пустые' : '⚠️ Пустые'}
+                <span style={{ marginLeft: '4px', fontSize: '0.72rem', opacity: 0.8 }}>
+                  {filterEmptyOnly ? '✓' : ''}
+                </span>
+              </button>
             </div>
             {/* Z2.15: Bulk actions bar */}
             {selectedSegIds.size > 0 && (
@@ -1002,6 +1025,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
                   seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))
                 .filter(seg => !qaFlagFilter || (seg.qa_flags ?? []).includes(qaFlagFilter))  // NC8-02
+                .filter(seg => !filterEmptyOnly || !seg.translated_text?.trim())  // Л6: только пустые
                 .map((seg, segIndex) => (
                 <div
                   key={seg.id}

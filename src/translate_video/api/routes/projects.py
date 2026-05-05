@@ -1969,3 +1969,38 @@ def export_project_zip(
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={safe_id}.zip"},
     )
+
+
+class RenameProjectRequest(BaseModel):
+    """О1: Переименование проекта."""
+    display_name: str = Field(..., min_length=1, max_length=120, description="Новое имя проекта")
+
+
+@router.patch(
+    "/{project_id}/rename",
+    summary="Переименовать проект (О1: человекочитаемое название)",
+    response_model=dict,
+)
+def rename_project(
+    project_id: str,
+    req: RenameProjectRequest,
+    store: ProjectStore = Depends(get_store),
+):
+    """О1: Задать человекочитаемое имя проекта вместо UUID.
+
+    Имя сохраняется в project.json как display_name.
+    Не переименовывает рабочую директорию.
+    """
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.work_root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Проект {safe_id!r} не найден")
+
+    project.display_name = req.display_name.strip()
+    store.save_project(project)
+    return {
+        "project_id": project.id,
+        "display_name": project.display_name,
+        "status": "renamed",
+    }

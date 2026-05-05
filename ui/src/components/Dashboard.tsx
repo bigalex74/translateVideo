@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { getProjectStatus, listProjects, runPipeline, artifactDownloadUrl } from '../api/client';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getProjectStatus, listProjects, runPipeline, artifactDownloadUrl, renameProject } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
 import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -11,7 +11,7 @@ import { DiskUsageWarning } from './DiskUsageWarning';
 import { getPersistedProvider } from '../store/settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
-  ArrowRight, RefreshCw, Clock, Search, BookOpen, Download
+  ArrowRight, RefreshCw, Clock, Search, BookOpen, Download, Pencil, Check, X
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -43,13 +43,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [projectSearch, setProjectSearch] = useState('');  // K3: поиск по списку проектов
-  const [sortBy, setSortBy] = useState<'created_at'|'name'|'status'>('created_at');  // K3: сортировка
-  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
+  // А9: Сортировка с persist через localStorage
+  const [sortBy, setSortBy] = useState<'created_at'|'name'|'status'>(
+    () => (localStorage.getItem('tv_sort_by') as 'created_at'|'name'|'status') || 'created_at'
+  );
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>(
+    () => (localStorage.getItem('tv_sort_dir') as 'asc'|'desc') || 'desc'
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<{ id: string; force: boolean } | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dragOver, setDragOver] = useState(false);  // Z4.15: DnD upload
+  // О1: Inline rename состояние
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -59,6 +68,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
       console.error(e);
     }
   }, [projectSearch, sortBy, sortDir]);
+
+  // А9: Persist sort preferences
+  const handleSortBy = (v: 'created_at'|'name'|'status') => {
+    setSortBy(v);
+    localStorage.setItem('tv_sort_by', v);
+  };
+  const handleSortDir = (v: 'asc'|'desc') => {
+    setSortDir(v);
+    localStorage.setItem('tv_sort_dir', v);
+  };
+
+  // О1: Переименование проекта
+  const handleRenameStart = (id: string, current: string) => {
+    setRenamingId(id);
+    setRenameValue(current);
+    setTimeout(() => renameInputRef.current?.focus(), 50);
+  };
+  const handleRenameSubmit = async (id: string) => {
+    if (!renameValue.trim()) { setRenamingId(null); return; }
+    try {
+      await renameProject(id, renameValue.trim());
+      setRenamingId(null);
+      refreshProjects();
+    } catch (e) { console.error(e); setRenamingId(null); }
+  };
 
   const loadStatus = useCallback(async (id: string) => {
     if (!id.trim()) return;
@@ -432,17 +466,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                   style={{ padding: '6px 10px', fontSize: '0.85rem', width: '160px' }}
                 />
               </div>
-              {/* K3: Сортировка */}
+              {/* K3 + А9: Сортировка с persist */}
               <select
                 id="project-sort-select"
                 className="select-input"
                 value={`${sortBy}_${sortDir}`}
                 onChange={e => {
                   const [by, dir] = e.target.value.split('_');
-                  setSortBy(by as 'created_at'|'name'|'status');
-                  setSortDir(dir as 'asc'|'desc');
+                  handleSortBy(by as 'created_at'|'name'|'status');
+                  handleSortDir(dir as 'asc'|'desc');
                 }}
                 style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+                title="Сортировка запоминается между сессиями (А9)"
               >
                 <option value="created_at_desc">🕐 Новые первые</option>
                 <option value="created_at_asc">🕐 Старые первые</option>
@@ -471,7 +506,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
             {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).map(item => (
               <article key={item.project_id} className="project-mini-card">
                 <div className="mini-card-title">
-                  <strong>{item.project_id}</strong>
+                  {/* О1: Переименование проекта */}
+                  {renamingId === item.project_id ? (
+                    <div style={{ display: 'flex', gap: '4px', flex: 1, minWidth: 0 }}>
+                      <input
+                        ref={renameInputRef}
+                        className="select-input"
+                        style={{ flex: 1, padding: '2px 6px', fontSize: '0.85rem' }}
+                        value={renameValue}
+                        onChange={e => setRenameValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleRenameSubmit(item.project_id);
+                          if (e.key === 'Escape') setRenamingId(null);
+                        }}
+                        placeholder="Название проекта…"
+                        maxLength={120}
+                      />
+                      <button onClick={() => handleRenameSubmit(item.project_id)} title="Сохранить" style={{ padding: '2px 6px', cursor: 'pointer' }}><Check size={13} /></button>
+                      <button onClick={() => setRenamingId(null)} title="Отмена" style={{ padding: '2px 6px', cursor: 'pointer' }}><X size={13} /></button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={item.project_id}>
+                        {(item as VideoProject & { display_name?: string }).display_name || item.project_id}
+                      </strong>
+                      <button
+                        onClick={() => handleRenameStart(item.project_id,
+                          (item as VideoProject & { display_name?: string }).display_name || '')}
+                        title="Переименовать проект (О1)"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)', flexShrink: 0 }}
+                      ><Pencil size={11} /></button>
+                    </div>
+                  )}
                   <span
                     className={`badge ${item.status}`}
                     title={

@@ -186,3 +186,17 @@ export async function previewTTS(
     const blob = await res.blob();
     return URL.createObjectURL(blob);
 }
+
+/** О1: Переименовать проект (задать display_name). */
+export async function renameProject(
+    project_id: string,
+    display_name: string,
+): Promise<{ project_id: string; display_name: string; status: string }> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/rename`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name }),
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}

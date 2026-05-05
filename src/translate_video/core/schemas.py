@@ -237,6 +237,8 @@ class VideoProject:
     tags: list[str] = field(default_factory=list)
     # NC10-02: Архивирование (скрытие из основного списка)
     archived: bool = False
+    # О1: Переименование проекта — человекочитаемое название вместо UUID
+    display_name: str | None = None
 
     def __post_init__(self) -> None:
         self.status = ProjectStatus(self.status)
@@ -260,6 +262,7 @@ class VideoProject:
             "started_at": self.started_at,
             "tags": self.tags,  # NC10-01
             "archived": self.archived,  # NC10-02
+            "display_name": self.display_name,  # О1
         }
 
     @classmethod
