@@ -32,6 +32,49 @@ _cancel_tokens: dict[str, threading.Event] = {}
 _BLOCKED_HOSTNAMES = {"localhost", "localhost.localdomain"}
 
 
+# В3: Rate limiting для /run endpoint (макс N запусков в окно времени)
+import time as _time
+
+class _PipelineRateLimiter:
+    """В3: In-memory rate limiter для запуска пайплайна.
+
+    Ограничивает число запусков на IP: макс MAX_RUNS за WINDOW_S секунд.
+    По умолчанию: 5 запусков / 60 секунд.
+    Настраивается через PIPELINE_RATE_LIMIT_MAX и PIPELINE_RATE_LIMIT_WINDOW.
+    """
+    import os as _os
+    MAX_RUNS: int = int(__import__("os").getenv("PIPELINE_RATE_LIMIT_MAX", "5"))
+    WINDOW_S: float = float(__import__("os").getenv("PIPELINE_RATE_LIMIT_WINDOW", "60"))
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        # ip → deque of timestamps
+        self._hits: dict[str, list[float]] = {}
+
+    def check(self, client_ip: str) -> bool:
+        """Вернуть True если запрос допустим, False если rate limit превышен.
+
+        Исключения: localhost (127.0.0.1, ::1, testclient) всегда допустимы.
+        """
+        # Localhost всегда разрешён — тесты и локальная разработка
+        if client_ip in ("127.0.0.1", "::1", "testclient", ""):
+            return True
+        now = _time.monotonic()
+        with self._lock:
+            hits = self._hits.setdefault(client_ip, [])
+            # Убрать старые hits за пределами окна
+            cutoff = now - self.WINDOW_S
+            self._hits[client_ip] = [t for t in hits if t > cutoff]
+            if len(self._hits[client_ip]) >= self.MAX_RUNS:
+                return False
+            self._hits[client_ip].append(now)
+            return True
+
+
+_pipeline_rate_limiter = _PipelineRateLimiter()
+
+
+
 def _is_forbidden_webhook_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Вернуть True для адресов, опасных для webhook-запросов наружу."""
 
@@ -387,10 +430,22 @@ def run_pipeline(
     project_id: str,
     req: RunPipelineRequest,
     background_tasks: BackgroundTasks,
+    request: __import__("fastapi").Request,
     x_webhook_url: Annotated[str | None, Header()] = None,
     store: ProjectStore = Depends(get_store),
 ):
-    """Запустить пайплайн для проекта в фоновом режиме."""
+    """Запустить пайплайн для проекта в фоновом режиме.
+
+    В3: Защищён rate limiting — макс 5 запусков/мин на IP.
+    Настраивается через PIPELINE_RATE_LIMIT_MAX и PIPELINE_RATE_LIMIT_WINDOW.
+    """
+    # В3: Rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    if not _pipeline_rate_limiter.check(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Слишком много запросов. Максимум {_PipelineRateLimiter.MAX_RUNS} запусков за {int(_PipelineRateLimiter.WINDOW_S)}с. Повторите позже.",
+        )
     try:
         safe_project_id = sanitize_project_id(project_id)
         _validate_webhook_url(x_webhook_url)

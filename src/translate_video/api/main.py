@@ -111,21 +111,39 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 
 class TraceIDMiddleware(BaseHTTPMiddleware):
-    """Добавить X-Trace-ID к каждому ответу (Z5.7).
+    """В9: Добавить X-Trace-ID к каждому ответу + request_id в логи (Z5.7).
 
     Если клиент прислал X-Request-ID — отражаем его.
     Иначе — генерируем новый UUID4.
     Используется для корреляции логов с запросами.
+    trace_id логируется при каждом API-запросе.
     """
     async def dispatch(self, request: StarletteRequest, call_next):
         import uuid as _uuid  # noqa: PLC0415
         trace_id = (
             request.headers.get("X-Request-ID")
             or request.headers.get("X-Trace-ID")
-            or _uuid.uuid4().hex
+            or _uuid.uuid4().hex[:16]
         )
+        # Логируем запрос с trace_id (только API запросы, не статика)
+        path = request.url.path
+        if path.startswith("/api"):
+            _log.debug(
+                "http.request",
+                trace_id=trace_id,
+                method=request.method,
+                path=path,
+            )
         response = await call_next(request)
         response.headers["X-Trace-ID"] = trace_id
+        # Логируем ответ с кодом
+        if path.startswith("/api"):
+            _log.debug(
+                "http.response",
+                trace_id=trace_id,
+                status_code=response.status_code,
+                path=path,
+            )
         return response
 
 
