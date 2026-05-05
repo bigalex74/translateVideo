@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS } from '../api/client';
+import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl } from '../api/client';
 import type { ArtifactRecord, CostEstimate, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -1502,6 +1502,46 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 ))
               ) : (
                 <p className="empty-text">{t('workspace.noResults', locale)}</p>
+              )}
+
+              {/* А6: Экспорт субтитров в разных форматах */}
+              {segments.length > 0 && (
+                <div style={{
+                  marginTop: '16px', borderTop: '1px solid var(--border)',
+                  paddingTop: '12px',
+                }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
+                    📄 Экспорт субтитров
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {(['srt', 'vtt', 'ass', 'sbv'] as const).map(fmt => (
+                      <a
+                        key={fmt}
+                        href={subtitleExportUrl(projectId, fmt)}
+                        target="_blank" rel="noreferrer"
+                        className="btn-secondary btn-xs"
+                        title={{
+                          srt: 'SubRip — универсальный, VLC/DaVinci/Premiere/YouTube',
+                          vtt: 'WebVTT — HTML5 браузерный плеер',
+                          ass: 'Advanced SubStation Alpha — Aegisub, профессиональные редакторы',
+                          sbv: 'YouTube SBV — для загрузки в YouTube Studio/Udemy',
+                        }[fmt]}
+                        style={{ textDecoration: 'none', fontFamily: 'monospace', fontSize: '0.8rem' }}
+                      >
+                        {fmt.toUpperCase()}
+                      </a>
+                    ))}
+                    <a
+                      href={subtitleExportZipUrl(projectId)}
+                      target="_blank" rel="noreferrer"
+                      className="btn-secondary btn-xs"
+                      title="Скачать все форматы (SRT+VTT+ASS+SBV) в одном ZIP-архиве"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      📦 ZIP (все форматы)
+                    </a>
+                  </div>
+                </div>
               )}
             </div>
           )}

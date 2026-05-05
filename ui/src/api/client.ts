@@ -200,3 +200,13 @@ export async function renameProject(
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }
+
+/** А6: URL для скачивания субтитров в конкретном формате (srt/vtt/ass/sbv). */
+export function subtitleExportUrl(project_id: string, format: 'srt' | 'vtt' | 'ass' | 'sbv'): string {
+    return `${API_BASE}/projects/${project_id}/subtitles?format=${format}`;
+}
+
+/** А6: URL для скачивания всех субтитров в ZIP (SRT+VTT+ASS+SBV). */
+export function subtitleExportZipUrl(project_id: string): string {
+    return `${API_BASE}/projects/${project_id}/subtitles/all`;
+}
