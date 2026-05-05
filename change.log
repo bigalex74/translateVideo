@@ -1,3 +1,24 @@
+## 1.80.0 - 2026-05-06 - FEAT - TVIDEO-195-197
+### Round 7 Итерации 3-5: Side-by-side, Safari download fix, WebSocket backend
+
+**Итерация 3 — Side-by-side режим (Валентина В1, Глеб Г10):**
+- Workspace: кнопка ⊞ в тулбаре — переключает сегменты в 2 колонки (оригинал | перевод)
+- CSS: .seg-side-by-side — grid 2 колонки, граница между колонками, адаптив для мобильных
+
+**Итерация 4 — Safari download fix (Светлана С4):**
+- API: safariSafeDownload() — fetch+blob скачивание вместо <a download>
+- Workspace: CTA кнопка «Скачать» теперь работает на Safari/iPhone
+- API клиент: deleteProject() — импортирован и использован в Dashboard
+
+**Итерация 5 — WebSocket backend (Глеб Г7):**
+- Backend: @router.websocket("/{project_id}/ws") — R7-И5
+- Шлёт {status, progress_percent, eta_seconds} каждые 2с пока running
+- Frontend hook будет реализован в R8 (декомпозиция)
+
+**Тесты:** 832 ✅ / Build ✅ 220ms / Coverage 80% ✅
+
+---
+
 ## 1.79.0 - 2026-05-06 - FEAT - TVIDEO-194
 ### Round 7 Итерация 2: Timecode HH:MM:SS, Счётчик символов/строки, beforeunload
 

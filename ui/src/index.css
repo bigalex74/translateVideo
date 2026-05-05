@@ -1254,3 +1254,49 @@ code {
   gap: 10px;
   justify-content: flex-end;
 }
+
+/* ─── R7-И3: Side-by-side режим сегментов (Валентина В1, Глеб Г10) ──────── */
+.seg-side-by-side .segment-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 0 12px;
+  align-items: start;
+}
+.seg-side-by-side .seg-header {
+  grid-column: 1 / -1;
+}
+.seg-side-by-side .seg-source-row {
+  /* Левая колонка — оригинал */
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  padding-right: 12px;
+}
+.seg-side-by-side .seg-source {
+  font-size: 0.82rem;
+  color: var(--text);
+  opacity: 0.8;
+  padding: 6px 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  min-height: 40px;
+}
+.seg-side-by-side .seg-translated {
+  /* Правая колонка — перевод */
+  min-height: 60px !important;
+}
+/* Скрыть diff-badge в side-by-side — экономим место */
+.seg-side-by-side .seg-diff-badge { display: none; }
+@media (max-width: 768px) {
+  .seg-side-by-side .segment-item {
+    grid-template-columns: 1fr;
+  }
+  .seg-side-by-side .seg-source-row {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-right: 0;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+}

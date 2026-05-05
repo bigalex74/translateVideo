@@ -219,3 +219,22 @@ export async function deleteProject(project_id: string): Promise<{ deleted: stri
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }
+
+/** R7-И4: Safari-совместимое скачивание через fetch+blob (обходит ограничения Safari на <a download>). */
+export async function safariSafeDownload(url: string, filename: string): Promise<void> {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(objUrl); document.body.removeChild(a); }, 1000);
+    } catch {
+        // Fallback: открыть в новой вкладке (Safari не поддерживает download через Blob)
+        window.open(url, '_blank');
+    }
+}

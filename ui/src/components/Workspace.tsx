@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl } from '../api/client';
+import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl, safariSafeDownload } from '../api/client';
 import type { ArtifactRecord, CostEstimate, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -16,7 +16,7 @@ import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings, X,
-  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info, Share2, ExternalLink,
+  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info, Share2, ExternalLink, Columns2,
 } from 'lucide-react';
 import './Workspace.css';
 
@@ -81,6 +81,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [selectedSegIds, setSelectedSegIds] = React.useState<Set<string>>(new Set());  // Z2.15
   // Z4.10: Keyboard shortcuts help modal
   const [showShortcuts, setShowShortcuts] = useState(false);
+  // R7-И3: Side-by-side режим (оригинал | перевод в две колонки) (Валентина Вт1, Глеб Гчит.10)
+  const [sideBySide, setSideBySide] = useState(false);
   // Z3.11: Quality report state
   const [qualityReport, setQualityReport] = useState<Record<string, unknown> | null>(null);
   const [loadingQR, setLoadingQR] = useState(false);
@@ -866,16 +868,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           )}
           {/* Z1.6: CTA кнопка скачивания готового видео */}
           {primaryArtifacts.length > 0 && (
-            <a
-              href={artifactDownloadUrl(projectId, primaryArtifacts[0].kind)}
+            <button
               className="btn-download-cta"
-              target="_blank"
-              rel="noreferrer"
               title="Скачать готовое видео"
+              onClick={() => safariSafeDownload(
+                artifactDownloadUrl(projectId, primaryArtifacts[0].kind),
+                `${projectId}_translated.mp4`
+              )}
             >
               <Download size={14} />
               {locale === 'ru' ? 'Скачать' : 'Download'}
-            </a>
+            </button>
           )}
         </div>
       </header>
@@ -1141,6 +1144,22 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   {filterEmptyOnly ? '✓' : ''}
                 </span>
               </button>
+              {/* R7-И3: Side-by-side переключатель (Валентина Вт1) */}
+              <button
+                id="btn-side-by-side"
+                className={`btn-secondary btn-xs${sideBySide ? ' active' : ''}`}
+                onClick={() => setSideBySide(s => !s)}
+                title={sideBySide ? 'Обычный режим' : 'Режим side-by-side: оригинал и перевод рядом'}
+                style={{
+                  flexShrink: 0,
+                  background: sideBySide ? 'rgba(99,102,241,0.2)' : undefined,
+                  borderColor: sideBySide ? '#6366f1' : undefined,
+                  color: sideBySide ? '#a5b4fc' : undefined,
+                }}
+              >
+                <Columns2 size={13} />
+                <span style={{ marginLeft: '4px' }}>‖</span>
+              </button>
             </div>
             {/* Z2.15: Bulk actions bar */}
             {selectedSegIds.size > 0 && (
@@ -1166,7 +1185,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 >✕ Снять выбор</button>
               </div>
             )}
-            <div className="segments-list">
+            <div className={`segments-list${sideBySide ? ' seg-side-by-side' : ''}`}>
               {segments
                 .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
                   seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))

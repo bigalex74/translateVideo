@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Body
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Body, WebSocket, WebSocketDisconnect
 from fastapi import Path as FastAPIPath
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -1682,6 +1682,42 @@ def delete_project(
         raise HTTPException(status_code=500, detail=f"Не удалось удалить: {exc}")
 
     return {"deleted": project_id, "ok": True}
+
+
+# ─── R7-И5: WebSocket real-time статус проекта (Глеб Гу7) ─────────────────────────────────────
+
+@router.websocket("/{project_id}/ws")
+async def project_status_ws(
+    websocket: WebSocket,
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """WebSocket endpoint: real-time статус проекта.
+
+    Шлёт JSON {status, progress_percent, eta_seconds} каждые 2с пока running,
+    потом финальный статус и закрывается. Frontend переходит на WS при running статусе.
+    """
+    import asyncio, json as _json
+    await websocket.accept()
+    safe_id = sanitize_project_id(project_id)
+    try:
+        while True:
+            try:
+                project = store.load_project(store.root / safe_id)
+            except FileNotFoundError:
+                await websocket.send_text(_json.dumps({"error": "not_found"}))
+                break
+            payload = {
+                "status": project.status,
+                "progress_percent": getattr(project, "progress_percent", None),
+                "eta_seconds": getattr(project, "eta_seconds", None),
+            }
+            await websocket.send_text(_json.dumps(payload))
+            if project.status not in ("running", "pending"):
+                break  # завершен, закрываем WS
+            await asyncio.sleep(2)
+    except WebSocketDisconnect:
+        pass  # клиент отключился, ничего не делаем
 
 
 # ─── Z5.14: История вебхуков проекта ─────────────────────────────────────────
