@@ -187,8 +187,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         if (dirty && project && project.status !== 'running') {
-          // Симулируем нажатие кнопки Save
           document.getElementById('btn-save-segments')?.click();
+        }
+      }
+      // D9: Alt+N → следующий непереведённый сегмент
+      if (e.altKey && e.key === 'n' && project) {
+        e.preventDefault();
+        const segs = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
+        const firstUntranslated = segs.find(s => !s.translated_text?.trim());
+        if (firstUntranslated) {
+          const el = segRefs.current.get(firstUntranslated.id);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Фокус на textarea внутри сегмента
+            el.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+          }
         }
       }
     };
@@ -909,6 +922,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   />
                 )}
               </video>
+              {/* I5: Кастомный оверлей субтитров (если нет VTT или при редактировании)
+                  Показывает переведённый текст текущего активного сегмента поверх видео */}
+              {activeSegId && !project.artifacts['subtitles_vtt'] && (() => {
+                const activeSeg = segments.find(s => s.id === activeSegId);
+                const subText = activeSeg?.translated_text || activeSeg?.source_text;
+                return subText ? (
+                  <div className="subtitle-overlay" aria-live="polite">
+                    {subText}
+                  </div>
+                ) : null;
+              })()}
             </div>
           </div>
 
@@ -1127,6 +1151,30 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       </div>
                     );
                   })()}
+                  {/* D8: Копировать перевод сегмента в буфер обмена */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
+                    <button
+                      className="seg-copy-btn"
+                      title="Копировать перевод в буфер (D8)"
+                      onClick={() => {
+                        const text = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
+                          || seg.translated_text || seg.source_text || '';
+                        navigator.clipboard.writeText(text).then(() => {
+                          // Визуальный фидбек через атрибут
+                          const btn = document.activeElement as HTMLElement;
+                          if (btn) { btn.textContent = '✅'; setTimeout(() => { btn.textContent = '📋'; }, 1200); }
+                        });
+                      }}
+                      style={{
+                        background: 'none', border: '1px solid var(--border-color)',
+                        borderRadius: '4px', padding: '2px 6px', fontSize: '13px',
+                        cursor: 'pointer', color: 'var(--text-muted)',
+                      }}
+                    >📋</button>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      {seg.source_text?.split(' ').length ?? 0} слов
+                    </span>
+                  </div>
 
                   <textarea
                     ref={(el) => {

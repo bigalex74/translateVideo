@@ -1243,3 +1243,27 @@
   align-items: center;
   gap: 6px;
 }
+
+/* I5: Субтитры поверх видео */
+.video-container {
+  position: relative;
+}
+
+.subtitle-overlay {
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 6px;
+  text-align: center;
+  max-width: 80%;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+  z-index: 10;
+  line-height: 1.4;
+}
