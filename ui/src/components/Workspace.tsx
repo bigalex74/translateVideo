@@ -31,6 +31,16 @@ type RightTab = 'status' | 'qa' | 'artifacts' | 'stats' | 'devlog';
 
 const API_VIDEO = '/api/v1/video';
 
+/** R7-И2: Форматирует секунды в HH:MM:SS для темпоральных меток сегментов (Глеб Гчит. 3, Валентина) */
+function formatTimecode(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+
 export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale }) => {
   const [project, setProject] = useState<VideoProject | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -213,6 +223,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   }, [dirty, project]);
 
   // ─── Ctrl+S keyboard shortcut (UX агент — предложение iter 1) ───────────────
+  // R7-И2: beforeunload — браузер предупреждает при закрытии с несохранёнными правками (Глеб Г4)
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Есть несохранённые изменения. Уйти?';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -1200,7 +1221,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                         }
                       }}
                     >
-                      {seg.start.toFixed(1)}с — {seg.end.toFixed(1)}с
+                      {formatTimecode(seg.start)} — {formatTimecode(seg.end)}
                       <span className="seg-duration">({(seg.end - seg.start).toFixed(1)}с)</span>
                     </span>
                     <span className="seg-status">{statusLabel(seg.status ?? '', locale)}</span>
@@ -1365,15 +1386,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     if (len === 0) return null;
                     return (
                       <div style={{
-                        display: 'flex', justifyContent: 'flex-end',
+                        display: 'flex', justifyContent: 'flex-end', gap: '8px',
                         fontSize: '0.7rem', marginTop: '2px',
-                        color: isOverLimit ? '#ef4444' : isWarning ? '#f59e0b' : 'var(--text-muted)',
                       }}
-                        title={isOverLimit
-                          ? `⚠️ Строка ${maxLine} символов — превышает стандарт 84 знака. Субтитры могут обрезаться.`
-                          : `${len} символов`}
                       >
-                        {isOverLimit ? '⚠️' : ''} {len} / 84
+                        {/* R7-И2: Счётчик символов всего */}
+                        <span style={{ color: 'var(--text-muted, #94a3b8)' }} title={`Всего символов: ${len}`}>
+                          {len} симв.
+                        </span>
+                        {/* R7-И2: Длина максимальной строки (стандарт субтитров 42 симв./строка) */}
+                        <span
+                          style={{ color: isOverLimit ? '#ef4444' : isWarning ? '#f59e0b' : '#6ee7b7', fontWeight: isOverLimit ? 700 : 400 }}
+                          title={isOverLimit
+                            ? `⚠️ Строка ${maxLine} символов — превышает стандарт 84 знака. Субтитры могут обрезаться.`
+                            : maxLine > 42
+                            ? `Строка ${maxLine} симв. — превышает профессиональный стандарт 42 знака/строку`
+                            : `Длина строки OK (≤42 симв.)`}
+                        >
+                          {isOverLimit ? '⚠️ ' : maxLine > 42 ? '⚡ ' : '✓ '}строка: {maxLine}/42
+                        </span>
                       </div>
                     );
                   })()}
