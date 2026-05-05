@@ -1,3 +1,30 @@
+## 1.77.0 - 2026-05-05 - FEAT - TVIDEO-189-192
+### Round 6 Итерации 2-5: Find&Replace, Completion Toast, Shortcuts, Mobile Polish
+
+**Фронтенд — Итерация 2 (v1.74.0):**
+- Workspace: Человекочитаемые ошибки — убраны пути, Traceback, добавлен "💡 Что делать?" (Г2, В6)
+- Workspace: Alt+] / Alt+[ — навигация между сегментами (Л3)
+- Workspace: data-seg-id attr на сегментах для keyboard nav
+
+**Фронтенд — Итерация 3 (grouped):**
+- Workspace: Toast "✅ Перевод завершён!" при running→completed (Designer)
+- Workspace: prevStatusRef для tracking status transitions
+
+**Фронтенд — Итерация 4 (grouped):**
+- Workspace: Ctrl+H → Find & Replace панель (Л5)
+- Workspace: "Заменить всё" — batch replace в translated_text всех сегментов
+- Workspace: кнопка ⇄ рядом с поиском
+
+**CSS — Итерации 3-5:**
+- .seg-replace-row — flex-row для replace UI
+- Mobile panel-tabs::after — fade-маска по правому краю (Designer R6)
+- [data-tooltip] — CSS tooltip система для Г5 (провайдеры)
+- .provider-hint — подсказка под select провайдера
+
+**Тесты:** 832 ✅ / Build ✅ / Python 80% ✅
+
+---
+
 ## 1.73.0 - 2026-05-05 - FEAT - TVIDEO-188
 ### Round 6 Итерация 1: Mobile UX, Download CTA, Coverage fix
 

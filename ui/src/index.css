@@ -1104,3 +1104,85 @@ code {
   font-weight: 500;
   cursor: pointer;
 }
+
+/* ── R6-iter2: Error hint (Г2/В6), Stage error ── */
+.stage-error-hint summary {
+  cursor: pointer;
+  color: var(--color-accent, #63b3ed);
+  font-size: 0.82rem;
+  margin-top: 6px;
+  user-select: none;
+}
+.stage-error-hint ul {
+  margin: 4px 0 0 16px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #a0aec0);
+}
+.stage-error-msg {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--color-error, #fc8181);
+  word-break: break-word;
+  margin-top: 4px;
+}
+
+/* ── R6-iter3: Find & Replace row ── */
+.seg-replace-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 0 2px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+/* ── R6-iter4: Mobile panel-tabs fade mask (Designer) ── */
+@media (max-width: 768px) {
+  .panel-tabs {
+    position: relative;
+  }
+  .panel-tabs::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 24px;
+    background: linear-gradient(to right, transparent, var(--color-surface, #1a202c));
+    pointer-events: none;
+  }
+}
+
+/* ── R6-iter5: Provider tooltip hints (Г5) ── */
+.provider-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #a0aec0);
+  margin-top: 4px;
+  display: block;
+}
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface-2, #2d3748);
+  color: var(--color-text, #e2e8f0);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  max-width: 240px;
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+[data-tooltip]:hover::after {
+  opacity: 1;
+}

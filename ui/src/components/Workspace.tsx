@@ -41,6 +41,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const prevStatusRef = useRef<string | null>(null);
   const [confirm, setConfirm] = useState<{ force: boolean } | null>(null);
   const [showConfig, setShowConfig] = useState(false);
   const [configPatch, setConfigPatch] = useState<Partial<PipelineConfig>>({});
@@ -63,6 +64,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [historyIndex, setHistoryIndex] = useState(-1);
   // Z2.12: Segment search/filter
   const [segSearch, setSegSearch] = React.useState('');
+  const [segReplace, setSegReplace] = React.useState('');
+  const [showReplace, setShowReplace] = React.useState(false);
   const [filterEmptyOnly, setFilterEmptyOnly] = React.useState(false);  // Л6: показывать только пустые
   const [qaFlagFilter, setQaFlagFilter] = React.useState('');  // NC8-02
   const [selectedSegIds, setSelectedSegIds] = React.useState<Set<string>>(new Set());  // Z2.15
@@ -130,6 +133,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       cancelled = true;
     };
   }, [projectId]);
+
+  // Designer R6-iter2: Toast "Перевод готов!" при переходе running→completed
+  useEffect(() => {
+    if (!project) return;
+    const prev = prevStatusRef.current;
+    if (prev === 'running' && project.status === 'completed') {
+      setMessage('✅ Перевод завершён! Скачайте результат.');
+      setTimeout(() => setMessage(''), 5000);
+    }
+    prevStatusRef.current = project.status;
+  }, [project?.status]);
 
   // В7: Адаптивный поллинг статуса — быстро в начале, медленнее при долгой работе.
   // При cancelling=true ускоряем до 500ms, чтобы overlay закрылся сразу после остановки.
@@ -207,6 +221,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           document.getElementById('btn-save-segments')?.click();
         }
       }
+      // Л5: Ctrl+H → открыть/закрыть панель замены
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        setShowReplace(r => !r);
+      }
       // D9: Alt+N → следующий непереведённый сегмент
       if (e.altKey && e.key === 'n' && project) {
         e.preventDefault();
@@ -217,6 +236,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             // Фокус на textarea внутри сегмента
+            el.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+          }
+        }
+      }
+      // Л3: Alt+] → следующий сегмент, Alt+[ → предыдущий
+      if (e.altKey && (e.key === ']' || e.key === '[') && project) {
+        e.preventDefault();
+        const segs = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
+        const active = document.activeElement?.closest('[data-seg-id]') as HTMLElement | null;
+        const activeId = active?.dataset.segId;
+        const idx = activeId ? segs.findIndex(s => String(s.id) === activeId) : -1;
+        const nextIdx = e.key === ']' ? Math.min(idx + 1, segs.length - 1) : Math.max(idx - 1, 0);
+        if (nextIdx >= 0) {
+          const next = segs[nextIdx];
+          const el = segRefs.current.get(next.id);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             el.querySelector<HTMLTextAreaElement>('textarea')?.focus();
           }
         }
@@ -1016,6 +1052,42 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               {segSearch && (
                 <button className="seg-search-clear" onClick={() => setSegSearch('')} aria-label="Очистить">×</button>
               )}
+              {/* Л5: Кнопка открытия замены */}
+              <button
+                className={`btn-secondary btn-xs${showReplace ? ' active' : ''}`}
+                onClick={() => setShowReplace(r => !r)}
+                title="Найти и заменить (Ctrl+H)"
+              >⇄</button>
+              {/* Л5: Панель замены */}
+              {showReplace && segSearch && (
+                <div className="seg-replace-row">
+                  <input
+                    type="text"
+                    className="seg-search-input"
+                    placeholder="Заменить на..."
+                    value={segReplace}
+                    onChange={e => setSegReplace(e.target.value)}
+                    style={{ width: 140 }}
+                  />
+                  <button
+                    className="btn-secondary btn-xs"
+                    onClick={() => {
+                      if (!segSearch || !project) return;
+                      setProject(prev => {
+                        if (!prev) return prev;
+                        const updatedSegs = (prev.segments as Segment[]).map(s => {
+                          if (!s.translated_text?.includes(segSearch)) return s;
+                          return { ...s, translated_text: s.translated_text.replaceAll(segSearch, segReplace) };
+                        });
+                        return { ...prev, segments: updatedSegs };
+                      });
+                      setDirty(true);
+                      setMessage(`Заменено: "${segSearch}" → "${segReplace}"`);
+                      setTimeout(() => setMessage(''), 3000);
+                    }}
+                  >Заменить всё</button>
+                </div>
+              )}
               {/* NC8-02: Фильтр по QA-флагу */}
               <select
                 className="seg-qa-filter"
@@ -1082,6 +1154,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 .map((seg, segIndex) => (
                 <div
                   key={seg.id}
+                  data-seg-id={String(seg.id)}
                   ref={(el) => {
                     if (el) segRefs.current.set(seg.id, el);
                     else segRefs.current.delete(seg.id);
@@ -1450,13 +1523,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                         )}
                         {run.error && (
                           <div className="stage-error-block">
-                            <span className="stage-error-label">{t('workspace.error', locale)}:</span>
-                            <code className="stage-error-msg">
+                            <span className="stage-error-label">⚠️ Произошла ошибка:</span>
+                            <span className="stage-error-msg">
                               {run.error
                                 .replace(/\/app\/runs\/[^/]+\//g, '')
                                 .replace(/runs\/[^/]+\//g, '')
-                                .slice(0, 200)}
-                            </code>
+                                .replace(/File "\/[^"]+", line \d+/g, '')
+                                .replace(/Traceback \(most recent call last\):/g, '')
+                                .replace(/^\s+/gm, '')
+                                .trim()
+                                .slice(0, 240)}
+                            </span>
+                            <details className="stage-error-hint">
+                              <summary>💡 Что делать?</summary>
+                              <ul>
+                                <li>Проверьте подключение к интернету</li>
+                                <li>Убедитесь что API-ключ настроен в <strong>Настройках</strong></li>
+                                <li>Попробуйте запустить перевод заново</li>
+                              </ul>
+                            </details>
                           </div>
                         )}
                       </div>
