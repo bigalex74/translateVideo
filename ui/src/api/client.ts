@@ -48,8 +48,21 @@ export async function uploadProject(file: File, project_id?: string, config?: Pi
     return res.json();
 }
 
-export async function listProjects(): Promise<VideoProject[]> {
-    const res = await fetch(`${API_BASE}/projects`);
+export async function listProjects(params?: {
+    search?: string;
+    sort_by?: 'created_at' | 'name' | 'status';
+    sort_dir?: 'asc' | 'desc';
+    tag?: string;
+    page_size?: number;
+}): Promise<VideoProject[]> {
+    const q = new URLSearchParams();
+    if (params?.search)   q.set('search', params.search);
+    if (params?.sort_by)  q.set('sort_by', params.sort_by);
+    if (params?.sort_dir) q.set('sort_dir', params.sort_dir);
+    if (params?.tag)      q.set('tag', params.tag);
+    if (params?.page_size) q.set('page_size', String(params.page_size));
+    const url = q.toString() ? `${API_BASE}/projects?${q}` : `${API_BASE}/projects`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json() as { projects: VideoProject[] };
     return data.projects;

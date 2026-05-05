@@ -307,8 +307,14 @@ def list_projects(
     page_size: int = 50,
     archived: bool | None = None,
     tag: str | None = None,
+    search: str | None = None,    # K3: поиск по имени файла
+    sort_by: str = "created_at",  # K3: created_at | name | status
+    sort_dir: str = "desc",       # asc | desc
 ):
-    """Вернуть список проектов из рабочего корня (Z3.18 pagination, NC10-01 tag filter, NC10-02 archived filter)."""
+    """Список проектов с фильтрацией, поиском и сортировкой.
+
+    (Z3.18 pagination, NC10-01 tag filter, NC10-02 archived, K3 search+sort)
+    """
 
     try:
         all_projects = list(store.list_projects())
@@ -320,9 +326,29 @@ def list_projects(
             # По умолчанию скрываем архивные
             all_projects = [p for p in all_projects if not p.archived]
 
+        # K3: Поиск по имени файла / project_id
+        if search:
+            q = search.lower()
+            all_projects = [
+                p for p in all_projects
+                if q in str(p.input_video or "").lower() or q in str(p.id or "").lower()
+            ]
+
         # Фильтр по тегу
         if tag:
             all_projects = [p for p in all_projects if tag in (p.tags or [])]
+
+        # K3: Сортировка
+        reverse = sort_dir.lower() == "desc"
+        if sort_by == "name":
+            all_projects.sort(key=lambda p: str(p.input_video or "").lower(), reverse=reverse)
+        elif sort_by == "status":
+            all_projects.sort(key=lambda p: str(p.status), reverse=reverse)
+        else:  # created_at (default) — VideoProject has started_at not created_at
+            all_projects.sort(
+                key=lambda p: p.started_at or str(p.work_dir),
+                reverse=reverse,
+            )
 
         total = len(all_projects)
         page = max(1, page)
@@ -340,6 +366,9 @@ def list_projects(
                 "page_size": page_size,
                 "total": total,
                 "pages": max(1, (total + page_size - 1) // page_size),
+                "search": search,
+                "sort_by": sort_by,
+                "sort_dir": sort_dir,
             },
         }
     except Exception:

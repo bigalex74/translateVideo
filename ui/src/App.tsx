@@ -22,6 +22,7 @@ function App() {
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [theme, setTheme] = useState(getPersistedTheme);
   const [locale, setLocale] = useState<AppLocale>(getPersistedLocale);
+  const [sidebarOpen, setSidebarOpen] = useState(false);  // R1-R5: мобильный sidebar
   const largeText = getPersistedLargeText();
 
   // Применяем тему при монтировании и при изменении
@@ -43,6 +44,12 @@ function App() {
   const openWorkspace = (id: string) => {
     setActiveProject(id);
     setCurrentView('workspace');
+    setSidebarOpen(false);  // закрываем sidebar при переходе
+  };
+
+  const navigateTo = (view: typeof currentView) => {
+    setCurrentView(view);
+    setSidebarOpen(false);
   };
 
   const toggleTheme = () => {
@@ -58,8 +65,23 @@ function App() {
 
   return (
     <>
+    {/* R1-R5: Hamburger кнопка на мобиле */}
+    <button
+      className="sidebar-toggle"
+      onClick={() => setSidebarOpen(true)}
+      aria-label="Открыть меню"
+      title="Открыть меню"
+    >☰</button>
+
+    {/* Backdrop overlay */}
+    <div
+      className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`}
+      onClick={() => setSidebarOpen(false)}
+      aria-hidden="true"
+    />
+
     <div className="app-container">
-      <aside className="sidebar">
+      <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-header">
           <Video className="text-accent" size={24} />
           <h1>{t('app.title', locale)}</h1>
@@ -71,13 +93,15 @@ function App() {
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
+          {/* R1-R5: Кнопка закрыть sidebar на мобиле */}
+          <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Закрыть меню">✕</button>
         </div>
         <nav>
           <ul>
             <li
               id="nav-my-translations"
               className={currentView === 'dashboard' ? 'active' : ''}
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => navigateTo('dashboard')}
             >
               <LayoutList size={18} />
               {t('nav.dashboard', locale)}
@@ -85,7 +109,7 @@ function App() {
             <li
               id="nav-new-project"
               className={currentView === 'new_project' ? 'active' : ''}
-              onClick={() => setCurrentView('new_project')}
+              onClick={() => navigateTo('new_project')}
             >
               <PlusCircle size={18} />
               {t('nav.newProject', locale)}
@@ -94,7 +118,7 @@ function App() {
               id="nav-settings"
               className={currentView === 'settings' ? 'active' : ''}
               style={{ marginTop: 'auto' }}
-              onClick={() => setCurrentView('settings')}
+              onClick={() => navigateTo('settings')}
             >
               <Settings size={18} />
               {t('nav.settings', locale)}

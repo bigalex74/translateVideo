@@ -961,7 +961,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
                   seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))
                 .filter(seg => !qaFlagFilter || (seg.qa_flags ?? []).includes(qaFlagFilter))  // NC8-02
-                .map((seg) => (
+                .map((seg, segIndex) => (
                 <div
                   key={seg.id}
                   ref={(el) => {
@@ -977,6 +977,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   }`}
                 >
                   <div className="seg-header">
+                    {/* D6: Номер сегмента для ориентации в длинных текстах */}
+                    <span
+                      className="seg-number"
+                      title={`Сегмент №${segIndex + 1} из ${segments.length}`}
+                    >
+                      #{segIndex + 1}
+                    </span>
                     {/* Z2.15: Checkbox для batch-выбора */}
                     <input
                       type="checkbox"
@@ -990,7 +997,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                           return next;
                         });
                       }}
-                      aria-label={`Выбрать сегмент ${seg.id}`}
+                      aria-label={`Выбрать сегмент №${segIndex + 1}`}
                     />
                     <span
                       className="seg-timing seg-timing--clickable"

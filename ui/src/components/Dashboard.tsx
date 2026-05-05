@@ -42,6 +42,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [project, setProject] = useState<VideoProject | null>(null);
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [searchInput, setSearchInput] = useState('');
+  const [projectSearch, setProjectSearch] = useState('');  // K3: поиск по списку проектов
+  const [sortBy, setSortBy] = useState<'created_at'|'name'|'status'>('created_at');  // K3: сортировка
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<{ id: string; force: boolean } | null>(null);
@@ -50,12 +53,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
 
   const refreshProjects = useCallback(async () => {
     try {
-      const data = await listProjects();
+      const data = await listProjects({ search: projectSearch || undefined, sort_by: sortBy, sort_dir: sortDir });
       setProjects(data);
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [projectSearch, sortBy, sortDir]);
 
   const loadStatus = useCallback(async (id: string) => {
     if (!id.trim()) return;
@@ -403,6 +406,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
               <p className="text-muted">{t('dashboard.sortedByUpdate', locale)}</p>
             </div>
             <div className="section-header-right">
+              {/* K3: Поиск по проектам */}
+              <div className="project-list-search">
+                <Search size={14} style={{color: 'var(--text-muted)'}} />
+                <input
+                  id="project-list-search-input"
+                  className="text-input"
+                  value={projectSearch}
+                  onChange={e => { setProjectSearch(e.target.value); }}
+                  placeholder="Поиск проектов…"
+                  style={{ padding: '6px 10px', fontSize: '0.85rem', width: '160px' }}
+                />
+              </div>
+              {/* K3: Сортировка */}
+              <select
+                id="project-sort-select"
+                className="select-input"
+                value={`${sortBy}_${sortDir}`}
+                onChange={e => {
+                  const [by, dir] = e.target.value.split('_');
+                  setSortBy(by as 'created_at'|'name'|'status');
+                  setSortDir(dir as 'asc'|'desc');
+                }}
+                style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+              >
+                <option value="created_at_desc">🕐 Новые первые</option>
+                <option value="created_at_asc">🕐 Старые первые</option>
+                <option value="name_asc">🔤 По имени (А→Я)</option>
+                <option value="name_desc">🔤 По имени (Я→А)</option>
+                <option value="status_asc">📊 По статусу</option>
+              </select>
               {/* Фильтр по статусу */}
               <div className="status-filter">
                 <Filter size={13} />

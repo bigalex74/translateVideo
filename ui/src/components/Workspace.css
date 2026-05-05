@@ -1219,3 +1219,27 @@
   max-width: 200px;
   margin: auto;
 }
+
+/* D6: Номер сегмента */
+.seg-number {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1px 5px;
+  min-width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+  cursor: default;
+  user-select: none;
+  letter-spacing: -0.02em;
+}
+
+/* D6: Поиск по списку проектов */
+.project-list-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
