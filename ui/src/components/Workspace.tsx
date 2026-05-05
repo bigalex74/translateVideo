@@ -391,11 +391,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const findArtifact = (kind: string): ArtifactRecord | undefined =>
     project.artifact_records?.find(r => r.kind === kind);
 
+  // Z1.6: Приоритетные артефакты — видео первым, затем аудио и субтитры
+  const primaryArtifacts = [
+    { kind: 'output_video',           label: '🎬 Готовое видео',           primary: true },
+    { kind: 'output_video_with_subs', label: '🎬💬 Видео с субтитрами',    primary: true },
+  ].filter(item => findArtifact(item.kind));
+
   const downloadableArtifacts = [
-    { kind: 'subtitles',              label: '📄 Субтитры (SRT)' },
-    { kind: 'subtitles_vtt',          label: '📄 Субтитры (VTT)' },
     { kind: 'output_video',           label: '🎬 Готовое видео' },
     { kind: 'output_video_with_subs', label: '🎬💬 Видео с субтитрами' },
+    { kind: 'subtitles',              label: '📄 Субтитры (SRT)' },
+    { kind: 'subtitles_vtt',          label: '📄 Субтитры (VTT)' },
     { kind: 'qa_report',              label: '✅ QA-отчёт' },
     { kind: 'translated_transcript',  label: '📝 Перевод (JSON)' },
   ].filter(item => findArtifact(item.kind));
@@ -641,6 +647,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               <CheckCircle2 size={12} />
               {locale === 'ru' ? `Сохранено ${autosaveAt}` : `Saved ${autosaveAt}`}
             </span>
+          )}
+          {/* Z1.6: CTA кнопка скачивания готового видео */}
+          {primaryArtifacts.length > 0 && (
+            <a
+              href={artifactDownloadUrl(projectId, primaryArtifacts[0].kind)}
+              className="btn-download-cta"
+              target="_blank"
+              rel="noreferrer"
+              title="Скачать готовое видео"
+            >
+              <Download size={14} />
+              {locale === 'ru' ? 'Скачать' : 'Download'}
+            </a>
           )}
         </div>
       </header>

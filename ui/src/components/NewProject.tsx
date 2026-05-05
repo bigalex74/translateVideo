@@ -344,9 +344,10 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
                   </div>
                 ) : (
                   <div className="drop-prompt">
-                    <UploadCloud size={48} className="text-muted" />
-                    <span>{t('newProject.dropVideo', locale)}</span>
+                    <UploadCloud size={64} className="text-muted" />
+                    <span className="drop-prompt-title">{t('newProject.dropVideo', locale)}</span>
                     <span className="text-muted text-sm">{t('newProject.clickToChoose', locale)}</span>
+                    <span className="drop-prompt-formats">MP4, MKV, MOV, AVI, YouTube</span>
                   </div>
                 )}
               </div>

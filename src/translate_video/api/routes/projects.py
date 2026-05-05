@@ -377,6 +377,70 @@ def download_project_artifact(
         raise HTTPException(status_code=404, detail="Project not found")
 
 
+@router.get(
+    "/{project_id}/artifacts/audio",
+    summary="Скачать аудиодорожку дубляжа (WAV/MP3) (Z2.6)",
+)
+def download_dubbed_audio(
+    project_id: str = FastAPIPath(...),
+    format: str = "wav",  # noqa: A002
+    store: ProjectStore = Depends(get_store),
+):
+    """Вернуть смешанную аудиодорожку дубляжа для импорта в DaVinci Resolve / Premiere.
+
+    Ищет файлы в порядке приоритета:
+    1. artifacts/dubbed_audio.wav (после render/mix)
+    2. artifacts/mixed_audio.wav
+    3. Первый .wav из work_dir
+
+    ?format=wav (default) или ?format=mp3 — конвертация через ffmpeg.
+    """
+    import subprocess  # noqa: PLC0415
+
+    safe_id = sanitize_project_id(project_id)
+    project = store.load_project(store.root / safe_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    work_dir = project.work_dir
+
+    # Ищем аудиофайл
+    candidates = [
+        work_dir / "artifacts" / "dubbed_audio.wav",
+        work_dir / "artifacts" / "mixed_audio.wav",
+        work_dir / "dubbed_audio.wav",
+        work_dir / "mixed_audio.wav",
+    ]
+    # Ищем любой WAV в work_dir/artifacts
+    artifacts_dir = work_dir / "artifacts"
+    if artifacts_dir.is_dir():
+        for wav in sorted(artifacts_dir.glob("*.wav")):
+            candidates.append(wav)
+
+    audio_file: Path | None = next((p for p in candidates if p.is_file()), None)
+
+    if audio_file is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Аудиодорожка дубляжа ещё не создана. Запустите пайплайн до этапа 'render'.",
+        )
+
+    if format == "mp3":
+        # Конвертируем в MP3 через ffmpeg
+        mp3_path = audio_file.with_suffix(".exported.mp3")
+        if not mp3_path.exists():
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", str(audio_file), "-b:a", "192k", str(mp3_path)],
+                    capture_output=True, check=True, timeout=60,
+                )
+            except subprocess.CalledProcessError as e:
+                raise HTTPException(status_code=500, detail=f"ffmpeg: {e.stderr.decode()[:200]}")
+        return FileResponse(mp3_path, media_type="audio/mpeg", filename=f"{safe_id}_dubbed.mp3")
+
+    return FileResponse(audio_file, media_type="audio/wav", filename=f"{safe_id}_dubbed.wav")
+
+
 @router.put("/{project_id}/segments")
 def save_project_segments(
     project_id: str,
@@ -763,4 +827,269 @@ def get_global_stats(store: ProjectStore = Depends(get_store)):
         "total_projects": len(projects),
         "by_status": by_status,
         "total_segments": total_segments,
+    }
+
+# ─── Z5.8: stage-runs детальный эндпоинт ──────────────────────────────────
+
+@router.get(
+    "/{project_id}/stage-runs",
+    summary="Детальная информация об этапах выполнения (Z5.8)",
+)
+def get_stage_runs(
+    project_id: str = FastAPIPath(..., description="ID проекта"),
+    store: ProjectStore = Depends(get_store),
+):
+    """Вернуть список stage_runs с деталями: duration, elapsed, cost_usd per stage.
+
+    Используется для финансовой отчётности и мониторинга.
+    """
+    project = store.load_project(sanitize_project_id(project_id))
+    if project is None:
+        raise HTTPException(status_code=404, detail=f"Проект '{project_id}' не найден")
+
+    runs = []
+    for run in project.stage_runs:
+        run_dict = run.to_dict()
+        # Добавляем duration из metadata если есть
+        metadata = run_dict.get("metadata") or {}
+        cost_usd = metadata.get("cost_usd") or metadata.get("translation_cost_usd")
+        run_dict["cost_usd"] = round(float(cost_usd), 6) if cost_usd is not None else None
+        runs.append(run_dict)
+
+    return {
+        "project_id": project_id,
+        "stage_runs": runs,
+        "total_stages": len(runs),
+        "completed_stages": sum(1 for r in runs if r.get("status") == "completed"),
+        "total_elapsed_s": round(
+            sum(r.get("elapsed", 0) or 0 for r in runs), 2
+        ),
+    }
+
+
+# ─── Z5.9: retry from_stage API ───────────────────────────────────────────
+
+class RetryFromStageRequest(BaseModel):
+    """Запрос на повторный запуск с указанного этапа."""
+    from_stage: str = "tts"
+    force: bool = False
+
+
+@router.post(
+    "/{project_id}/retry",
+    summary="Повторный запуск пайплайна с указанного этапа (Z5.9)",
+)
+def retry_from_stage(
+    project_id: str = FastAPIPath(..., description="ID проекта"),
+    body: RetryFromStageRequest = Body(default_factory=RetryFromStageRequest),
+    store: ProjectStore = Depends(get_store),
+):
+    """Запустить пайплайн повторно начиная с ``from_stage``.
+
+    Используется для автоматического retry в n8n и CI/CD.
+    Эквивалентно POST /pipeline/{id}/run?from_stage=...
+    """
+    project = store.load_project(sanitize_project_id(project_id))
+    if project is None:
+        raise HTTPException(status_code=404, detail=f"Проект '{project_id}' не найден")
+
+    from translate_video.api.routes.pipeline import _running_projects  # noqa: PLC0415
+    if project_id in _running_projects:
+        raise HTTPException(status_code=409, detail="Проект уже выполняется")
+
+    valid_stages = [
+        "extract_audio", "transcribe", "regroup", "translate",
+        "timing_fit", "tts", "render", "export",
+    ]
+    if body.from_stage not in valid_stages:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Неизвестный этап '{body.from_stage}'. Допустимые: {valid_stages}",
+        )
+
+    # Делегируем существующему роутеру пайплайна
+    from translate_video.api.routes import pipeline as pipeline_module  # noqa: PLC0415
+    # Формируем запрос через RunRequest
+    from translate_video.api.routes.pipeline import RunRequest as _RunRequest  # noqa: PLC0415
+    run_req = _RunRequest(
+        from_stage=body.from_stage,
+        force=body.force,
+    )
+    return pipeline_module.run_pipeline(
+        project_id=project_id,
+        req=run_req,
+        store=store,
+    )
+
+# ─── Z3.10: Итоговое резюме качества ──────────────────────────────────────
+
+@router.get(
+    "/{project_id}/quality-report",
+    summary="Итоговое резюме качества перевода (Z3.10)",
+)
+def get_quality_report(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+):
+    """Вернуть human-readable резюме качества перевода проекта.
+
+    Включает:
+    - Оценку качества (A/B/C/D) на основе QA-флагов
+    - Топ-проблемы с объяснением
+    - Процент сегментов с проблемами
+    - Рекомендации по улучшению
+    """
+    safe_id = sanitize_project_id(project_id)
+    project = store.load_project(store.root / safe_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from translate_video.core.stats import compute_project_stats  # noqa: PLC0415
+
+    stats = compute_project_stats(project)
+    segs = project.segments or []
+    quality = stats["quality"]
+    seg_stats = stats["segments"]
+
+    # Оценка качества
+    issues_rate = (
+        quality["segments_with_issues"] / len(segs)
+        if segs else 0
+    )
+    critical_flags = {"translation_empty", "tts_invalid_slot", "timing_fit_invalid_slot"}
+    critical_count = sum(
+        quality["qa_flags_distribution"].get(f, 0)
+        for f in critical_flags
+    )
+
+    if critical_count > 0 or issues_rate > 0.5:
+        grade = "D"
+        grade_label = "Требует серьёзной доработки"
+    elif issues_rate > 0.3:
+        grade = "C"
+        grade_label = "Удовлетворительно"
+    elif issues_rate > 0.1:
+        grade = "B"
+        grade_label = "Хорошо"
+    else:
+        grade = "A"
+        grade_label = "Отлично"
+
+    # Топ проблем
+    FLAG_LABELS = {
+        "translation_empty": "Пустые переводы",
+        "timing_fit_failed": "Текст не помещается в тайминг",
+        "render_audio_trimmed": "Аудио обрезано",
+        "tts_overflow_after_rate": "TTS не помещается на макс. скорости",
+        "translation_fallback_source": "Перевод = оригинал",
+        "translation_rewritten_for_timing": "Перевод сокращён для тайминга",
+        "tts_rate_adapted": "TTS ускорен",
+    }
+    top_problems = [
+        {
+            "flag": flag,
+            "label": FLAG_LABELS.get(flag, flag),
+            "count": count,
+            "percent": round(count / len(segs) * 100, 1) if segs else 0,
+        }
+        for flag, count in sorted(
+            quality["qa_flags_distribution"].items(),
+            key=lambda x: -x[1],
+        )
+        if flag not in ("translation_provider_used", "translation_llm")
+    ][:5]
+
+    # Рекомендации
+    recommendations = []
+    if quality["qa_flags_distribution"].get("translation_empty", 0):
+        recommendations.append("Проверьте сегменты с пустым переводом в редакторе.")
+    if quality["qa_flags_distribution"].get("timing_fit_failed", 0):
+        recommendations.append("Сократите переводы в длинных сегментах или включите ускорение аудио.")
+    if quality["qa_flags_distribution"].get("render_audio_trimmed", 0) > 5:
+        recommendations.append("Много обрезок аудио — попробуйте повысить скорость TTS или сократить текст.")
+    if quality.get("google_fallback_count", 0) > 0:
+        recommendations.append("Часть сегментов переведена через Google Translate — качество может быть ниже.")
+    if not recommendations:
+        recommendations.append("Перевод выполнен успешно. Рекомендуется проверка выборочных сегментов.")
+
+    return {
+        "project_id": project_id,
+        "grade": grade,
+        "grade_label": grade_label,
+        "issues_rate": round(issues_rate, 3),
+        "segments_total": len(segs),
+        "segments_with_issues": quality["segments_with_issues"],
+        "critical_count": critical_count,
+        "top_problems": top_problems,
+        "recommendations": recommendations,
+        "avg_confidence": quality.get("avg_confidence"),
+        "compression_ratio": seg_stats.get("compression_ratio"),
+        "segments_rewritten": seg_stats.get("segments_rewritten", 0),
+    }
+
+# ─── Z2.3: Журнал действий проекта ────────────────────────────────────────
+
+@router.get(
+    "/{project_id}/activity",
+    summary="Журнал действий с проектом (Z2.3)",
+)
+def get_project_activity(
+    project_id: str = FastAPIPath(...),
+    limit: int = 50,
+    store: ProjectStore = Depends(get_store),
+):
+    """Вернуть хронологический журнал действий с проектом.
+
+    Восстанавливает историю из stage_runs + billing_snapshots.
+    Каждая запись: type (start/complete/fail/cancel), stage, timestamp, detail.
+    """
+    safe_id = sanitize_project_id(project_id)
+    project = store.load_project(store.root / safe_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    events = []
+
+    for run in project.stage_runs:
+        stage_str = run.stage.value if hasattr(run.stage, "value") else str(run.stage)
+        status_str = run.status.value if hasattr(run.status, "value") else str(run.status)
+
+        if run.started_at:
+            events.append({
+                "type": "stage_start",
+                "stage": stage_str,
+                "timestamp": run.started_at,
+                "detail": f"Начало этапа {stage_str}",
+                "attempt": run.attempt,
+            })
+        if run.finished_at:
+            ev_type = (
+                "stage_complete" if status_str == "completed"
+                else "stage_fail" if status_str == "failed"
+                else "stage_skip" if status_str == "skipped"
+                else "stage_cancel"
+            )
+            events.append({
+                "type": ev_type,
+                "stage": stage_str,
+                "timestamp": run.finished_at,
+                "detail": (
+                    f"Этап {stage_str} завершён за {round(run.elapsed, 1)}с"
+                    if status_str == "completed" and hasattr(run, "elapsed") and run.elapsed
+                    else f"Этап {stage_str} {status_str}"
+                ),
+                "error": run.error if status_str == "failed" else None,
+            })
+
+    # Сортируем по времени
+    events.sort(key=lambda e: e["timestamp"] or "")
+    events = events[-limit:]  # последние N записей
+
+    return {
+        "project_id": project_id,
+        "project_status": (
+            project.status.value if hasattr(project.status, "value") else str(project.status)
+        ),
+        "events": events,
+        "total": len(events),
     }

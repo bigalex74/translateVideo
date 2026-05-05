@@ -199,6 +199,11 @@ class PipelineConfig:
 
     do_not_translate: list[str] = field(default_factory=list)
 
+    # Z2.9: Глоссарий с парами "оригинал → перевод"
+    # Формат: [{"source": "AI", "target": "ИИ"}, ...]
+    # Передаётся в промт LLM перевода как обязательные замены.
+    glossary_terms: list[dict] = field(default_factory=list)
+
     # ── Режим разработчика ────────────────────────────────────────────────────
     # При dev_mode=True DevLogWriter пишет все промты, ответы модели и I/O
     # этапов в {work_dir}/devlog.jsonl. Выключен по умолчанию.
@@ -335,5 +340,7 @@ class PipelineConfig:
                 "regroup_max_slot": float(data.get("regroup_max_slot", 8.0)),
                 # Режим разработчика
                 "dev_mode": bool(data.get("dev_mode", False)),
+                # Z2.9: глоссарий с парами перевода
+                "glossary_terms": list(data.get("glossary_terms", [])),
             }
         )

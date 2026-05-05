@@ -69,6 +69,51 @@ interface AdvancedSettingsProps {
   disabled?: boolean;
 }
 
+// Z2.9: Вспомогательный компонент для добавления пары глоссария
+function GlossaryAddRow({
+  disabled,
+  onAdd,
+}: {
+  disabled: boolean;
+  onAdd: (src: string, tgt: string) => void;
+}) {
+  const [src, setSrc] = React.useState('');
+  const [tgt, setTgt] = React.useState('');
+  return (
+    <div className="adv-glossary-add-row">
+      <input
+        className="adv-glossary-input"
+        type="text"
+        placeholder="Оригинал (напр. AI)"
+        value={src}
+        onChange={e => setSrc(e.target.value)}
+        disabled={disabled}
+      />
+      <span className="adv-glossary-arrow">→</span>
+      <input
+        className="adv-glossary-input"
+        type="text"
+        placeholder="Перевод (напр. ИИ)"
+        value={tgt}
+        onChange={e => setTgt(e.target.value)}
+        disabled={disabled}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && src && tgt) {
+            onAdd(src.trim(), tgt.trim());
+            setSrc(''); setTgt('');
+          }
+        }}
+      />
+      <button
+        type="button"
+        className="adv-tag-add"
+        onClick={() => { if (src && tgt) { onAdd(src.trim(), tgt.trim()); setSrc(''); setTgt(''); } }}
+        disabled={disabled || !src.trim() || !tgt.trim()}
+      >+</button>
+    </div>
+  );
+}
+
 export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   config,
   onChange,
@@ -890,6 +935,43 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
               >+</button>
             </div>
             <span className="adv-hint">Нажмите Enter или «+» для добавления</span>
+          </div>
+
+          {/* Z2.9: Глоссарий с переводами */}
+          <div className="adv-field">
+            <label className="adv-label">📖 Глоссарий (термин → перевод)</label>
+            <div className="adv-glossary">
+              {(c.glossary_terms ?? []).map((entry, idx) => (
+                <div key={idx} className="adv-glossary-row">
+                  <span className="adv-glossary-source">{entry.source}</span>
+                  <span className="adv-glossary-arrow">→</span>
+                  <span className="adv-glossary-target">{entry.target}</span>
+                  <button
+                    type="button"
+                    className="adv-tag-remove"
+                    onClick={() => {
+                      const terms = [...(c.glossary_terms ?? [])];
+                      terms.splice(idx, 1);
+                      onChange({ glossary_terms: terms });
+                    }}
+                    disabled={disabled}
+                    aria-label={`Удалить ${entry.source}`}
+                  >×</button>
+                </div>
+              ))}
+              <GlossaryAddRow
+                disabled={disabled}
+                onAdd={(src, tgt) => {
+                  if (!src || !tgt) return;
+                  const terms = [...(c.glossary_terms ?? [])];
+                  if (!terms.some(t => t.source === src)) {
+                    terms.push({ source: src, target: tgt });
+                    onChange({ glossary_terms: terms });
+                  }
+                }}
+              />
+            </div>
+            <span className="adv-hint">Термины, которые LLM обязан перевести именно так</span>
           </div>
 
           {/* Режим разработчика */}

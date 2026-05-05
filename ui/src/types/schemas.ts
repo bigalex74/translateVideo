@@ -63,6 +63,8 @@ export interface PipelineConfig {
     allow_render_audio_trim: boolean;
     regroup_max_slot: number;
     do_not_translate: string[];
+    /** Z2.9: Пары глоссария {source, target} */
+    glossary_terms: Array<{source: string; target: string}>;
     dev_mode: boolean;
 }
 

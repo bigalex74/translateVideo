@@ -26,8 +26,9 @@ export function getPersistedProvider(): string {
 export function getPersistedTheme(): string {
   const saved = localStorage.getItem(LS_THEME);
   if (saved) return saved;
-  // C-09: по умолчанию следуем системной преференции
-  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  // Z4.3: для новых пользователей — светлая тема по умолчанию (удобнее для пожилых).
+  // Системная преференция в приоритете если пользователь явно настроил dark mode.
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export function getPersistedLargeText(): boolean {

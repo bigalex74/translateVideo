@@ -632,3 +632,90 @@ code {
   margin-left: 4px;
   vertical-align: middle;
 }
+
+/* ─── Z2.9: Glossary UI ────────────────────────────────────────────────── */
+.adv-glossary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.adv-glossary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  background: rgba(99, 102, 241, 0.07);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.adv-glossary-source { font-weight: 600; color: var(--color-text, #e2e8f0); }
+.adv-glossary-target { color: var(--color-accent, #6366f1); font-weight: 600; }
+.adv-glossary-arrow { opacity: 0.5; font-size: 1rem; }
+.adv-glossary-add-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.adv-glossary-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: inherit;
+  font-size: 0.82rem;
+}
+
+/* ─── Z1.6: Download CTA button ────────────────────────────────────────── */
+.btn-download-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(16,185,129,0.35);
+  transition: box-shadow 0.2s, transform 0.15s;
+  animation: pulse-green 2s infinite;
+}
+.btn-download-cta:hover {
+  box-shadow: 0 4px 16px rgba(16,185,129,0.5);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: #fff;
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 2px 8px rgba(16,185,129,0.35); }
+  50%       { box-shadow: 0 2px 16px rgba(16,185,129,0.6); }
+}
+
+/* ─── Z4.1/Z4.2: Drop zone + Wizard accessibility ─────────────────────── */
+.drop-prompt-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-top: 8px;
+}
+.drop-prompt-formats {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  letter-spacing: 0.05em;
+}
+
+/* Stage elapsed time in timeline */
+.stage-elapsed {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: var(--color-muted, #94a3b8);
+  background: rgba(148,163,184,0.12);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
