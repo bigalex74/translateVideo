@@ -1,5 +1,284 @@
 # Журнал Изменений
 
+## 1.49.0 - 2026-05-05 - FEAT - TVIDEO-163
+
+### Round 3 Итерация 5: Поиск сегментов, Заметки редактора, Diff-бейдж, Экспорт скрипта
+
+**Бэкенд:**
+- schemas.py: поле `Segment.notes` — заметка редактора, не влияет на пайплайн
+- schemas.ts: тип `Segment.notes?: string` (Z2.11)
+- projects.py: `GET /{id}/export/script?format=txt|tsv` — экспорт перевода как сценария (Z3.13/Z3.14)
+- projects.py: `GET /{id}/export/subtitles-all` — ZIP со всеми форматами субтитров (Z1.12)
+- projects.py: исправлен обработчик `FileNotFoundError → 404` в 8 новых endpoint-ах
+
+**Фронтенд:**
+- Workspace: поле поиска по сегментам (Z2.12)
+- Workspace: поле `notes` для заметок к каждому сегменту (Z2.11)
+- Workspace: `seg-diff-badge` — badge кол-ва символов оригинал→перевод (Z4.11)
+- Workspace: `handleTextChange` расширен параметром `field` для любого поля сегмента
+
+**Тесты:**
+- +7 файлов тестов: test_export_ass, test_export_sbv, test_store_export_formats, test_segment_notes_and_import, test_quality_report, test_script_export, test_tts_compress
+- +test_api_webhooks, test_glossary_config, test_api_projects_r3 (API-тесты новых endpoint-ов)
+- Итого тестов: 732 ✅
+- Покрытие: 78% Python (+5% за итерацию)
+
+**Версия:** 1.49.0
+
+## 1.48.0 - 2026-05-05 - FEAT - TVIDEO-162
+
+### Round 3 Итерация 4: Импорт субтитров SRT, CPU в health, Оценка A/B/C/D, Горячие клавиши
+
+**Бэкенд:**
+- projects.py: `POST /{id}/import-subtitles` — импорт SRT/VTT как переводов (NC6-01)
+- projects.py: `_parse_srt_time()`, `_parse_vtt_time()` — парсеры таймкодов
+- main.py: health включает `cpu_percent`, `cpu_count` через psutil (Z5.12)
+
+**Фронтенд:**
+- Workspace: секция «Оценить качество» в статус-вкладке с оценкой A/B/C/D и рекомендациями (Z3.11)
+- Workspace: модальное окно горячих клавиш `?` (Z4.10)
+- Workspace: кнопка `📋 Копировать перевод` (Z2.10)
+- Dashboard: разделены кнопки «Запустить», «Продолжить», «Начать заново» (Z4.8)
+- NewProject: увеличена зона перетаскивания (Z4.1)
+
+**Тесты:** 590 → 590 ✅ / Build ✅
+
+**Версия:** 1.48.0
+
+## 1.47.0 - 2026-05-04 - FEAT - TVIDEO-161
+
+### Round 3 Итерация 3: ASS/SBV субтитры, Пакетное создание, Кнопка «Поделиться», Privacy notice
+
+**Бэкенд:**
+- export/ass.py: ASS (Advanced SubStation Alpha) субтитры для Aegisub (NC5-01)
+- export/sbv.py: YouTube Studio SBV формат субтитров (Z3.4)
+- store.py: `export_subtitles()` поддерживает `fmt=ass|sbv` (NC5-01, Z3.4)
+- projects.py: `POST /batch` — пакетное создание проектов (Z5.4)
+- projects.py: `POST /{id}/import-subtitles` — endpoint импорта SRT/VTT (NC6-01)
+- projects.py: `GET /{id}/subtitles?format=srt|vtt|ass|sbv` — мультиформат экспорт
+
+**Фронтенд:**
+- Workspace: кнопка Share с clipboard (Z1.8)
+- NewProject: privacy notice с возможностью закрыть (Z3.9)
+- Dashboard: кнопка «Скачать» в заголовке готового проекта (Z1.6)
+- Dashboard: Run/Restart/Continue логика кнопок (Z4.8, Z4.9)
+
+**Тесты:** 590 ✅ / Build ✅
+
+**Версия:** 1.47.0
+
+## 1.46.0 - 2026-05-04 - FEAT - TVIDEO-160
+
+### Round 3 Итерация 2: Глоссарий, Quality Report API, Activity Log, Stage Runs
+
+**Бэкенд:**
+- config.py: поле `glossary_terms: list[dict]` в PipelineConfig (Z2.9)
+- projects.py: `GET /{id}/quality-report` — оценка A/B/C/D (Z3.10)
+- projects.py: `GET /{id}/activity` — журнал действий проекта (Z2.3)
+- projects.py: `GET /{id}/stage-runs` — детальные запуски этапов с cost_usd (Z5.8)
+- projects.py: `GET /{id}/artifacts/audio` — TTS аудиодорожка (Z2.6)
+- projects.py: `POST /{id}/retry` — перезапуск с конкретного этапа (Z5.9)
+
+**Фронтенд:**
+- AdvancedSettings: виджет добавления терминов глоссария (Z2.9)
+- Workspace: секция QA-отчёта в статус-вкладке (Z3.10)
+
+**Тесты:** 590 ✅ / Build ✅
+
+**Версия:** 1.46.0
+
+## 1.45.0 - 2026-05-04 - FEAT - TVIDEO-159
+
+### Round 3 Итерация 1: ETA прогресс, Метки скорости TTS, Autosave flash, Elapsed в timeline
+
+**Бэкенд:**
+- main.py: health содержит `cpu_percent`, `cpu_count`, `memory_mb` (Z5.12)
+- pipeline/runner.py: обновление `progress_percent` и `eta_seconds` в реальном времени (Z1.3)
+
+**Фронтенд:**
+- Workspace: overlay с ETA «~X мин» и процентом прогресса (Z1.3)
+- Workspace: метки скорости TTS (0.5× — 2.0×) в настройках сегмента (Z2.7)
+- Workspace: autosave flash индикатор при сохранении (Z2.8)
+- Dashboard: elapsed время в карточке stage_run (Z5.5)
+- NewProject: чекбокс для мобильных/портретных видео (Z3.1)
+- settings.ts: светлая тема по умолчанию (Z4.3)
+
+**Тесты:** 590 ✅ / Build ✅
+
+**Версия:** 1.45.0
+
+## 1.44.0 - 2026-05-04 - FEAT - TVIDEO-158
+
+### Round 2 Финал: VTT субтитры, Экспорт-кнопка, Горячие клавиши SRT
+
+**Бэкенд:**
+- export/vtt.py: WebVTT субтитры (TVIDEO-158)
+- store.py: `export_subtitles(fmt="vtt")` поддержка VTT
+- projects.py: `GET /{id}/subtitles?format=vtt`
+
+**Фронтенд:**
+- Workspace: кнопка скачать SRT в header (Z1.4)
+- Workspace: кнопка скачать VTT (Z3.4)
+
+**Тесты:** 568 ✅ / Build ✅ / 96% TypeScript
+
+**Версия:** 1.44.0
+
+## 1.43.0 - 2026-05-04 - FEAT - TVIDEO-157
+
+### UX Round 2 Итерация 7: Доработки онбординга и фильтрации
+
+**Фронтенд:**
+- Dashboard: исправлена задвоение фильтрации при смене статуса
+- Dashboard: tooltip на кнопки статуса
+- Workspace: scroll к активному сегменту при навигации клавиатурой
+- NewProject: tooltip при hover над кнопкой дропзоны
+- index.css: исправлены медиазапросы для мобильных (≤480px)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.43.0
+
+## 1.42.0 - 2026-05-04 - FEAT - TVIDEO-156
+
+### UX Round 2 Итерация 6: Реорганизация настроек, Streaming upload
+
+**Бэкенд:**
+- projects.py: `POST /upload` принимает большие файлы через streaming
+- projects.py: добавлен endpoint `DELETE /{id}` — удаление проекта
+
+**Фронтенд:**
+- Settings: вкладки «Основные», «Качество TTS», «Разработка»
+- Dashboard: индикатор размера файла при загрузке
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.42.0
+
+## 1.41.0 - 2026-05-04 - FEAT - TVIDEO-155
+
+### UX Round 2 Итерация 5: Экспорт, Undo/Redo, SSML preview
+
+**Бэкенд:**
+- projects.py: `GET /{id}/export/transcript` — экспорт transcript как JSON
+
+**Фронтенд:**
+- Workspace: полноценный Undo/Redo через historyIndex (Z2.4)
+- Workspace: rich preview SSML-тегов в редакторе (Z4.6)
+- Workspace: прогресс-бар в overlay со stage label (Z1.3)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.41.0
+
+## 1.40.0 - 2026-05-04 - FEAT - TVIDEO-154
+
+### UX Round 2 Итерация 4: QA флаги в редакторе, SSML UI
+
+**Фронтенд:**
+- Workspace: отображение QA-флагов на каждом сегменте (Z3.7)
+- Workspace: кнопка «SSML режим» с тегами SpeechKit (Z4.4)
+- Workspace: dropdown синтеза голоса для сегмента (Z3.5)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.40.0
+
+## 1.39.0 - 2026-05-04 - FEAT - TVIDEO-153
+
+### UX Round 2 Итерация 3: Drag-and-drop сегменты, Voice Cast UI
+
+**Фронтенд:**
+- Workspace: drag-and-drop перестановка сегментов (Z2.5)
+- Workspace: панель Voice Cast с маппингом спикер→голос (Z3.6)
+- Workspace: статус-бейдж на каждом сегменте (draft/translated/tts_ready/failed)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.39.0
+
+## 1.38.0 - 2026-05-04 - FEAT - TVIDEO-152
+
+### UX Round 2 Итерация 2: Настройки проекта, Профиль пользователя
+
+**Бэкенд:**
+- projects.py: `PUT /{id}/config` — обновление конфигурации проекта (Z5.6)
+
+**Фронтенд:**
+- Settings: страница с профилем пользователя (Z1.7)
+- Workspace: панель настроек проекта в side panel (Z3.8)
+- Dashboard: rich карточки с метриками (сегментов, длительность, стоимость)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.38.0
+
+## 1.37.0 - 2026-05-04 - FEAT - TVIDEO-151
+
+### UX Round 2 Итерация 1: Онбординг расширенный, Timeline этапов
+
+**Фронтенд:**
+- Dashboard: timeline этапов пайплайна с иконками и статусами (Z5.5)
+- Dashboard: empty state с 4-шаговым онбордингом
+- Workspace: running overlay с текущим этапом и progress bar (Z1.3)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.37.0
+
+## 1.36.0 - 2026-05-04 - FEAT - TVIDEO-150
+
+### UX Round 1 Итерация 5: Полный preflight + Оценка стоимости
+
+**Бэкенд:**
+- preflight.py: cost_estimate = стоимость перевода + TTS в рублях
+- preflight.py: duration_estimate_seconds = ETA в секундах
+- projects.py: `GET /{id}/preflight` с валидацией и оценкой
+
+**Фронтенд:**
+- ConfirmRunModal: блок «Время обработки + Стоимость» из preflight
+- Workspace: ETA `~X мин` в overlay пайплайна
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.36.0
+
+## 1.35.0 - 2026-05-04 - FEAT - TVIDEO-149
+
+### UX Round 1 Итерация 4: Биллинг-статистика, Реальные расходы
+
+**Бэкенд:**
+- stats.py: `compute_project_stats()` — полная статистика с billing
+- billing_snapshots в VideoProject: polza_before/after, neuroapi_before/after
+- projects.py: `GET /{id}/billing` — реальные расходы после завершения
+
+**Фронтенд:**
+- Dashboard: карточка стоимости проекта (Z5.7)
+- Workspace: метрики в status-вкладке
+
+**Тесты:** 568 ✅ / Build ✅ / 96% TypeScript
+
+**Версия:** 1.35.0
+
+## 1.34.0 - 2026-05-04 - FEAT - TVIDEO-148
+
+### UX Round 1 Итерация 3: Webhook уведомления, Retry API, Инспектор сегментов
+
+**Бэкенд:**
+- webhooks.py: `notify_webhook(url, payload)` — async POST с payload (Z5.11)
+- pipeline/runner.py: вызов webhook при завершении каждого этапа
+- projects.py: `POST /{id}/retry?from_stage=X` — перезапуск с этапа (Z5.9)
+
+**Фронтенд:**
+- Workspace: инспектор сегментов с полным списком полей (Z2.1)
+- Workspace: кнопка копирования исходного текста (Z2.2)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.34.0
+
+
+
 ## 1.33.0 - 2026-05-04 - FEAT - TVIDEO-137
 
 ### UX Iteration 2: Onboarding, Error Messages, API Key UI, Mobile, Batch API

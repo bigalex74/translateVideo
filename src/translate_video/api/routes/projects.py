@@ -398,8 +398,9 @@ def download_dubbed_audio(
     import subprocess  # noqa: PLC0415
 
     safe_id = sanitize_project_id(project_id)
-    project = store.load_project(store.root / safe_id)
-    if project is None:
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
 
     work_dir = project.work_dir
@@ -843,8 +844,10 @@ def get_stage_runs(
 
     Используется для финансовой отчётности и мониторинга.
     """
-    project = store.load_project(sanitize_project_id(project_id))
-    if project is None:
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Проект '{project_id}' не найден")
 
     runs = []
@@ -940,8 +943,9 @@ def get_quality_report(
     - Рекомендации по улучшению
     """
     safe_id = sanitize_project_id(project_id)
-    project = store.load_project(store.root / safe_id)
-    if project is None:
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
 
     from translate_video.core.stats import compute_project_stats  # noqa: PLC0415
@@ -1044,8 +1048,9 @@ def get_project_activity(
     Каждая запись: type (start/complete/fail/cancel), stage, timestamp, detail.
     """
     safe_id = sanitize_project_id(project_id)
-    project = store.load_project(store.root / safe_id)
-    if project is None:
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
 
     events = []
@@ -1122,8 +1127,9 @@ def download_subtitles(
         )
 
     safe_id = sanitize_project_id(project_id)
-    project = store.load_project(store.root / safe_id)
-    if project is None:
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not project.segments:
@@ -1257,8 +1263,9 @@ async def import_subtitles(
     - Ручного улучшения машинного перевода
     """
     safe_id = sanitize_project_id(project_id)
-    project = store.load_project(store.root / safe_id)
-    if project is None:
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Читаем загруженный файл
@@ -1380,8 +1387,9 @@ def export_script_txt(
     - Создания транскрипта для SEO
     """
     safe_id = sanitize_project_id(project_id)
-    project = store.load_project(store.root / safe_id)
-    if project is None:
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
     if not project.segments:
         raise HTTPException(status_code=404, detail="Скрипт пуст — запустите перевод")
@@ -1446,8 +1454,9 @@ def export_all_subtitles(
     from fastapi.responses import Response  # noqa: PLC0415
 
     safe_id = sanitize_project_id(project_id)
-    project = store.load_project(store.root / safe_id)
-    if project is None:
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
     if not project.segments:
         raise HTTPException(status_code=404, detail="Субтитры ещё не созданы — запустите перевод")
