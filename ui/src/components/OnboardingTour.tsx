@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * OnboardingTour — Guided tour при первом визите (C-01).
  * Показывается автоматически если localStorage не содержит 'tv_onboarded'.
@@ -60,6 +61,7 @@ export const OnboardingTour: React.FC<{ onDone?: () => void }> = ({ onDone }) =>
 
   useEffect(() => {
     if (!localStorage.getItem(LS_KEY)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisible(true);
     }
   }, []);

@@ -9,8 +9,13 @@ import { Download, X } from 'lucide-react';
 
 const DISMISSED_KEY = 'pwa_install_dismissed';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 export const InstallPWABanner: React.FC = () => {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [installed, setInstalled] = useState(false);
 
@@ -20,11 +25,11 @@ export const InstallPWABanner: React.FC = () => {
 
     const handler = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       setVisible(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handler as EventListener);
+    window.addEventListener('beforeinstallprompt', handler);
 
     // Уже установлено
     window.addEventListener('appinstalled', () => {
@@ -33,13 +38,13 @@ export const InstallPWABanner: React.FC = () => {
     });
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler as EventListener);
+      window.removeEventListener('beforeinstallprompt', handler);
     };
   }, []);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
-    deferredPrompt.prompt();
+    await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
       setVisible(false);

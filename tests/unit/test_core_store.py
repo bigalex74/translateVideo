@@ -69,6 +69,20 @@ class ProjectStoreTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 store.create_project("lesson.mp4", project_id="../evil")
 
+    def test_create_project_rejects_duplicate_project_id(self):
+        """Повторное создание с тем же project_id не должно перетирать project.json."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ProjectStore(Path(temp_dir) / "runs")
+            project = store.create_project("lesson.mp4", project_id="lesson")
+            marker = project.work_dir / "project.json"
+            before = marker.read_text(encoding="utf-8")
+
+            with self.assertRaises(FileExistsError):
+                store.create_project("other.mp4", project_id="lesson")
+
+            self.assertEqual(marker.read_text(encoding="utf-8"), before)
+
     def test_attach_input_video_copies_source_into_project(self):
         """Исходное видео должно копироваться в рабочую папку проекта."""
 

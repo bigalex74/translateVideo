@@ -13,6 +13,23 @@ import type {
 // Если UI отдан самим FastAPI (fullstack E2E/production), работаем через origin.
 const isViteDevServer = ['5173', '5174'].includes(window.location.port);
 const API_BASE = isViteDevServer ? "http://localhost:8002/api/v1" : "/api/v1";
+const API_KEY_STORAGE = 'tv_api_key';
+
+export function apiHeaders(base?: Record<string, string>): Record<string, string> {
+    const headers: Record<string, string> = { ...(base ?? {}) };
+    const apiKey = localStorage.getItem(API_KEY_STORAGE)?.trim();
+    if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+    }
+    return headers;
+}
+
+export function withApiKeyQuery(url: string): string {
+    const apiKey = localStorage.getItem(API_KEY_STORAGE)?.trim();
+    if (!apiKey) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}api_key=${encodeURIComponent(apiKey)}`;
+}
 
 async function readError(res: Response): Promise<string> {
     const text = await res.text();
@@ -27,7 +44,7 @@ async function readError(res: Response): Promise<string> {
 export async function createProject(input_video: string, project_id?: string, config?: PipelineConfigDraft): Promise<VideoProject> {
     const res = await fetch(`${API_BASE}/projects`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ input_video, project_id, config })
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -42,6 +59,7 @@ export async function uploadProject(file: File, project_id?: string, config?: Pi
 
     const res = await fetch(`${API_BASE}/projects/upload`, {
         method: "POST",
+        headers: apiHeaders(),
         body: formData
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -62,14 +80,14 @@ export async function listProjects(params?: {
     if (params?.tag)      q.set('tag', params.tag);
     if (params?.page_size) q.set('page_size', String(params.page_size));
     const url = q.toString() ? `${API_BASE}/projects?${q}` : `${API_BASE}/projects`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: apiHeaders() });
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json() as { projects: VideoProject[] };
     return data.projects;
 }
 
 export async function getProjectStatus(project_id: string): Promise<VideoProject> {
-    const res = await fetch(`${API_BASE}/projects/${project_id}`);
+    const res = await fetch(`${API_BASE}/projects/${project_id}`, { headers: apiHeaders() });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }
@@ -85,7 +103,7 @@ export async function runPipeline(
     const effectiveProvider = provider ?? localStorage.getItem('tv_default_provider') ?? 'legacy';
     const effectiveWebhook  = webhookUrl ?? localStorage.getItem('tv_webhook_url') ?? undefined;
 
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = apiHeaders({ "Content-Type": "application/json" });
     if (effectiveWebhook) {
         headers["X-Webhook-Url"] = effectiveWebhook;
     }
@@ -103,7 +121,7 @@ export async function runPipeline(
 }
 
 export async function getProjectArtifacts(project_id: string): Promise<ArtifactsResponse> {
-    const res = await fetch(`${API_BASE}/projects/${project_id}/artifacts`);
+    const res = await fetch(`${API_BASE}/projects/${project_id}/artifacts`, { headers: apiHeaders() });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }
@@ -111,7 +129,7 @@ export async function getProjectArtifacts(project_id: string): Promise<Artifacts
 export async function saveProjectSegments(project_id: string, segments: Segment[]): Promise<VideoProject> {
     const res = await fetch(`${API_BASE}/projects/${project_id}/segments`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ translated: true, segments })
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -124,7 +142,7 @@ export async function patchProjectConfig(
 ): Promise<{ ok: boolean; config: PipelineConfig }> {
     const res = await fetch(`${API_BASE}/projects/${project_id}/config`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ config }),
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -134,7 +152,7 @@ export async function patchProjectConfig(
 export async function preflightVideo(input_video: string, provider: string = "fake"): Promise<PreflightReport> {
     const res = await fetch(`${API_BASE}/preflight`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ input_video, provider })
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -142,26 +160,27 @@ export async function preflightVideo(input_video: string, provider: string = "fa
 }
 
 export async function fetchProviderModels(provider: string): Promise<ProviderModel[]> {
-    const res = await fetch(`${API_BASE}/providers/${encodeURIComponent(provider)}/models`);
+    const res = await fetch(`${API_BASE}/providers/${encodeURIComponent(provider)}/models`, { headers: apiHeaders() });
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json() as { models: ProviderModel[] };
     return data.models;
 }
 
 export async function fetchProviderBalance(provider: string): Promise<ProviderBalance> {
-    const res = await fetch(`${API_BASE}/providers/${encodeURIComponent(provider)}/balance`);
+    const res = await fetch(`${API_BASE}/providers/${encodeURIComponent(provider)}/balance`, { headers: apiHeaders() });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }
 
 export function artifactDownloadUrl(project_id: string, kind: string): string {
-    return `${API_BASE}/projects/${encodeURIComponent(project_id)}/artifacts/${encodeURIComponent(kind)}`;
+    return withApiKeyQuery(`${API_BASE}/projects/${encodeURIComponent(project_id)}/artifacts/${encodeURIComponent(kind)}`);
 }
 
 /** Запросить отмену запущенного пайплайна. Бросает ошибку если проект не запущен. */
 export async function cancelPipeline(project_id: string): Promise<{ status: string }> {
     const res = await fetch(`${API_BASE}/projects/${project_id}/cancel`, {
         method: 'POST',
+        headers: apiHeaders(),
     });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
@@ -179,7 +198,7 @@ export async function previewTTS(
 ): Promise<string> {
     const res = await fetch(`${API_BASE}/projects/${project_id}/tts-preview`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ text, is_ssml }),
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -194,7 +213,7 @@ export async function renameProject(
 ): Promise<{ project_id: string; display_name: string; status: string }> {
     const res = await fetch(`${API_BASE}/projects/${project_id}/rename`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ display_name }),
     });
     if (!res.ok) throw new Error(await readError(res));
@@ -203,18 +222,19 @@ export async function renameProject(
 
 /** А6: URL для скачивания субтитров в конкретном формате (srt/vtt/ass/sbv). */
 export function subtitleExportUrl(project_id: string, format: 'srt' | 'vtt' | 'ass' | 'sbv'): string {
-    return `${API_BASE}/projects/${project_id}/subtitles?format=${format}`;
+    return withApiKeyQuery(`${API_BASE}/projects/${project_id}/subtitles?format=${format}`);
 }
 
 /** А6: URL для скачивания всех субтитров в ZIP (SRT+VTT+ASS+SBV). */
 export function subtitleExportZipUrl(project_id: string): string {
-    return `${API_BASE}/projects/${project_id}/subtitles/all`;
+    return withApiKeyQuery(`${API_BASE}/projects/${project_id}/subtitles/all`);
 }
 
 /** R7-И1: Удаление проекта целиком. */
 export async function deleteProject(project_id: string): Promise<{ deleted: string; ok: boolean }> {
     const res = await fetch(`${API_BASE}/projects/${encodeURIComponent(project_id)}`, {
         method: 'DELETE',
+        headers: apiHeaders(),
     });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
@@ -223,7 +243,7 @@ export async function deleteProject(project_id: string): Promise<{ deleted: stri
 /** R7-И4: Safari-совместимое скачивание через fetch+blob (обходит ограничения Safari на <a download>). */
 export async function safariSafeDownload(url: string, filename: string): Promise<void> {
     try {
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: apiHeaders() });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         const objUrl = URL.createObjectURL(blob);
@@ -256,7 +276,7 @@ export async function batchCreateProjects(
 ): Promise<BatchResult[]> {
     const res = await fetch(`${API_BASE}/projects/batch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ items, auto_run }),
     });
     if (!res.ok) throw new Error(`Batch error: HTTP ${res.status}`);

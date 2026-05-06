@@ -1,3 +1,24 @@
+## 1.87.0 - 2026-05-06 - FIX - TVIDEO-207
+### Audit hardening: API, storage, auth headers
+
+**Бэкенд:**
+- `/runs` больше не монтируется публичной статикой по умолчанию; включение только через `EXPOSE_RUNS_STATIC=true`.
+- JSON create-project блокирует произвольные локальные файлы вне `WORK_ROOT` и SSRF URL на private/loopback адреса.
+- `ProjectStore.create_project()` отклоняет повторный `project_id`, JSON-запись стала атомарной.
+- Исправлены shadowed routes `/projects/stats` и `/artifacts/audio`, clone/retry endpoints, ZIP export relative artifacts.
+- Восстановлен round-trip `display_name`, исправлены progress/ETA stage payloads.
+
+**Фронтенд:**
+- UI API client и связанные компоненты отправляют `X-API-Key`; download/video/subtitle ссылки добавляют `api_key` query для media-запросов.
+
+**Зависимости/документация:**
+- `requirements.txt` синхронизирован с API runtime зависимостями; README добавляет `pip install -e .`.
+
+**Тесты:**
+- Добавлено покрытие для duplicate project_id, SSRF/local-file блокировок, `/runs`, route ordering, clone/retry, ZIP export, display_name и auth helpers.
+
+---
+
 ## 1.86.0 - 2026-05-06 - FIX - TVIDEO-206
 ### Hotfix: Modal overlay — createPortal (истинная причина прозрачности)
 
@@ -1241,7 +1262,7 @@ AdvancedSettings.tsx:
 - CSS: adv-tts-slider-hint (курсивная подсказка)
 
 
-## 1.22.23 - 2026-05-06 - FIX - TVIDEO-UI-DESIGN-FIX
+## 1.30.1 - 2026-05-06 - FIX - TVIDEO-UI-DESIGN-FIX
 
 ### UI: исправлены все дизайн-баги (7 критичных + мобильный гамбургер)
 

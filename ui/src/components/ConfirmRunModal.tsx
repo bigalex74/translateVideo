@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Clock, DollarSign, Info, Play, RefreshCw, X, SkipForward } from 'lucide-react';

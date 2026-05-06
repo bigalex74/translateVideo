@@ -36,7 +36,7 @@ export function useProjectStatus({
 }: UseProjectStatusOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollStartRef = useRef<number>(Date.now());
+  const pollStartRef = useRef<number>(0);
   const wsFailedRef = useRef<boolean>(false);
 
   // ── Адаптивный интервал поллинга (fallback) ──────────────────────────────

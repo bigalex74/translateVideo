@@ -9,14 +9,14 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 
-def _make_request(path: str, api_key: str | None = None) -> Request:
+def _make_request(path: str, api_key: str | None = None, query_string: bytes = b"") -> Request:
     """Создать минимальный объект Request для тестов."""
     scope = {
         "type": "http",
         "method": "GET",
         "path": path,
         "headers": [],
-        "query_string": b"",
+        "query_string": query_string,
     }
     if api_key is not None:
         scope["headers"] = [(b"x-api-key", api_key.encode())]
@@ -88,6 +88,14 @@ class APIKeyMiddlewareTest(unittest.IsolatedAsyncioTestCase):
         req = _make_request("/api/v1/projects")
         resp = await self._dispatch(mw, req)
         self.assertEqual(resp.status_code, 401)
+
+    async def test_get_allows_api_key_query_for_media_links(self):
+        """GET-ссылки download/video могут авторизоваться через ?api_key=."""
+
+        mw = _make_middleware_with_key("secret123")
+        req = _make_request("/api/v1/video/proj/input.mp4", query_string=b"api_key=secret123")
+        resp = await self._dispatch(mw, req)
+        self.assertEqual(resp.status_code, 200)
 
     async def test_health_check_bypasses_auth(self):
         """Эндпоинт /api/health не требует ключа."""

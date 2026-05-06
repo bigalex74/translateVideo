@@ -62,7 +62,9 @@ async function setupMockAPI(page: Page) {
   await page.addInitScript(() => {
     try {
       localStorage.setItem('tv_onboarded', '1'); // OnboardingTour.tsx: LS_KEY = 'tv_onboarded'
-    } catch (_) {}
+    } catch {
+      return;
+    }
   });
 
   // Мокируем API чтобы тесты не зависели от живых данных

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl, safariSafeDownload } from '../api/client';
+import { apiHeaders, artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl, safariSafeDownload, withApiKeyQuery } from '../api/client';
 import type { ArtifactRecord, CostEstimate, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -20,6 +20,12 @@ import {
 } from 'lucide-react';
 import './Workspace.css';
 import { useProjectStatus } from '../hooks/useProjectStatus';
+
+declare global {
+  interface Window {
+    __ttsPreviewAudio?: HTMLAudioElement;
+  }
+}
 
 interface WorkspaceProps {
   projectId: string;
@@ -59,6 +65,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [savingConfig, setSavingConfig] = useState(false);
   const [activeSegId, setActiveSegId] = useState<string | null>(null);
   const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
+  const [isPortraitVideo, setIsPortraitVideo] = useState(false);
   // Модальное предупреждение: откат Яндекс-разметки при смене провайдера
   const [yandexRevertModal, setYandexRevertModal] = useState<{
     pendingPatch: Partial<PipelineConfig>;
@@ -91,7 +98,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const fetchQualityReport = async () => {
     setLoadingQR(true);
     try {
-      const resp = await fetch(`${window.location.pathname.includes('localhost') ? '' : ''}/api/v1/projects/${projectId}/quality-report`);
+      const resp = await fetch(`/api/v1/projects/${projectId}/quality-report`, { headers: apiHeaders() });
       if (resp.ok) setQualityReport(await resp.json());
     } catch {/* ignore */}
     finally { setLoadingQR(false); }
@@ -156,7 +163,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       setTimeout(() => setMessage(''), 5000);
     }
     prevStatusRef.current = project.status;
-  }, [project?.status]);
+  }, [project]);
 
   // R8-И1: WebSocket + adaptive HTTP fallback через useProjectStatus hook (Глеб Г7)
   // Заменяет инлайн поллинг — больше нет дёргающего setInterval
@@ -177,7 +184,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
 
   // Zombie-timeout: если через 8с после отмены статус не изменился — показываем Force Stop.
   useEffect(() => {
-    if (!cancelling) { setCancelTimedOut(false); return; }
+    if (!cancelling) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCancelTimedOut(false);
+      return;
+    }
     const t = setTimeout(() => setCancelTimedOut(true), 8000);
     return () => clearTimeout(t);
   }, [cancelling]);
@@ -283,7 +294,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       document.title = base;
     }
     return () => { document.title = base; };
-  }, [project?.status, project?.progress_percent, project?.eta_seconds]);
+  }, [project]);
 
   // ─── Z4.12: Alt+↑/↓ навигация по сегментам в редакторе ──────────────────────
   useEffect(() => {
@@ -306,7 +317,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   }, [project]);
 
   // ─── Live QA feed ─── (ДОЛЖЕН быть ДО любого раннего return — Rules of Hooks)
-  const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
+  const FLAG_SEV = React.useMemo<Record<string, 'critical' | 'error' | 'warning' | 'info'>>(() => ({
     translation_empty: 'critical', tts_invalid_slot: 'critical',
     timing_fit_invalid_slot: 'critical', timeline_audio_extends_video: 'critical',
     translation_fallback_source: 'error', tts_overflow_after_rate: 'error',
@@ -316,7 +327,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     rewrite_provider_failed: 'warning', render_speed_fallback: 'warning',
     tts_pretrim: 'warning', timeline_shifted: 'warning',
     rewrite_provider_quota_limited: 'warning', rewrite_provider_cooldown: 'warning',
-  };
+  }), []);
 
   // Z2.5: Подсказки "что делать" для каждого QA-флага
   const QA_FLAG_ACTIONS: Record<string, string> = {
@@ -338,7 +349,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
 
   type LiveSev = 'critical' | 'error' | 'warning' | 'info';
   interface LiveFlag { flag: string; sev: LiveSev; count: number; }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const liveFlags: LiveFlag[] = React.useMemo(() => {
     const isRunningNow = project?.status === 'running';
     if (!isRunningNow || !project) return [];
@@ -364,7 +374,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       })
       .map(([flag, count]) => ({ flag, sev: FLAG_SEV[flag] ?? 'info' as LiveSev, count }))
       .sort((a, b) => SEV_ORDER.indexOf(a.sev) - SEV_ORDER.indexOf(b.sev));
-  }, [project]);
+  }, [FLAG_SEV, project]);
 
   if (!project) return (
     <div className="workspace-loading">
@@ -528,9 +538,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const getVideoUrl = (): string => {
     // Используем стриминг-роут с поддержкой Range и правильным MIME
     if (videoTab === 'translated' && project.artifacts['output_video']) {
-      return `${API_VIDEO}/${projectId}/${project.artifacts['output_video']}`;
+      return withApiKeyQuery(`${API_VIDEO}/${projectId}/${project.artifacts['output_video']}`);
     }
-    return `${API_VIDEO}/${projectId}/input.mp4`;
+    return withApiKeyQuery(`${API_VIDEO}/${projectId}/input.mp4`);
   };
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -651,7 +661,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
 
             <p className="running-hint">
               {cancelling
-                ? `Ожидаем завершения этапа «${runningStage ? stageLabel(runningStage.stage, locale) : '…'}» — после этого перевод остановится.`
+                ? `Ожидаем завершения этапа «${runningStage ? stageLabel(runningStage.stage, locale) : '…'}» — после этого перевод остановится.`
                 : t('workspace.runningHint', locale)
               }
             </p>
@@ -996,12 +1006,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 <Film size={14} /> {t('workspace.aiTranslation', locale)}
               </button>
             </div>
-            <div className={`video-container${videoRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight && videoRef.current.videoWidth < videoRef.current.videoHeight ? ' is-portrait' : ''}`}>
+            <div className={`video-container${isPortraitVideo ? ' is-portrait' : ''}`}>
               <video
                 ref={videoRef}
                 controls
                 src={getVideoUrl()}
                 key={getVideoUrl()}
+                onLoadedMetadata={(event) => {
+                  const video = event.currentTarget;
+                  setIsPortraitVideo(Boolean(video.videoWidth && video.videoHeight && video.videoWidth < video.videoHeight));
+                }}
                 onTimeUpdate={() => {
                   const t = videoRef.current?.currentTime ?? 0;
                   const active = segments.find(s => t >= s.start && t < s.end);
@@ -1012,7 +1026,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 {project.artifacts['subtitles_vtt'] && (
                   <track
                     kind="subtitles"
-                    src={`${API_VIDEO}/${projectId}/${project.artifacts['subtitles_vtt']}`}
+                    src={withApiKeyQuery(`${API_VIDEO}/${projectId}/${project.artifacts['subtitles_vtt']}`)}
                     srcLang={project.config?.target_language ?? 'ru'}
                     label="Субтитры"
                     default
@@ -1170,6 +1184,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))
                 .filter(seg => !qaFlagFilter || (seg.qa_flags ?? []).includes(qaFlagFilter))  // NC8-02
                 .filter(seg => !filterEmptyOnly || !seg.translated_text?.trim())  // Л6: только пустые
+                // eslint-disable-next-line react-hooks/refs
                 .map((seg, segIndex) => (
                 <div
                   key={seg.id}
@@ -1271,9 +1286,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                           const url = await previewTTS(projectId, text, false);
                           const audio = new Audio();
                           // Сохраняем ссылку на window чтобы GC не убил объект во время воспроизведения
-                          (window as any).__ttsPreviewAudio = audio;
-                          audio.onended = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; };
-                          audio.onerror = (e) => { console.error('[preview] audio error', e); URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; };
+                          window.__ttsPreviewAudio = audio;
+                          audio.onended = () => { URL.revokeObjectURL(url); delete window.__ttsPreviewAudio; };
+                          audio.onerror = (e) => { console.error('[preview] audio error', e); URL.revokeObjectURL(url); delete window.__ttsPreviewAudio; };
                           audio.src = url;
                           audio.load();
                           try { await audio.play(); } catch(e) { console.error('[preview] play error', e); }
@@ -1301,9 +1316,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                             try {
                               const url = await previewTTS(projectId, segText, false);
                               const audio = new Audio();
-                              (window as any).__ttsPreviewAudio = audio;
-                              audio.onended = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; setPreviewingSegId(null); };
-                              audio.onerror = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; setPreviewingSegId(null); };
+                              window.__ttsPreviewAudio = audio;
+                              audio.onended = () => { URL.revokeObjectURL(url); delete window.__ttsPreviewAudio; setPreviewingSegId(null); };
+                              audio.onerror = () => { URL.revokeObjectURL(url); delete window.__ttsPreviewAudio; setPreviewingSegId(null); };
                               audio.src = url;
                               audio.load();
                               await audio.play();

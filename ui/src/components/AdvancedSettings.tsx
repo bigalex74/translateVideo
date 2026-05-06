@@ -1,5 +1,5 @@
 import React from 'react';
-import { fetchProviderBalance, fetchProviderModels } from '../api/client';
+import { apiHeaders, fetchProviderBalance, fetchProviderModels } from '../api/client';
 import type { PipelineConfig, ProviderBalance } from '../types/schemas';
 import {
   ADAPTATION_LABELS,
@@ -252,8 +252,8 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
     if (lastLoadedProvider.current === key) return;
     lastLoadedProvider.current = key;
     const modelParam = prov === 'polza' ? `&model=${encodeURIComponent(ttsModel)}` : '';
-    fetch(`/api/v1/tts/voices?provider=${prov}${modelParam}`).then(r => r.json()).then(d => setTtsVoices(d.voices ?? []));
-    fetch(`/api/v1/tts/models?provider=${prov}`).then(r => r.json()).then(d => setTtsModels(d.models ?? []));
+    fetch(`/api/v1/tts/voices?provider=${prov}${modelParam}`, { headers: apiHeaders() }).then(r => r.json()).then(d => setTtsVoices(d.voices ?? []));
+    fetch(`/api/v1/tts/models?provider=${prov}`, { headers: apiHeaders() }).then(r => r.json()).then(d => setTtsModels(d.models ?? []));
   }, [professional, ttsProvider, isYandex, ttsModel]);
 
   // Роли доступные для выбранного голоса (Yandex)

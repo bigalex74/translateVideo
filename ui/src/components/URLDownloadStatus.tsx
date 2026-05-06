@@ -25,7 +25,11 @@ export const URLDownloadStatus: React.FC<Props> = ({ isVisible, url }) => {
   const [dots, setDots] = useState('');
 
   useEffect(() => {
-    if (!isVisible) { setStep(0); return; }
+    if (!isVisible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStep(0);
+      return;
+    }
 
     const stepTimer = setInterval(() => {
       setStep((s) => Math.min(s + 1, STEPS.length - 1));

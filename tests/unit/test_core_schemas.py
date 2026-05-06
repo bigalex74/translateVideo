@@ -160,6 +160,20 @@ class VideoProjectTest(unittest.TestCase):
         self.assertIsNone(project.eta_seconds)
         self.assertIsNone(project.started_at)
 
+    def test_display_name_round_trip(self):
+        """display_name должен сохраняться после загрузки project.json."""
+
+        project = VideoProject(
+            input_video=Path("input.mp4"),
+            work_dir=Path("runs/proj"),
+            config=PipelineConfig(source_language="en", target_language="ru"),
+            display_name="Human title",
+        )
+
+        restored = VideoProject.from_dict(project.to_dict())
+
+        self.assertEqual(restored.display_name, "Human title")
+
 
 if __name__ == "__main__":
     unittest.main()

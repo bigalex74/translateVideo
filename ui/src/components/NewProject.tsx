@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { URLDownloadStatus } from './URLDownloadStatus';
-import { createProject, preflightVideo } from '../api/client';
+import { apiHeaders, createProject, preflightVideo } from '../api/client';
 import type { PipelineConfigDraft, PreflightReport } from '../types/schemas';
 import { providerLabels, providerWarning, t } from '../i18n';
 import { AdvancedSettings } from './AdvancedSettings';
@@ -262,8 +262,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
           if (projectId) fd.append('project_id', projectId);
           fd.append('config', JSON.stringify(config));
           xhr.open('POST', '/api/v1/projects/upload');
-          const apiKey = localStorage.getItem('api_key');
-          if (apiKey) xhr.setRequestHeader('X-API-Key', apiKey);
+          Object.entries(apiHeaders()).forEach(([key, value]) => xhr.setRequestHeader(key, value));
           xhr.send(fd);
         });
       } else {

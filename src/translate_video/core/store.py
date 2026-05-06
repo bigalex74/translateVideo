@@ -6,6 +6,7 @@ import json
 import hashlib
 import re
 import shutil
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -46,10 +47,13 @@ class ProjectStore:
         resolved_id = sanitize_project_id(project_id) if project_id else sanitize_project_id(
             f"{input_path.stem}-{uuid4().hex[:8]}"
         )
+        work_dir = self.root / resolved_id
+        if (work_dir / self.PROJECT_FILE).exists():
+            raise FileExistsError(f"проект уже существует: {resolved_id}")
         project = VideoProject(
             id=resolved_id,
             input_video=input_path,
-            work_dir=self.root / resolved_id,
+            work_dir=work_dir,
             config=resolved_config,
         )
         self._ensure_layout(project)
@@ -304,7 +308,10 @@ class ProjectStore:
 
     @staticmethod
     def _write_json(path: Path, payload: object) -> None:
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = path.with_name(f".{path.name}.tmp-{os.getpid()}-{uuid4().hex[:8]}")
+        temp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        temp_path.replace(path)
 
     @staticmethod
     def _read_json(path: Path) -> dict:

@@ -3,3 +3,8 @@ faster-whisper
 deep-translator
 edge-tts
 pydub
+fastapi
+uvicorn
+httpx
+python-multipart
+ruaccent

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, Clock, FileText, Star, Mic, AlertTriangle, ChevronDown, ChevronUp, DollarSign } from 'lucide-react';
+import { apiHeaders } from '../api/client';
 import './StatsPanel.css';
 
 interface StatsData {
@@ -116,7 +117,7 @@ export const StatsPanel: React.FC<Props> = ({ projectId }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/projects/${projectId}/stats`);
+      const res = await fetch(`/api/v1/projects/${projectId}/stats`, { headers: apiHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setStats(data);
@@ -127,7 +128,10 @@ export const StatsPanel: React.FC<Props> = ({ projectId }) => {
     }
   }, [projectId]);
 
-  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadStats();
+  }, [loadStats]);
 
   if (loading && !stats) {
     return (

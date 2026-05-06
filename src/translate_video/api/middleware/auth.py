@@ -46,7 +46,6 @@ _PUBLIC_PREFIXES = (
     "/docs",
     "/redoc",
     "/openapi.json",
-    "/runs/",
 )
 
 
@@ -160,6 +159,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         # Проверяем ключ
         provided = request.headers.get("X-API-Key", "")
+        if not provided and request.method == "GET":
+            provided = request.query_params.get("api_key", "")
         user = self._store.authenticate(provided)
 
         if user is None:
