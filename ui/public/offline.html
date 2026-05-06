@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Нет соединения — AI Video Translator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: #0f0f1a;
+      color: #e8e8f0;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #1a1a2e;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 48px 40px;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+    }
+    .icon {
+      font-size: 64px;
+      margin-bottom: 24px;
+      display: block;
+      filter: grayscale(0.3);
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 12px; }
+    p { color: #9898b5; font-size: 0.95rem; line-height: 1.6; margin-bottom: 32px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .hint {
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: #5a5a7a;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="icon">📡</span>
+    <h1>Нет подключения к сети</h1>
+    <p>
+      Приложение работает офлайн. Ранее загруженные данные сохранены.
+      Как только соединение восстановится — изменения синхронизируются автоматически.
+    </p>
+    <button class="btn" onclick="window.location.reload()">
+      🔄 Обновить страницу
+    </button>
+    <p class="hint">Или вернитесь позже, когда сеть будет доступна.</p>
+  </div>
+  <script>
+    // Автоматически перезагружаем, когда сеть восстановится
+    window.addEventListener('online', () => window.location.reload());
+  </script>
+</body>
+</html>

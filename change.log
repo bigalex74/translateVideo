@@ -1,3 +1,19 @@
+## 1.88.0 - 2026-05-06 - FEAT - TVIDEO-214
+### R9-И1: Offline-first PWA — SW v3, OfflineBanner, useOnlineStatus
+
+**Frontend:**
+- `ui/public/sw.js` v3: precache `offline.html` при install; stale-while-revalidate (60s) для `GET /api/v1/projects`; Background Sync handler (`sync-save-segments`); все 3 кэша очищаются при активации нового SW.
+- `ui/public/offline.html` — новая страница-заглушка при отсутствии сети: тёмная тема, кнопка «Обновить», авто-перезагрузка при восстановлении `online`.
+- `ui/src/hooks/useOnlineStatus.ts` — хук `{ isOnline, wasOffline }`: подписывается на `online`/`offline` events, при восстановлении регистрирует Background Sync тег.
+- `ui/src/components/OfflineBanner.tsx` — sticky-баннер: жёлтый при офлайн, зелёный «Синхронизировано» на 3 сек после восстановления.
+- `App.tsx` — `<OfflineBanner />` подключён.
+- `App.css` — стили `.offline-banner`, `.offline-banner--offline`, `.offline-banner--restored`.
+
+**Тесты:**
+- `ui/src/hooks/useOnlineStatus.test.ts` — 5 vitest unit-тестов (online/offline events, unmount cleanup).
+
+---
+
 ## 1.87.0 - 2026-05-06 - FIX - TVIDEO-207
 ### Audit hardening: API, storage, auth headers
 

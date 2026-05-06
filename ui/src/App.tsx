@@ -4,6 +4,7 @@ import { Workspace } from './components/Workspace';
 import { NewProject } from './components/NewProject';
 import { Settings as SettingsPage } from './components/Settings';
 import { OnboardingTour } from './components/OnboardingTour';
+import { OfflineBanner } from './components/OfflineBanner';
 import { t } from './i18n';
 import {
   applyLocale,
@@ -142,6 +143,7 @@ function App() {
       </div>
     </div>
     <OnboardingTour />
+    <OfflineBanner />
     </>
   );
 }
