@@ -59,11 +59,18 @@ describe('getPersistedProvider', () => {
 // ── getPersistedTheme ─────────────────────────────────────────────────────────
 
 describe('getPersistedTheme', () => {
-  it('возвращает "dark" если ключ не задан', () => {
+  // Z4.3: дефолт — светлая тема (удобнее для пожилых пользователей).
+  // В jsdom matchMedia не поддерживается → prefers-color-scheme не матчится → 'light'.
+  it('возвращает "light" если ключ не задан (Z4.3 дефолт)', () => {
+    expect(getPersistedTheme()).toBe('light');
+  });
+
+  it('возвращает сохранённую тему "dark"', () => {
+    localStorage.setItem('tv_theme', 'dark');
     expect(getPersistedTheme()).toBe('dark');
   });
 
-  it('возвращает сохранённую тему', () => {
+  it('возвращает сохранённую тему "light"', () => {
     localStorage.setItem('tv_theme', 'light');
     expect(getPersistedTheme()).toBe('light');
   });

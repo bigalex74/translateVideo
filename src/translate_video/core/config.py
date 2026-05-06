@@ -233,10 +233,9 @@ class PipelineConfig:
             "professional_tts_emotion",
             # ElevenLabs-поля (вынесены в отдельный провайдер)
             "el_stability", "el_similarity_boost", "el_style", "el_speed",
-            # glossary_terms: хранятся отдельно от конфига
-            "glossary_terms",
         ):
             data.pop(old_key, None)
+
 
 
         return cls(
