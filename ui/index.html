@@ -58,6 +58,15 @@
             .catch(function(err) {
               console.warn('[SW] registration failed:', err);
             });
+
+          // Авто-перезагрузка при активации нового SW (после деплоя)
+          // SW отправляет { type: 'SW_UPDATED' } → страница перезагружается
+          navigator.serviceWorker.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'SW_UPDATED') {
+              console.info('[SW] New version activated:', event.data.version, '— reloading...');
+              window.location.reload();
+            }
+          });
         }
       });
     </script>

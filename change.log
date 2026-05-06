@@ -1,3 +1,16 @@
+## 1.84.0 - 2026-05-06 - FIX - TVIDEO-204
+### Hotfix: SW авто-перезагрузка после деплоя
+
+**Фронтенд:**
+- ui/public/sw.js: activate handler теперь отправляет {type: SW_UPDATED} всем вкладкам
+  после self.clients.claim() — браузер автоматически перезагружает страницу
+- ui/index.html: добавлен обработчик 'message' от SW — при SW_UPDATED вызывает
+  window.location.reload(), пользователь сразу видит новую версию
+
+**Тесты:** 832 ✅
+
+---
+
 ## 1.83.0 - 2026-05-06 - FIX - TVIDEO-203
 ### Hotfix: Cache-Control для статических файлов (SW + index.html)
 

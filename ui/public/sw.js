@@ -11,7 +11,7 @@
  */
 
 // Версия кэша — ОБНОВЛЯЕТСЯ при каждом make deploy (sed-заменой)
-const APP_VERSION = '1.82.0';
+const APP_VERSION = '1.84.0';
 const CACHE_NAME = `av-static-${APP_VERSION}`;
 
 // НЕ кэшируем index.html — всегда с сети (Network First для HTML)
@@ -23,19 +23,31 @@ self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
 });
 
-// Активация — УДАЛЯЕМ все старые кэши
+// Активация — УДАЛЯЕМ все старые кэши + сообщаем клиентам об обновлении
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k !== CACHE_NAME)
-          .map((k) => {
-            console.info('[SW] Deleting old cache:', k);
-            return caches.delete(k);
-          })
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k !== CACHE_NAME)
+            .map((k) => {
+              console.info('[SW] Deleting old cache:', k);
+              return caches.delete(k);
+            })
+        )
       )
-    ).then(() => self.clients.claim())
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Сообщаем всем открытым вкладкам: новая версия активирована → перезагрузить
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      })
+      .then((clients) => {
+        console.info(`[SW] Activated v${APP_VERSION}, notifying ${clients.length} client(s) to reload`);
+        clients.forEach((client) => {
+          client.postMessage({ type: 'SW_UPDATED', version: APP_VERSION });
+        });
+      })
   );
 });
 
