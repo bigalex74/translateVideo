@@ -107,13 +107,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
           onChange={e => setSearchInput(e.target.value)}
           placeholder={t('dashboard.searchPlaceholder', locale)}
         />
-        <button type="submit" className="btn-secondary" disabled={loading}>
-          {loading ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />}
-          {t('dashboard.find', locale)}
-        </button>
-        <button type="button" className="btn-secondary" onClick={refreshProjects} title={t('dashboard.refreshList', locale)}>
-          <RefreshCw size={16} />
-        </button>
+        <div className="search-bar-actions">
+          <button type="submit" className="btn-secondary" disabled={loading}>
+            {loading ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />}
+            {t('dashboard.find', locale)}
+          </button>
+          <button type="button" className="btn-secondary" onClick={refreshProjects} title={t('dashboard.refreshList', locale)}>
+            <RefreshCw size={16} />
+          </button>
+        </div>
       </form>
 
       {error && <div className="error-banner" role="alert">{error}</div>}

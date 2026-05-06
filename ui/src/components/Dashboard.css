@@ -3,10 +3,38 @@
     gap: 12px;
     padding: 20px;
     margin-bottom: 30px;
+    align-items: center;
+    flex-wrap: nowrap;       /* desktop: всё в строку */
 }
 
 .search-bar .text-input {
     flex: 1;
+    min-width: 0;            /* не растягивает мимо контейнера */
+}
+
+.search-bar-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;          /* кнопки не сжимаются */
+}
+
+/* ─── D-BUG-03: Mobile search bar — кнопки остаются в строку с полем ─── */
+@media (max-width: 480px) {
+    .search-bar {
+        padding: 12px 16px;
+        gap: 8px;
+        flex-wrap: wrap;     /* если совсем мало места — кнопки на вторую строку */
+    }
+
+    .search-bar .text-input {
+        flex: 1 1 100%;      /* сначала поле на всю ширину */
+    }
+
+    .search-bar-actions {
+        flex: 0 0 auto;
+        width: 100%;
+        justify-content: flex-end;
+    }
 }
 
 .empty-state {

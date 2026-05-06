@@ -13,7 +13,7 @@ import {
   persistLocale,
   type AppLocale,
 } from './store/settings';
-import { LayoutList, PlusCircle, Settings, Video, Sun, Moon } from 'lucide-react';
+import { LayoutList, PlusCircle, Settings, Video, Sun, Moon, Menu } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -21,6 +21,7 @@ function App() {
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [theme, setTheme] = useState(getPersistedTheme);
   const [locale, setLocale] = useState<AppLocale>(getPersistedLocale);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // мобильный drawer
   const largeText = getPersistedLargeText();
 
   // Применяем тему при монтировании и при изменении
@@ -39,9 +40,15 @@ function App() {
     }
   }, []);
 
+  const navigate = (view: typeof currentView) => {
+    setCurrentView(view);
+    setSidebarOpen(false); // закрываем sidebar при навигации (мобильный)
+  };
+
   const openWorkspace = (id: string) => {
     setActiveProject(id);
     setCurrentView('workspace');
+    setSidebarOpen(false);
   };
 
   const toggleTheme = () => {
@@ -57,7 +64,24 @@ function App() {
 
   return (
     <div className="app-container">
-      <aside className="sidebar">
+      {/* Мобильная кнопка-гамбургер — видна только ≤768px */}
+      <button
+        className="sidebar-toggle"
+        onClick={() => setSidebarOpen(v => !v)}
+        aria-label="Открыть меню"
+        aria-expanded={sidebarOpen}
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Overlay для закрытия sidebar по клику вне */}
+      <div
+        className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
+
+      <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-header">
           <Video className="text-accent" size={24} />
           <h1>{t('app.title', locale)}</h1>
@@ -75,7 +99,7 @@ function App() {
             <li
               id="nav-my-translations"
               className={currentView === 'dashboard' ? 'active' : ''}
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => navigate('dashboard')}
             >
               <LayoutList size={18} />
               {t('nav.dashboard', locale)}
@@ -83,7 +107,7 @@ function App() {
             <li
               id="nav-new-project"
               className={currentView === 'new_project' ? 'active' : ''}
-              onClick={() => setCurrentView('new_project')}
+              onClick={() => navigate('new_project')}
             >
               <PlusCircle size={18} />
               {t('nav.newProject', locale)}
@@ -92,7 +116,7 @@ function App() {
               id="nav-settings"
               className={currentView === 'settings' ? 'active' : ''}
               style={{ marginTop: 'auto' }}
-              onClick={() => setCurrentView('settings')}
+              onClick={() => navigate('settings')}
             >
               <Settings size={18} />
               {t('nav.settings', locale)}
@@ -100,12 +124,13 @@ function App() {
           </ul>
         </nav>
       </aside>
+
       <div className="main-content">
-        {currentView === 'dashboard'    && <Dashboard onOpenProject={openWorkspace} locale={locale} />}
-        {currentView === 'new_project'  && <NewProject onProjectCreated={openWorkspace} locale={locale} />}
-        {currentView === 'settings'     && <SettingsPage locale={locale} onLocaleChange={handleLocaleChange} />}
+        {currentView === 'dashboard'   && <Dashboard onOpenProject={openWorkspace} locale={locale} />}
+        {currentView === 'new_project' && <NewProject onProjectCreated={openWorkspace} locale={locale} />}
+        {currentView === 'settings'    && <SettingsPage locale={locale} onLocaleChange={handleLocaleChange} />}
         {currentView === 'workspace' && activeProject && (
-          <Workspace projectId={activeProject} onBack={() => setCurrentView('dashboard')} locale={locale} />
+          <Workspace projectId={activeProject} onBack={() => navigate('dashboard')} locale={locale} />
         )}
       </div>
     </div>

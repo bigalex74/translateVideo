@@ -107,9 +107,10 @@
     background: var(--bg-elevated);
 }
 
+/* D-BUG-04: левая панель шире — сегменты помещаются без лишних переносов */
 .workspace-grid {
     display: grid;
-    grid-template-columns: 1fr 340px;
+    grid-template-columns: minmax(360px, 1fr) 340px;
     gap: 16px;
     flex: 1;
     min-height: 0;
@@ -228,10 +229,14 @@
 .segment-item.translated { border-left-color: var(--accent-primary); }
 .segment-item.tts_ready { border-left-color: var(--success); }
 
+/* D-BUG-04: seg-header — тайминг и счётчик не перекрываются */
 .seg-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
 }
 
 .seg-timing {
@@ -581,14 +586,22 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    overflow-x: hidden;        /* D-BUG-05: нет горизонтальной прокрутки */
 }
 
-/* ─── Шапка: усечение длинного имени проекта ─────────────────────────── */
+/* ─── D-BUG-06: Шапка — усечение имени + tooltip ─────────────────────── */
 .header-left h2 {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 40vw;
+    cursor: default;           /* показывает title tooltip при наведении */
+}
+
+/* D-BUG-06: header-row-title тоже усекает */
+.header-row-title h2 {
+    cursor: default;
+    max-width: 38vw;
 }
 
 /* ─── Modal: усечение имени проекта ──────────────────────────────────── */
@@ -992,4 +1005,36 @@
 }
 .running-cancel-btn--force:hover {
   background: rgba(239,68,68,0.26) !important;
+}
+
+/* ══ D-BUG-01: Light theme — Workspace-специфичные переопределения ══════ */
+[data-theme="light"] .panel-header {
+  background: var(--bg-elevated);
+}
+
+[data-theme="light"] .panel-tabs {
+  background: var(--bg-elevated);
+}
+
+[data-theme="light"] .panel-header-meta {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .running-stage-progress {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .qa-flag-item {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .video-container {
+  background: var(--bg-elevated);
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] .panel-header { background: var(--bg-elevated); }
+  [data-theme="system"] .panel-tabs   { background: var(--bg-elevated); }
+  [data-theme="system"] .panel-header-meta { color: var(--text-muted); }
 }
