@@ -141,9 +141,15 @@ class StageRun:
     def from_dict(cls, payload: dict[str, Any]) -> "StageRun":
         """Создать запись запуска этапа и восстановить enum-значения."""
 
+        try:
+            stage = Stage(payload["stage"])
+        except ValueError:
+            # Устаревший этап (embed_subtitles и др.) — пропускаем
+            return None  # type: ignore[return-value]
+
         return cls(
             id=payload.get("id", f"stage_{uuid4().hex[:12]}"),
-            stage=Stage(payload["stage"]),
+            stage=stage,
             status=JobStatus(payload.get("status", "pending")),
             started_at=payload.get("started_at"),
             finished_at=payload.get("finished_at"),
@@ -156,6 +162,7 @@ class StageRun:
             progress_message=payload.get("progress_message"),
             metadata=dict(payload.get("metadata", {})),
         )
+
 
 
 @dataclass(slots=True)
