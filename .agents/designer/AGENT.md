@@ -440,3 +440,25 @@ make css-guard && make deploy
 ### Правило 3 — Не пушим в develop без апрува QA + Tech Writer
 
 Даже если Designer уже написал ✅ — ждём апруv от QA Monitor и Tech Writer.
+
+---
+
+## 🚨 [D-RULE-01] Onboarding localStorage ключ — найти ПЕРЕД навигационной проверкой
+
+**Добавлено:** Round 9 по результатам R9-AP-02 (Designer нашёл неправильный ключ → вся проверка оказалась ложной)
+
+**Обязательная команда в начале КАЖДОЙ визуальной проверки:**
+```bash
+grep -n 'LS_KEY\|localStorage.setItem\|localStorage.getItem' \
+  ui/src/components/OnboardingTour.tsx | head -10
+```
+
+**Затем в браузере:**
+```javascript
+localStorage.setItem('<РЕАЛЬНЫЙ_LS_KEY>', '1');
+// Например: localStorage.setItem('tv_onboarded', '1');
+```
+
+**НИКОГДА не устанавливать угаданные ключи** (`onboarding_complete`, `tour_done` и т.д.) без проверки кода.
+
+---

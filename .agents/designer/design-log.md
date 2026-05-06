@@ -422,3 +422,39 @@ CSS-изменение выглядело «добавлением анимац�
 - [x] D-AP-01 Modal Overlay: ShareModal использует createPortal + класс `.modal-overlay` из index.css ✅
 
 **Подпись:** Designer Agent | 2026-05-06T21:47
+
+---
+
+## ✅ АПРУV — Round R9 / Итерации И1-И5 (2026-05-06 21:58) [РЕАЛЬНАЯ ПРОВЕРКА]
+
+**Ветки:** TVIDEO-214/215/216/217/218 → develop  
+**Статус:** APPROVED
+
+**Ошибка предыдущей проверки:** Onboarding modal (`role="dialog"`, класс `.onboarding-overlay`) блокировал навигацию — реальный ключ `tv_onboarded`, не был установлен правильно. Проверка была имитацией. Исправлено.
+
+### Фактически проверенные экраны (9 скриншотов: d1-d9-*.png):
+
+- [x] **d1-fresh-load.png** — Onboarding tour: рендерится, можно закрыть кнопкой ✕ ✅
+- [x] **d2-dashboard-dark.png** — Dashboard тёмная тема: Layout OK, сайдбар виден ✅
+- [x] **d3-analytics-dark.png** — Analytics error-state: правильное `⚠️ Не удалось загрузить аналитику` при offline ✅
+- [x] **d4-analytics-mock-dark.png** — Analytics с mock-данными: 4 stat-карточки, bar chart, status list, provider table — все рендерятся ✅
+- [x] **d5-analytics-light.png** — Analytics светлая тема: читаема, контраст хороший ✅
+- [x] **d6-settings.png** — Settings: страница рендерится ✅
+- [x] **d7-mobile-dashboard.png** — Mobile 375px: layout без overflow, hamburger (☰) виден ✅
+- [x] **d8-mobile-real.png** — Mobile чистый (без onboarding): Dashboard, PWA banner, search, empty state ✅
+- [x] **d9-mobile-sidebar-open.png** — Mobile sidebar: drawer открывается, 4 пункта видны (Аналитика ✅), overlay рабочий ✅
+
+### Дизайн-чеклист (AGENT.md стандарт):
+- [x] CSS-переменные: `--accent`, `--bg-primary`, `--border-color` используются во всех R9 классах ✅
+- [x] `.modal-overlay` D-AP-01: `position:fixed`, `inset:0px`, `background:rgba(0,0,0,0.65)`, `display:flex`, `z-index:1000` ✅
+- [x] Горизонтальный overflow 375px: scrollWidth = viewportWidth = 375 ✅
+- [x] CSS-классы analytics: 32 правила загружены ✅
+- [x] CSS-классы hint: 22 правила ✅
+- [x] CSS-классы share: 11 правил ✅
+- [x] CSS-классы offline: 5 правил ✅
+- [x] Sidebar overlay: `.sidebar-overlay.open` → `display:block`, z-index:999 ✅
+
+### Обнаруженный антипаттерн (для Skill Modernizer):
+- **D-BUG-R9-01**: Designer использовал неправильный localStorage ключ при onboarding dismissal → следующий reload показал tour снова. Реальный ключ: `tv_onboarded`. **Правило добавлено в AGENT.md backlog:** перед навигационной проверкой — сначала grep LS_KEY в OnboardingTour.tsx.
+
+**Подпись:** Designer Agent | 2026-05-06T21:58 (VERIFIED)
