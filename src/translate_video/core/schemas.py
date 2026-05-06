@@ -95,8 +95,15 @@ class ArtifactRecord:
     def from_dict(cls, payload: dict[str, Any]) -> "ArtifactRecord":
         """Создать запись артефакта и восстановить enum-значения."""
 
+        try:
+            kind = ArtifactKind(payload["kind"])
+        except ValueError:
+            # Устаревший kind (subtitles_vtt, output_video_with_subs и др.) —
+            # возвращаем None, caller должен фильтровать None-значения
+            return None  # type: ignore[return-value]
+
         return cls(
-            kind=ArtifactKind(payload["kind"]),
+            kind=kind,
             path=payload["path"],
             stage=Stage(payload["stage"]),
             content_type=payload.get("content_type", "application/json"),
@@ -104,6 +111,7 @@ class ArtifactRecord:
             metadata=dict(payload.get("metadata", {})),
             checksum=payload.get("checksum"),
         )
+
 
 
 @dataclass(slots=True)
@@ -187,7 +195,17 @@ class Segment:
 
         data = dict(payload)
         data["status"] = SegmentStatus(data.get("status", "draft"))
+        # Удаляем устаревшие поля из старых project.json (backward compatibility)
+        for old_key in (
+            "tts_ssml_override",   # SSML-override вынесен
+            "notes",               # пользовательские заметки (удалены из схемы)
+            "edit_count",          # счётчик правок
+            "word_count_source",   # статистика слов
+            "word_count_translated",
+        ):
+            data.pop(old_key, None)
         return cls(**data)
+
 
 
 @dataclass(slots=True)
@@ -238,8 +256,10 @@ class VideoProject:
             segments=[Segment.from_dict(item) for item in payload.get("segments", [])],
             artifacts=dict(payload.get("artifacts", {})),
             artifact_records=[
-                ArtifactRecord.from_dict(item) for item in payload.get("artifact_records", [])
+                rec for item in payload.get("artifact_records", [])
+                if (rec := ArtifactRecord.from_dict(item)) is not None
             ],
+
             stage_runs=[StageRun.from_dict(item) for item in payload.get("stage_runs", [])],
             status=ProjectStatus(payload.get("status", "created")),
             billing_snapshots=dict(payload.get("billing_snapshots", {})),

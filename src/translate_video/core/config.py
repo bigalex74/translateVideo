@@ -206,10 +206,21 @@ class PipelineConfig:
         data = dict(payload)
         if data.get("glossary_path"):
             data["glossary_path"] = Path(data["glossary_path"])
-        # Удаляем устаревшие поля Ollama-compress (TVIDEO-037→040b)
-        for old_key in ("compress_llm_url", "compress_llm_model",
-                         "compress_slack", "compress_max_retries"):
+        # Удаляем устаревшие поля (backward compatibility при загрузке старых project.json)
+        for old_key in (
+            # Ollama-compress (TVIDEO-037→040b)
+            "compress_llm_url", "compress_llm_model",
+            "compress_slack", "compress_max_retries",
+            # Удалённые поля конфига
+            "subtitle_embed_mode",
+            "professional_tts_emotion",
+            # ElevenLabs-поля (вынесены в отдельный провайдер)
+            "el_stability", "el_similarity_boost", "el_style", "el_speed",
+            # glossary_terms: хранятся отдельно от конфига
+            "glossary_terms",
+        ):
             data.pop(old_key, None)
+
 
         return cls(
             **{
