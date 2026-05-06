@@ -167,3 +167,50 @@ visual-check-ci:
 	cd ui && PWHEADLESS=true npx playwright test --config=playwright.visual.config.ts --reporter=list
 	@echo "$(GREEN)✔ Готово$(RESET)"
 
+
+## round-close: Чеклист закрытия раунда — проверяет готовность ВСЕХ 4 агентов к push
+## Запускать ПЕРЕД каждым merge в develop и git push.
+round-close:
+	@echo "$(CYAN)╔══════════════════════════════════════════════════════════════╗$(RESET)"
+	@echo "$(CYAN)║         ROUND CLOSE CHECKLIST — WORKFLOW.md Правило 2        ║$(RESET)"
+	@echo "$(CYAN)╚══════════════════════════════════════════════════════════════╝$(RESET)"
+	@echo ""
+	@TODAY=$$(date +%Y-%m-%d); YESTERDAY=$$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || echo "0000-00-00"); \
+	FAIL=0; \
+	check_agent() { \
+	  local name="$$1" file="$$2" pattern="$$3"; \
+	  if [ ! -f "$$file" ]; then \
+	    echo "$(RED)  ❌ $$name: файл $$file не найден$(RESET)"; FAIL=1; return; \
+	  fi; \
+	  local has_approval=$$(grep -c "$$pattern" "$$file" 2>/dev/null || echo 0); \
+	  local has_date=$$(grep -c "$$TODAY\|$$YESTERDAY" "$$file" 2>/dev/null || echo 0); \
+	  if [ "$$has_approval" -gt 0 ] && [ "$$has_date" -gt 0 ]; then \
+	    echo "$(GREEN)  ✅ $$name: апруv найден$(RESET)"; \
+	  else \
+	    echo "$(RED)  ❌ $$name: апруv не найден за сегодня/вчера$(RESET)"; \
+	    echo "$(YELLOW)     → Запроси «запусти агента $$name»$(RESET)"; \
+	    FAIL=1; \
+	  fi; \
+	}; \
+	echo "$(CYAN)🔍 Проверка апрувов агентов...$(RESET)"; \
+	check_agent "Designer"         ".agents/designer/design-log.md"             "АПРУV\|APPROVED"; \
+	check_agent "QA Monitor"       ".agents/qa-monitor/qa-report.md"            "АПРУV\|APPROVED"; \
+	check_agent "Tech Writer"      ".agents/tech-writer/user-stories.md"        "АПРУV\|APPROVED"; \
+	check_agent "Skill Modernizer" ".agents/skill-modernizer/modernizer-log.md" "SKILL-MODERNIZER\|Round [0-9]"; \
+	echo ""; \
+	echo "$(CYAN)🔍 Проверка тестов...$(RESET)"; \
+	UNIT_OUT=$$(PYTHONPATH=src python3 -m unittest discover -s tests -q 2>&1 | tail -3); \
+	echo "  $$UNIT_OUT"; \
+	echo ""; \
+	if [ $$FAIL -eq 0 ]; then \
+	  echo "$(GREEN)╔══════════════════════════════════════════════════════════╗$(RESET)"; \
+	  echo "$(GREEN)║  ✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ — можно делать git push        ║$(RESET)"; \
+	  echo "$(GREEN)╚══════════════════════════════════════════════════════════╝$(RESET)"; \
+	else \
+	  echo "$(RED)╔══════════════════════════════════════════════════════════╗$(RESET)"; \
+	  echo "$(RED)║  ❌ ROUND CLOSE FAILED — push заблокирован               ║$(RESET)"; \
+	  echo "$(RED)║  Запроси апрувы недостающих агентов, затем повтори       ║$(RESET)"; \
+	  echo "$(RED)╚══════════════════════════════════════════════════════════╝$(RESET)"; \
+	  exit 1; \
+	fi
+

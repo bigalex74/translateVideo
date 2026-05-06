@@ -45,9 +45,10 @@ git add -A && git commit -m "fix(TVIDEO-XXX): описание"
 
 | Агент | Что проверяет | Файл апрува |
 |---|---|---|
-| **Designer** | Визуальная проверка пройдена (чеклист 8 пунктов) | `design-log.md` |
-| **QA Monitor** | Тесты зелёные, coverage ≥79%, деплой OK | `qa-report.md` |
+| **Designer** | Визуальная проверка (чеклист 8 пунктов) | `design-log.md` |
+| **QA Monitor** | Тесты зелёные, coverage ≥80%, деплой OK | `qa-report.md` |
 | **Tech Writer** | Changelog заполнен, версия соответствует | `user-stories.md` |
+| **Skill Modernizer** | Антипаттерны, скиллы обновлены, порог тестов актуален | `modernizer-log.md` |
 
 ### Формат апрува в output-файле:
 
@@ -123,24 +124,27 @@ git checkout -b TVIDEO-XXX-design-fix-short-desc
 ```
 TVIDEO-XXX branch
      │
-     ├── [разработка] 
+     ├── [разработка]
      │
-     ├── [Designer: визуальная проверка]
-     │     ├── баг найден → немедленно fix → перепроверка
-     │     └── OK → ✅ апруv в design-log.md
+     ├── make round-close  ← ЗАПУСТИ ПЕРЕД merge
+     │     │
+     │     ├── [Designer: grep LS_KEY → визуальная проверка]
+     │     │     ├── баг найден → немедленно fix → перепроверка
+     │     │     └── OK → ✅ апруv в design-log.md
+     │     ├── [QA Monitor: тесты + coverage]
+     │     │     ├── падает → немедленно fix → перезапуск
+     │     │     └── OK → ✅ апруv в qa-report.md
+     │     ├── [Tech Writer: changelog]
+     │     │     ├── не заполнен → немедленно fill → перепроверка
+     │     │     └── OK → ✅ апруv в user-stories.md
+     │     └── [Skill Modernizer: антипаттерны + скиллы]
+     │           └── OK → ✅ отчёт в modernizer-log.md
      │
-     ├── [QA Monitor: тесты + coverage]
-     │     ├── падает → немедленно fix → перезапуск
-     │     └── OK → ✅ апруv в qa-report.md
-     │
-     ├── [Tech Writer: changelog]
-     │     ├── не заполнен → немедленно fill → перепроверка
-     │     └── OK → ✅ апруv в user-stories.md
-     │
-     └── [ВСЕ ✅] → merge --no-ff в develop → push
-                           ↓ pre-push hook (unit tests + coverage)
+     └── [ВСЕ 4 агента ✅] → merge --no-ff в develop → push
+                           ↓ pre-push hook (unit tests + coverage + AGENT GATE)
+                           ↓ блокирует если апрувы старше 48ч
 ```
 
 ---
 
-*Последнее обновление: 2026-05-06 | v1.0*
+*Последнее обновление: 2026-05-06 | v2.0 (добавлен Skill Modernizer + make round-close + pre-push Agent Gate)*
