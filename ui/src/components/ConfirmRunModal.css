@@ -165,3 +165,29 @@
 .modal-from-stage-note--warn {
   color: #fbbf24;
 }
+
+/* ── Предупреждение о скорости (speed changed) ──────────────────────── */
+.modal-speed-warn {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.modal-speed-warn-btn {
+  align-self: flex-end;
+  margin-top: 2px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.4);
+  border-radius: 6px;
+  color: #fbbf24;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.modal-speed-warn-btn:hover {
+  background: rgba(245,158,11,0.25);
+  border-color: rgba(245,158,11,0.65);
+}

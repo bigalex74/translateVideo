@@ -1,21 +1,19 @@
 """OpenAI-совместимый TTS провайдер (NeuroAPI / Polza).
 
-Реализует профессиональную озвучку через `POST /audio/speech`.
-Поддерживает multi-voice: single / two_voices / per_speaker.
+Поддерживает два формата ответа:
+  - binary mp3 (NeuroAPI, прямой OpenAI)
+  - JSON {"audio": "<base64_mp3>"} (Polza)
 
-API Reference (OpenAI-compatible):
-    POST /audio/speech
-    {
-        "model": "tts-1",     # или tts-1-hd, gpt-4o-mini-tts
-        "input": "текст",
-        "voice": "nova",      # alloy|echo|fable|onyx|nova|shimmer
-        "response_format": "mp3"
-    }
-    → binary mp3
+Модели через Polza:
+  openai/gpt-4o-mini-tts   — быстрый, живой
+  openai/tts-1-hd          — классический HD
+  elevenlabs/text-to-speech-turbo-2-5      — эмоциональный (~30с)
+  elevenlabs/text-to-speech-multilingual-v2 — многоязычный
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import urllib.error
@@ -27,7 +25,7 @@ from translate_video.core.schemas import Segment
 
 _log = get_logger(__name__)
 
-# Доступные голоса (OpenAI-совместимые, работают для любого языка)
+# ── OpenAI голоса ─────────────────────────────────────────────────────────────
 TTS_VOICES: list[dict] = [
     {"id": "alloy",   "name": "Alloy",   "gender": "neutral", "tone": "Нейтральный, сбалансированный"},
     {"id": "echo",    "name": "Echo",    "gender": "male",    "tone": "Чёткий, уверенный"},
@@ -37,8 +35,77 @@ TTS_VOICES: list[dict] = [
     {"id": "shimmer", "name": "Shimmer", "gender": "female",  "tone": "Мягкий, тёплый"},
 ]
 
-# Пул голосов для per_speaker: round-robin по всем 6
+# ── ElevenLabs голоса ─────────────────────────────────────────────────────────
+ELEVENLABS_VOICES: list[dict] = [
+    {"id": "Rachel",  "name": "Rachel",  "gender": "female",  "tone": "Спокойный, профессиональный"},
+    {"id": "Domi",    "name": "Domi",    "gender": "female",  "tone": "Живой, энергичный"},
+    {"id": "Bella",   "name": "Bella",   "gender": "female",  "tone": "Мягкий, дружелюбный"},
+    {"id": "Antoni",  "name": "Antoni",  "gender": "male",    "tone": "Хорошо поставленный, спокойный"},
+    {"id": "Elli",    "name": "Elli",    "gender": "female",  "tone": "Молодой, живой"},
+    {"id": "Josh",    "name": "Josh",    "gender": "male",    "tone": "Молодой, расслабленный"},
+    {"id": "Arnold",  "name": "Arnold",  "gender": "male",    "tone": "Уверенный, зрелый"},
+    {"id": "Adam",    "name": "Adam",    "gender": "male",    "tone": "Глубокий, авторитетный"},
+    {"id": "Sam",     "name": "Sam",     "gender": "male",    "tone": "Разговорный, дружелюбный"},
+]
+
+# ── Модели с их голосами ──────────────────────────────────────────────────────
+POLZA_TTS_MODELS: list[dict] = [
+    {
+        "id": "openai/gpt-4o-mini-tts",
+        "name": "GPT-4o Mini TTS (быстрый)",
+        "provider": "openai",
+        "voices": TTS_VOICES,
+        "timeout": 60.0,
+    },
+    {
+        "id": "openai/tts-1-hd",
+        "name": "OpenAI TTS-1 HD",
+        "provider": "openai",
+        "voices": TTS_VOICES,
+        "timeout": 60.0,
+    },
+    {
+        "id": "openai/tts-1",
+        "name": "OpenAI TTS-1",
+        "provider": "openai",
+        "voices": TTS_VOICES,
+        "timeout": 60.0,
+    },
+    {
+        "id": "elevenlabs/text-to-speech-turbo-2-5",
+        "name": "ElevenLabs Turbo 2.5 (эмоциональный)",
+        "provider": "elevenlabs",
+        "voices": ELEVENLABS_VOICES,
+        "timeout": 120.0,
+    },
+    {
+        "id": "elevenlabs/text-to-speech-multilingual-v2",
+        "name": "ElevenLabs Multilingual v2",
+        "provider": "elevenlabs",
+        "voices": ELEVENLABS_VOICES,
+        "timeout": 120.0,
+    },
+]
+
+# Пул голосов для per_speaker (OpenAI)
 _VOICE_POOL = [v["id"] for v in TTS_VOICES]
+_ELEVEN_VOICE_POOL = [v["id"] for v in ELEVENLABS_VOICES]
+
+
+def voices_for_model(model_id: str) -> list[dict]:
+    """Вернуть список голосов для указанной модели."""
+    for m in POLZA_TTS_MODELS:
+        if m["id"] == model_id:
+            return m["voices"]
+    return TTS_VOICES  # fallback OpenAI
+
+
+def timeout_for_model(model_id: str) -> float:
+    """Вернуть рекомендуемый timeout (сек) для модели."""
+    for m in POLZA_TTS_MODELS:
+        if m["id"] == model_id:
+            return m["timeout"]
+    return 60.0
 
 
 class OpenAITTSProvider:
@@ -65,8 +132,11 @@ class OpenAITTSProvider:
         self.model = model
         self.voice_1 = voice_1
         self.voice_2 = voice_2
-        self.timeout = timeout
-        self._http_post = http_post or _post_binary
+        self.timeout = timeout or timeout_for_model(model)
+        self._http_post = http_post or _post_audio
+        # Выбираем пул голосов в зависимости от движка модели
+        is_eleven = model.startswith("elevenlabs/")
+        self._voice_pool = _ELEVEN_VOICE_POOL if is_eleven else _VOICE_POOL
 
     def synthesize(self, project, segments: list[Segment]) -> list[Segment]:
         """Синтезировать каждый переведённый сегмент через /audio/speech."""
@@ -79,8 +149,26 @@ class OpenAITTSProvider:
         output_dir: Path = project.work_dir / "tts"
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Сбрасываем TTS-специфичные QA-флаги от предыдущего запуска
+        for seg in segments:
+            seg.qa_flags = [f for f in seg.qa_flags if not f.startswith("tts_")]
+
         for index, segment in enumerate(segments):
-            text = segment.translated_text.strip()
+            # Приоритет источника текста:
+            # 1. tts_ssml_override — пользовательский текст из SSML-редактора
+            #    OpenAI не поддерживает SSML → стриппим теги, оставляем plain text
+            # 2. translated_text — стандартный переведённый текст
+            ssml_override = (segment.tts_ssml_override or "").strip()
+            if ssml_override:
+                import re as _re
+                text = _re.sub(r"<[^>]+>", "", ssml_override).strip()
+                # Убираем SSML-ударения (+), оставляем только текст
+                text = text.replace("+", "")
+                if not text:
+                    text = segment.translated_text.strip()
+            else:
+                text = segment.translated_text.strip()
+
             if not text:
                 continue
 
@@ -143,8 +231,8 @@ class OpenAITTSProvider:
             key = speaker_id or str(index)
             if key not in speaker_voice_map:
                 # Назначаем следующий голос из пула по round-robin
-                pool_idx = len(speaker_voice_map) % len(_VOICE_POOL)
-                speaker_voice_map[key] = _VOICE_POOL[pool_idx]
+                pool_idx = len(speaker_voice_map) % len(self._voice_pool)
+                speaker_voice_map[key] = self._voice_pool[pool_idx]
             return speaker_voice_map[key]
 
         return self.voice_1  # fallback
@@ -198,12 +286,14 @@ def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
         )
         return None
 
+    model = getattr(config, "professional_tts_model", "tts-1")
     return OpenAITTSProvider(
         base_url=_base_url(meta),
         api_key=api_key,
-        model=getattr(config, "professional_tts_model", "tts-1"),
+        model=model,
         voice_1=getattr(config, "professional_tts_voice", "nova"),
         voice_2=getattr(config, "professional_tts_voice_2", "onyx"),
+        timeout=timeout_for_model(model),
     )
 
 
@@ -213,22 +303,46 @@ def _add_qa_flag(segment: Segment, flag: str) -> None:
         segment.qa_flags.append(flag)
 
 
-def _post_binary(
+def _post_audio(
     url: str,
     payload: dict,
     *,
     headers: dict,
     timeout: float,
 ) -> bytes:
-    """Выполнить POST и вернуть бинарный ответ (mp3)."""
+    """POST /audio/speech → bytes (mp3).
+
+    Обрабатывает два формата ответа:
+    - binary mp3 (NeuroAPI, прямой OpenAI)
+    - JSON {"audio": "<base64_mp3>"} (Polza)
+    """
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.read()
+            raw = response.read()
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"TTS API вернул HTTP {exc.code}: {exc.read()[:200]}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"TTS сетевая ошибка: {exc.reason}") from exc
     except OSError as exc:
         raise RuntimeError(f"TTS ошибка запроса: {exc}") from exc
+
+    # Определяем формат: JSON или бинарный
+    if raw[:1] == b"{":
+        try:
+            obj = json.loads(raw)
+            b64 = obj.get("audio") or obj.get("data") or ""
+            if b64:
+                return base64.b64decode(b64 + "==")
+            raise RuntimeError(f"Polza вернул JSON без поля audio: {list(obj.keys())}")
+        except (json.JSONDecodeError, Exception) as exc:
+            if isinstance(exc, RuntimeError):
+                raise
+            raise RuntimeError(f"Не удалось разобрать JSON-ответ TTS: {exc}") from exc
+
+    return raw  # бинарный mp3
+
+
+# Обратная совместимость
+_post_binary = _post_audio

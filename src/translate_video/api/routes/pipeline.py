@@ -301,15 +301,19 @@ def run_pipeline(
 # ── TTS endpoints ─────────────────────────────────────────────────────────────
 
 @tts_router.get("/voices")
-def get_tts_voices(provider: str = "openai"):
+def get_tts_voices(provider: str = "openai", model: str = ""):
     """Вернуть список доступных TTS-голосов.
 
-    ?provider=openai  → голоса OpenAI-совместимых провайдеров (polza/neuroapi)
-    ?provider=yandex  → голоса Yandex SpeechKit с ролями
+    ?provider=openai   → голоса OpenAI-совместимых провайдеров
+    ?provider=polza    → голоса зависят от модели (?model=...)
+    ?provider=yandex   → голоса Yandex SpeechKit с ролями
     """
     if provider == "yandex":
         from translate_video.tts import SPEECHKIT_VOICES
         return {"voices": SPEECHKIT_VOICES, "provider": "yandex"}
+    if provider == "polza":
+        from translate_video.tts.openai_tts import voices_for_model
+        return {"voices": voices_for_model(model), "provider": "polza", "model": model}
     from translate_video.tts import TTS_VOICES
     return {"voices": TTS_VOICES, "provider": "openai"}
 
@@ -324,11 +328,187 @@ def get_tts_models(provider: str = "openai"):
             ],
             "provider": "yandex",
         }
+    if provider == "polza":
+        from translate_video.tts.openai_tts import POLZA_TTS_MODELS
+        return {
+            "models": [
+                {"id": m["id"], "name": m["name"], "note": f"{m['provider']}, timeout={int(m['timeout'])}s"}
+                for m in POLZA_TTS_MODELS
+            ],
+            "provider": "polza",
+        }
     return {
         "models": [
-            {"id": "tts-1",           "name": "TTS-1",           "note": "Быстрая, стандартное качество"},
-            {"id": "tts-1-hd",        "name": "TTS-1 HD",        "note": "Улучшенное качество, медленнее"},
-            {"id": "gpt-4o-mini-tts", "name": "GPT-4o Mini TTS", "note": "Высокое качество, поддержка инструкций"},
+            {"id": "tts-1",                "name": "TTS-1",           "note": "Быстрая, стандартное качество"},
+            {"id": "tts-1-hd",             "name": "TTS-1 HD",        "note": "Улучшенное качество, медленнее"},
+            {"id": "gpt-4o-mini-tts",      "name": "GPT-4o Mini TTS", "note": "Высокое качество, поддержка инструкций"},
         ],
         "provider": "openai",
     }
+
+
+# ── TTS Preview ───────────────────────────────────────────────────────────────
+
+class TTSPreviewRequest(BaseModel):
+    """Запрос на синтез фрагмента для предпрослушивания."""
+    text: str           # plain text или SSML
+    is_ssml: bool = False  # если True — текст обёрнут в <speak>
+
+
+@router.post("/{project_id}/tts-preview")
+def tts_preview(
+    project_id: str,
+    req: TTSPreviewRequest,
+    store: ProjectStore = Depends(get_store),
+):
+    """Синтезировать короткий фрагмент текста и вернуть mp3.
+
+    Используется кнопкой «▶» в редакторе сегментов для предпрослушивания
+    без запуска полного пайплайна. Использует настройки TTS из проекта.
+    """
+    import tempfile, os
+    from pathlib import Path
+    from fastapi.responses import Response
+
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+        cfg = project.config
+
+        text = req.text.strip()
+        import logging as _logging
+        _logging.getLogger("tts_preview").warning(
+            f"[tts-preview] received text len={len(text)!r} chars: {text[:80]!r}"
+        )
+        if not text:
+            raise HTTPException(status_code=400, detail="Текст не может быть пустым")
+        if len(text) > 2000:
+            raise HTTPException(status_code=400, detail="Текст слишком длинный (max 2000 символов)")
+
+        provider_name = getattr(cfg, "professional_tts_provider", "openai")
+
+        if provider_name == "yandex":
+            from translate_video.tts.speechkit_tts import YandexSpeechKitTTSProvider
+            from translate_video.tts.speechkit_tts import ssml_enhance, EMOTION_OFF
+            from translate_video.core.env import load_env_file
+            load_env_file()
+
+            api_key = (
+                os.getenv("YANDEX_SPEECHKIT_API_KEY")
+                or os.getenv("SPEECHKIT_API_KEY")
+                or os.getenv("YANDEX_TTS_API_KEY", "")
+            ).strip()
+            if not api_key:
+                raise HTTPException(status_code=503, detail="YANDEX_SPEECHKIT_API_KEY не настроен")
+
+            voice = getattr(cfg, "professional_tts_voice", "alena")
+            emotion_level = int(getattr(cfg, "tts_emotion_level", 0))
+
+            # ── TTS-разметка пользователя ───────────────────────────────────────
+            # **слово** = логическое ударение (Яндекс TTS-разметка, поддерживается API v3).
+            # НЕ стираем! «**Кот** пошёл в лес?» → акцент на «Кот».
+            # Документация: https://yandex.cloud/ru/docs/speechkit/tts/markup/tts-markup
+            tts_text = text  # передаём как есть, со всей TTS-разметкой
+
+            from translate_video.tts.ssml_enhance import enhance_tts_v3 as _enhance_tts_v3
+            speed = float(getattr(cfg, "professional_tts_speed", 1.0))
+
+            # API v3 НЕ принимает поле "ssml" — возвращает HTTP 400.
+            # Всегда используем поле "text" с TTS-разметкой Яндекс.
+            # При emotion_level > 0 → enhance_tts_v3() добавляет sil<[ms]> паузы
+            # и возвращает speed_factor для умножения на базовую скорость.
+            if emotion_level > EMOTION_OFF:
+                tts_text_final, spd_factor = _enhance_tts_v3(tts_text, emotion_level)
+                effective_speed = max(0.1, min(10.0, speed * spd_factor))
+            else:
+                tts_text_final = tts_text
+                effective_speed = speed
+            payload_text = {"text": tts_text_final}
+
+            from translate_video.tts.speechkit_tts import SPEECHKIT_TTS_URL, _post_streaming, SPEECHKIT_VOICES
+            voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
+            role = (voice_meta.get("roles", ["neutral"])[0] if voice_meta else "neutral")
+
+            hints = [{"voice": voice}]
+            if voice_meta and voice_meta.get("roles"):
+                hints.append({"role": role})
+            hints.append({"speed": effective_speed})
+
+            payload = {
+                **payload_text,
+                "outputAudioSpec": {"containerAudio": {"containerAudioType": "MP3"}},
+                "unsafeMode": True,
+                "hints": hints,
+            }
+            headers = {
+                "Authorization": f"Api-Key {api_key}",
+                "Content-Type": "application/json",
+            }
+            # x-folder-id нужен для premium голосов (zamira, etc.)
+            folder_id = os.getenv("YANDEX_FOLDER_ID", "").strip()
+            if folder_id:
+                headers["x-folder-id"] = folder_id
+
+            audio_bytes = _post_streaming(SPEECHKIT_TTS_URL, payload, headers=headers, timeout=15)
+
+            # ── Fallback для голоса zamira ──────────────────────────────────────
+            # ПОДТВЕРЖДЁННЫЙ БАГ Яндекс: zamira через REST API v3 возвращает
+            # немые чанки (2925/2733/3309/3117b) для коротких чисто-русских фраз.
+            # Проблема не зависит от role, speed, unsafeMode — это баг самого
+            # REST-интерфейса для данного голоса.
+            #
+            # РЕШЕНИЕ: повторить запрос БЕЗ hints (Яндекс использует голос проекта
+            # по умолчанию, привязанный к folder_id — работает для всех фраз).
+            # Это лучше чем fallback на alena: сохраняется тот же голос.
+            YANDEX_SILENCE_MAX = 4000  # < 4KB = тишина / неполный ответ
+            if len(audio_bytes) < YANDEX_SILENCE_MAX:
+                # Retry без voice hint (причина тишины), но со speed
+                nohint_payload = {
+                    **payload_text,
+                    "hints": [{"speed": effective_speed}],
+                    "outputAudioSpec": {"containerAudio": {"containerAudioType": "MP3"}},
+                    "unsafeMode": True,
+                }
+                audio_bytes = _post_streaming(
+                    SPEECHKIT_TTS_URL, nohint_payload,
+                    headers=headers, timeout=15
+                )
+
+        else:
+            # OpenAI TTS
+            import re as _re
+            from translate_video.tts.openai_tts import OpenAITTSProvider
+
+            api_key = os.getenv("OPENAI_API_KEY", "")
+            if not api_key:
+                raise HTTPException(status_code=503, detail="OPENAI_API_KEY не настроен")
+
+            voice = getattr(cfg, "professional_tts_voice", "alloy")
+            # Для OpenAI стриппируем SSML если есть
+            clean_text = _re.sub(r"<[^>]+>", "", text).replace("+", "").strip()
+            if not clean_text:
+                clean_text = text
+
+            provider = OpenAITTSProvider(
+                api_key=api_key,
+                voice_1=voice,
+                voice_2=getattr(cfg, "professional_tts_voice_2", "echo"),
+            )
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_path = Path(tmp) / "preview.mp3"
+                provider._synth(clean_text, voice, tmp_path)
+                audio_bytes = tmp_path.read_bytes()
+
+        import logging as _logging
+        _logging.getLogger("tts_preview").warning(
+            f"[tts-preview] returning audio_bytes={len(audio_bytes)} bytes"
+        )
+        return Response(content=audio_bytes, media_type="audio/mpeg")
+
+    except HTTPException:
+        raise
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Проект не найден")
+    except Exception as exc:
+        _log.exception("tts.preview.error", project=project_id)
+        raise HTTPException(status_code=500, detail=f"Ошибка синтеза: {exc}")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -130,6 +130,7 @@ class StageRun:
     progress_current: int | None = None
     progress_total: int | None = None
     progress_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Вернуть JSON-совместимую запись запуска этапа."""
@@ -153,6 +154,7 @@ class StageRun:
             progress_current=payload.get("progress_current"),
             progress_total=payload.get("progress_total"),
             progress_message=payload.get("progress_message"),
+            metadata=dict(payload.get("metadata", {})),
         )
 
 
@@ -171,6 +173,10 @@ class Segment:
     status: SegmentStatus = SegmentStatus.DRAFT
     tts_path: str | None = None
     tts_text: str = ""  # текст реально отправленный в TTS (пусто = translated_text)
+    tts_ssml_override: str = ""  # SSML введённый пользователем вручную в редакторе;
+    #   если задан — используется TTS вместо translated_text (минуя ssml_enhance).
+    #   Формат: plain text с тегами Яндекс SpeechKit SSML или `+` для ударений.
+    #   Пример: "во+да течёт <break time=\"350ms\"/> по трубам"
     qa_flags: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -195,16 +201,14 @@ class Segment:
 
         data = dict(payload)
         data["status"] = SegmentStatus(data.get("status", "draft"))
-        # Удаляем устаревшие поля из старых project.json (backward compatibility)
-        for old_key in (
-            "tts_ssml_override",   # SSML-override вынесен
-            "notes",               # пользовательские заметки (удалены из схемы)
-            "edit_count",          # счётчик правок
-            "word_count_source",   # статистика слов
-            "word_count_translated",
-        ):
-            data.pop(old_key, None)
+        # Толерантность к схема-миграции: неизвестные поля удаляются,
+        # отсутствующие — используют значения по умолчанию из dataclass.
+        known = {f.name for f in fields(cls)}
+        for key in list(data.keys()):
+            if key not in known:
+                data.pop(key)
         return cls(**data)
+
 
 
 

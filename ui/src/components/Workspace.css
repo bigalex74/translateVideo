@@ -152,17 +152,35 @@
 }
 
 .panel-header {
-    padding: 16px 20px;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--border-color);
     background: rgba(0,0,0,0.2);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
 
 .panel-header h3 {
     font-size: 1rem;
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
+}
+
+/* Правая часть шапки — счётчик + статус, никогда не переносится */
+.panel-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.45);
 }
 
 /* Video Panel */
@@ -391,6 +409,14 @@
 .seg-empty {
   border-color: rgba(251, 191, 36, 0.4) !important;
   background: rgba(251, 191, 36, 0.04) !important;
+}
+
+/* Segment с ручным SSML-override */
+.seg-has-ssml {
+  border-color: rgba(139, 92, 246, 0.40) !important;
+  background: rgba(139, 92, 246, 0.04) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
 }
 
 /* Segment duration badge */

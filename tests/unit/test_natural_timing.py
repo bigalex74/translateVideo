@@ -177,5 +177,123 @@ def _project(config: PipelineConfig) -> VideoProject:
     )
 
 
+class EffectiveTtsSpeedTest(unittest.TestCase):
+    """Проверяет _effective_tts_speed — мультипликатор CPS по скорости TTS."""
+
+    def _speed(self, **kwargs) -> float:
+        from translate_video.timing.natural import _effective_tts_speed
+        return _effective_tts_speed(PipelineConfig(**kwargs))
+
+    def test_no_provider_returns_1(self):
+        """Edge TTS (пустой провайдер) → скорость 1.0."""
+        self.assertAlmostEqual(self._speed(professional_tts_provider=""), 1.0)
+
+    def test_openai_provider_returns_1(self):
+        """OpenAI-совместимые провайдеры не поддерживают speed-хинт → 1.0."""
+        self.assertAlmostEqual(self._speed(professional_tts_provider="neuroapi"), 1.0)
+
+    def test_yandex_single_speed_15(self):
+        """Yandex single voice, speed=1.5 → возвращает 1.5."""
+        v = self._speed(
+            professional_tts_provider="yandex",
+            professional_tts_speed=1.5,
+            voice_strategy="single",
+        )
+        self.assertAlmostEqual(v, 1.5)
+
+    def test_yandex_two_voices_takes_minimum(self):
+        """Yandex two_voices: speed_1=2.0, speed_2=1.2 → возвращает 1.2 (консервативно)."""
+        v = self._speed(
+            professional_tts_provider="yandex",
+            professional_tts_speed=2.0,
+            professional_tts_speed_2=1.2,
+            voice_strategy="two_voices",
+        )
+        self.assertAlmostEqual(v, 1.2)
+
+    def test_yandex_speed_1_is_identity(self):
+        """Speed=1.0 — нет изменений в CPS."""
+        v = self._speed(
+            professional_tts_provider="yandex",
+            professional_tts_speed=1.0,
+        )
+        self.assertAlmostEqual(v, 1.0)
+
+
+class SpeedAwareTimingFitTest(unittest.TestCase):
+    """Проверяет что при speed>1.0 timing_fit позволяет больше текста."""
+
+    BASE_TEXT = "А" * 42  # 42 символа: при CPS=14 и duration=2.0 — ровно максимум
+
+    def _fit(self, speed: float) -> str:
+        """Прогнать текст через timing_fit и вернуть результат."""
+        cfg = PipelineConfig(
+            target_chars_per_second=14.0,
+            use_cloud_timing_rewriter=False,
+            professional_tts_provider="yandex",
+            professional_tts_speed=speed,
+        )
+        project = _project(cfg)
+        segment = Segment(
+            id="seg_1",
+            start=0.0,
+            end=3.0,  # 3 сек × 14 cps = 42 символа базовый лимит
+            source_text="Hello",
+            translated_text=self.BASE_TEXT,
+        )
+        fitter = NaturalVoiceTimingFitter(rewriter=RuleBasedTimingRewriter())
+        result = fitter.fit(project, [segment])
+        return result[0].tts_text
+
+    def test_speed_1_text_fits_exactly(self):
+        """При speed=1.0 текст из 42 символов ровно влезает (не сокращается)."""
+        result = self._fit(1.0)
+        self.assertEqual(len(result), len(self.BASE_TEXT))
+
+    def test_speed_15_allows_63_chars(self):
+        """При speed=1.5 лимит увеличивается до 63 символов — текст 42 символа не трогается."""
+        # Создаём текст длиннее базового лимита (42), но меньше speed=1.5 лимита (63)
+        long_text = "А" * 55
+        cfg = PipelineConfig(
+            target_chars_per_second=14.0,
+            use_cloud_timing_rewriter=False,
+            professional_tts_provider="yandex",
+            professional_tts_speed=1.5,
+        )
+        project = _project(cfg)
+        segment = Segment(
+            id="seg_1", start=0.0, end=3.0,
+            source_text="Hello",
+            translated_text=long_text,
+        )
+        fitter = NaturalVoiceTimingFitter(rewriter=RuleBasedTimingRewriter())
+        result = fitter.fit(project, [segment])
+        # При speed=1.5: effective_cps = 14 * 1.5 = 21, max_chars = 21 * 3 = 63
+        # Текст из 55 символов должен пройти без изменений
+        self.assertEqual(result[0].tts_text, long_text,
+                         "При speed=1.5 текст из 55 символов не должен сокращаться")
+        self.assertNotIn("translation_rewritten_for_timing", result[0].qa_flags)
+
+    def test_speed_05_requires_shorter_text(self):
+        """При speed=0.5 лимит уменьшается вдвое — даже 42 символа не влезают."""
+        cfg = PipelineConfig(
+            target_chars_per_second=14.0,
+            use_cloud_timing_rewriter=False,
+            professional_tts_provider="yandex",
+            professional_tts_speed=0.5,
+        )
+        project = _project(cfg)
+        # 42 символа при speed=0.5: effective_cps=7, max_chars=7*3=21 → не влезет
+        segment = Segment(
+            id="seg_1", start=0.0, end=3.0,
+            source_text="Hello",
+            translated_text=self.BASE_TEXT,
+        )
+        fitter = NaturalVoiceTimingFitter(rewriter=RuleBasedTimingRewriter())
+        result = fitter.fit(project, [segment])
+        # Ожидаем timing_fit_failed (rule-based не может сократить "А"×42)
+        self.assertIn("timing_fit_failed", result[0].qa_flags)
+
+
 if __name__ == "__main__":
     unittest.main()

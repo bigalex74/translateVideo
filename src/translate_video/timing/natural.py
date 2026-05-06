@@ -36,6 +36,12 @@ class NaturalVoiceTimingFitter:
         cfg = project.config
         rewriter = self.rewriter or _build_default_rewriter(cfg)
         target_cps = max(1.0, float(cfg.target_chars_per_second))
+        tts_speed = _effective_tts_speed(cfg)
+        # Скорость речи напрямую определяет сколько символов влезает в таймслот:
+        # effective_cps = target_cps * tts_speed
+        # При speed=1.5 → effective_cps увеличивается на 50%,
+        # т.e. в тот же тайминг влезет больше текста и сокращать нужно меньше.
+        effective_cps = max(1.0, target_cps * tts_speed)
         max_attempts = max(0, int(cfg.timing_fit_max_rewrites))
         total_segments = len(segments)
         needs_rewrite = 0
@@ -47,6 +53,8 @@ class NaturalVoiceTimingFitter:
             project=project.id,
             segments=total_segments,
             target_cps=target_cps,
+            tts_speed=tts_speed,
+            effective_cps=effective_cps,
             max_attempts=max_attempts,
             cloud_enabled=bool(getattr(cfg, "use_cloud_timing_rewriter", True)),
         )
@@ -63,7 +71,7 @@ class NaturalVoiceTimingFitter:
                 was_rewritten, failed = self._fit_segment(
                     segment,
                     rewriter=rewriter,
-                    target_cps=target_cps,
+                    target_cps=effective_cps,  # ← уже скорректированный на скорость TTS
                     max_attempts=max_attempts,
                     index=index,
                     total_segments=total_segments,
@@ -262,6 +270,28 @@ def _normalize_spaces(text: str) -> str:
 
     text = re.sub(r"\s+", " ", text).strip()
     return re.sub(r"\s+([,.!?;:])", r"\1", text)
+
+
+def _effective_tts_speed(config) -> float:
+    """Вернуть эффективный мультипликатор скорости TTS для timing_fit.
+
+    Для режима single/per_speaker — просто speed_1.
+    Для two_voices — минимальная из двух скоростей (консервативная оценка —
+    оба голоса должны влазать, даже более медленный).
+
+    Для Edge TTS (нет профессионального TTS) скорость = 1.0.
+    """
+    # Внешний (Edge/бесплатный) провайдер не поддерживает speed-хинт
+    provider = getattr(config, "professional_tts_provider", "").strip().lower()
+    if provider != "yandex":
+        return 1.0
+
+    speed_1 = max(0.1, float(getattr(config, "professional_tts_speed",   1.0)))
+    strategy = getattr(config, "voice_strategy", "single")
+    if strategy == "two_voices":
+        speed_2 = max(0.1, float(getattr(config, "professional_tts_speed_2", 1.0)))
+        return min(speed_1, speed_2)  # консервативно: берём минимум
+    return speed_1
 
 
 def _add_qa_flag(segment: Segment, flag: str) -> None:

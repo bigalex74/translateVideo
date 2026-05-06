@@ -44,6 +44,7 @@ import urllib.request
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import Segment
 from translate_video.tts import stress as _stress
+from translate_video.tts.ssml_enhance import EMOTION_OFF, enhance as ssml_enhance, enhance_tts_v3
 
 _log = get_logger(__name__)
 
@@ -104,8 +105,10 @@ class YandexSpeechKitTTSProvider:
         speed_2: float = 1.0,
         pitch_1: int = 0,
         pitch_2: int = 0,
+        emotion_level: int = 0,   # 0=off 1=subtle 2=medium 3=expressive
         timeout: float = 60.0,
         use_stress: bool = True,
+        folder_id: str = "",       # x-folder-id для premium голосов (zamira, etc.)
         http_post=None,
     ) -> None:
         self.api_key = api_key
@@ -117,8 +120,10 @@ class YandexSpeechKitTTSProvider:
         self.speed_2 = speed_2
         self.pitch_1 = pitch_1
         self.pitch_2 = pitch_2
+        self.emotion_level = max(0, min(3, int(emotion_level)))
         self.timeout = timeout
         self.use_stress = use_stress
+        self.folder_id = folder_id.strip()
         self._http_post = http_post or _post_streaming
 
     def synthesize(self, project, segments: list[Segment]) -> list[Segment]:
@@ -129,8 +134,37 @@ class YandexSpeechKitTTSProvider:
         output_dir.mkdir(parents=True, exist_ok=True)
         speaker_voice_map: dict[str, tuple[str, str]] = {}
 
+        # Сбрасываем TTS-специфичные QA-флаги и tts_path от предыдущего запуска.
+        # ВАЖНО: tts_path должен быть None чтобы рендер не использовал СТАРЫЕ
+        # mp3-файлы от предыдущей озвучки если текущий синтез провалится.
+        # Флаги тайминга (timing_fit_*) сохраняются — они остаются актуальными.
+        for seg in segments:
+            seg.tts_path = None  # защита от использования старого mp3 при ошибке
+            seg.qa_flags = [
+                f for f in seg.qa_flags if not f.startswith("tts_")
+            ]
+
         for index, segment in enumerate(segments):
-            text = segment.translated_text.strip()
+            # Приоритет источника текста:
+            # 1. tts_ssml_override — TTS-разметка введённая пользователем вручную
+            #    Яндекс TTS-markup API v3: +ударения, sil<[300]>, **логич.акцент**, [[фонемы]]
+            #    Отправляется в поле "text" — ssml_enhance и ruaccent НЕ применяются.
+            # 2. translated_text — стандартный переведённый текст
+            tts_override = (segment.tts_ssml_override or "").strip()
+            if tts_override:
+                # **слово** — логическое ударение (Яндекс TTS-разметка, API v3).
+                # НЕ стираем: "**Кот** пошёл в лес?" → акцент на «Кот».
+                # Документация: https://yandex.cloud/ru/docs/speechkit/tts/markup/tts-markup
+                text = tts_override
+                _log.debug(
+                    "tts.speechkit.tts_markup_override",
+                    idx=index,
+                    seg_id=segment.id,
+                    length=len(text),
+                )
+            else:
+                text = segment.translated_text.strip()
+
             if not text:
                 continue
 
@@ -144,23 +178,66 @@ class YandexSpeechKitTTSProvider:
             output = output_dir / f"{segment.id or index}.mp3"
             segment.tts_text = text
 
-            # Автоматическая расстановка ударений (ruaccent)
-            if self.use_stress:
+            # Автоматическая расстановка ударений (ruaccent) — только если НЕТ
+            # пользовательского override (там ударения ставит сам пользователь через +).
+            if self.use_stress and not tts_override:
                 text = _stress.process(text)
+
+            # ── Проверка лимита Яндекс: 250 символов / 24 секунды ──────────────
+            # При превышении Яндекс вернёт ошибку. Устанавливаем флаг заранее.
+            _YANDEX_CHAR_WARN = 220  # 250 - запас 30 на TTS-разметку
+            if len(text) > _YANDEX_CHAR_WARN:
+                _log.warning(
+                    "tts.speechkit.text_too_long",
+                    idx=index,
+                    seg_id=segment.id,
+                    char_count=len(text),
+                    limit=250,
+                    hint="Разбейте сегмент на более короткие предложения",
+                )
+                _add_qa_flag(segment, "tts_text_too_long")
 
             with Timer() as t:
                 try:
                     self._synth(text, voice, role, speed, pitch, output)
                 except Exception as exc:  # noqa: BLE001
-                    _log.error(
-                        "tts.speechkit.error",
-                        idx=index,
-                        seg_id=segment.id,
-                        voice=voice,
-                        error=str(exc),
-                    )
-                    _add_qa_flag(segment, "tts_speechkit_error")
-                    continue
+                    # SSML fallback: если SSML вызвал "Empty Utterance" (HTTP 400)
+                    # → повторяем с plain text. SSML-тег удаляется из payload,
+                    # заменяется полем "text". Это гарантирует что синтез пройдёт.
+                    err_str = str(exc)
+                    if (
+                        self.emotion_level > EMOTION_OFF
+                        and "Empty" in err_str
+                        and ("400" in err_str or "Utterance" in err_str)
+                    ):
+                        _log.warning(
+                            "tts.speechkit.ssml_fallback",
+                            idx=index,
+                            seg_id=segment.id,
+                            reason="Empty Utterance — retry with plain text",
+                        )
+                        try:
+                            self._synth_plain(text, voice, role, speed, pitch, output)
+                        except Exception as exc2:  # noqa: BLE001
+                            _log.error(
+                                "tts.speechkit.error",
+                                idx=index,
+                                seg_id=segment.id,
+                                voice=voice,
+                                error=str(exc2),
+                            )
+                            _add_qa_flag(segment, "tts_speechkit_error")
+                            continue
+                    else:
+                        _log.error(
+                            "tts.speechkit.error",
+                            idx=index,
+                            seg_id=segment.id,
+                            voice=voice,
+                            error=err_str,
+                        )
+                        _add_qa_flag(segment, "tts_speechkit_error")
+                        continue
 
             segment.tts_path = output.relative_to(project.work_dir).as_posix()
             segment.voice = f"{voice}:{role}"
@@ -223,15 +300,26 @@ class YandexSpeechKitTTSProvider:
         voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
         supports_role = bool(voice_meta and voice_meta.get("roles"))
 
+        # API v3 НЕ поддерживает поле "ssml" (HTTP 400 Bad Request).
+        # При emotion_level > 0 используем enhance_tts_v3() → TTS-разметка + speed_factor.
+        # speed_factor умножается на базовую скорость и передаётся через hints.
+        if self.emotion_level > EMOTION_OFF:
+            enhanced_text, spd_factor = enhance_tts_v3(text, self.emotion_level)
+            text_payload = {"text": enhanced_text}
+            effective_speed = max(0.1, min(10.0, speed * spd_factor))
+        else:
+            text_payload = {"text": text}
+            effective_speed = max(0.1, min(10.0, speed))
+
         hints: list[dict] = [{"voice": voice}]
         if supports_role:
             hints.append({"role": role})
-        hints.append({"speed": max(0.1, min(10.0, speed))})
+        hints.append({"speed": effective_speed})
         if pitch != 0:
             hints.append({"pitchShift": max(-1000, min(1000, pitch))})
 
         payload = {
-            "text": text,
+            **text_payload,
             "hints": hints,
             "outputAudioSpec": {
                 "containerAudio": {"containerAudioType": "MP3"},
@@ -242,6 +330,53 @@ class YandexSpeechKitTTSProvider:
             "Authorization": f"Api-Key {self.api_key}",
             "Content-Type": "application/json",
         }
+        if self.folder_id:
+            headers["x-folder-id"] = self.folder_id
+        audio_bytes = self._http_post(
+            SPEECHKIT_TTS_URL,
+            payload,
+            headers=headers,
+            timeout=self.timeout,
+        )
+        output.write_bytes(audio_bytes)
+
+    def _synth_plain(
+        self,
+        text: str,
+        voice: str,
+        role: str,
+        speed: float,
+        pitch: int,
+        output,
+    ) -> None:
+        """Синтез с plain text (без SSML) — используется как fallback при ошибках SSML.
+
+        Идентичен _synth, но всегда использует поле ``"text"`` вместо ``"ssml"``.
+        """
+        voice_meta = next((v for v in SPEECHKIT_VOICES if v["id"] == voice), None)
+        supports_role = bool(voice_meta and voice_meta.get("roles"))
+
+        hints: list[dict] = [{"voice": voice}]
+        if supports_role:
+            hints.append({"role": role})
+        hints.append({"speed": max(0.1, min(10.0, speed))})
+        if pitch != 0:
+            hints.append({"pitchShift": max(-1000, min(1000, pitch))})
+
+        payload = {
+            "text": text,  # всегда plain text, независимо от emotion_level
+            "hints": hints,
+            "outputAudioSpec": {
+                "containerAudio": {"containerAudioType": "MP3"},
+            },
+            "unsafeMode": True,
+        }
+        headers = {
+            "Authorization": f"Api-Key {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        if self.folder_id:
+            headers["x-folder-id"] = self.folder_id
         audio_bytes = self._http_post(
             SPEECHKIT_TTS_URL,
             payload,
@@ -280,7 +415,9 @@ def build_speechkit_tts_provider(config) -> YandexSpeechKitTTSProvider | None:
         speed_2=float(getattr(config, "professional_tts_speed_2", 1.0)),
         pitch_1=int(getattr(config, "professional_tts_pitch",     0)),
         pitch_2=int(getattr(config, "professional_tts_pitch_2",   0)),
+        emotion_level=int(getattr(config, "professional_tts_emotion", 0)),
         use_stress=bool(getattr(config, "professional_tts_stress", True)),
+        folder_id=os.getenv("YANDEX_FOLDER_ID", ""),
     )
 
 
@@ -296,26 +433,41 @@ def _post_streaming(
     headers: dict,
     timeout: float,
 ) -> bytes:
-    """POST к SpeechKit v3 — собирает streaming NDJSON-ответ в один mp3."""
+    """POST к SpeechKit v3 — собирает NDJSON-ответ в один mp3.
+
+    ВАЖНО: Яндекс SpeechKit v3 отдаёт один длинный JSON-объект без переносов
+    строк (~30-50 KB на фразу). Итерация ``for line in response`` разбивает
+    ответ по буферу urllib (~8 KB), а не по '\\n' — каждый кусок невалидный
+    JSON, все пропускаются, результат — пустой или усечённый аудио (1 буква).
+
+    Исправление: читаем весь ответ через ``response.read()`` и разбиваем
+    по b'\\n', чтобы получить полные JSON-строки.
+    """
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
         chunks: list[bytes] = []
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            for line in response:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                    b64 = (
-                        obj.get("audioChunk", {}).get("data")
-                        or obj.get("result", {}).get("audioChunk", {}).get("data")
-                    )
-                    if b64:
-                        chunks.append(base64.b64decode(b64))
-                except (json.JSONDecodeError, KeyError, ValueError):
-                    continue
+            # Читаем ВЕСЬ ответ сразу — не итерируем построчно.
+            # urllib итерирует по буферам ~8KB, а не по \n,
+            # что разрывает длинные JSON-объекты Яндекса на невалидные куски.
+            raw = response.read()
+
+        for line in raw.split(b"\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                b64 = (
+                    obj.get("audioChunk", {}).get("data")
+                    or obj.get("result", {}).get("audioChunk", {}).get("data")
+                )
+                if b64:
+                    chunks.append(base64.b64decode(b64))
+            except (json.JSONDecodeError, KeyError, ValueError):
+                continue
+
         if not chunks:
             raise RuntimeError("SpeechKit вернул пустой аудио-ответ")
         return b"".join(chunks)

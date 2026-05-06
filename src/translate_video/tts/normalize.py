@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import re
 
+from translate_video.tts.yo_restore import restore_yo
+
 # ── Числительные ──────────────────────────────────────────────────────────────
 
 _ONES_M = {
@@ -155,6 +157,9 @@ def normalize(text: str) -> str:
     """
     if not text:
         return text
+
+    # Восстановление «ё» перед всеми остальными заменами — ruaccent работает лучше с ё
+    text = restore_yo(text)
 
     for pattern, replacement in _REPLACEMENTS:
         if callable(replacement):

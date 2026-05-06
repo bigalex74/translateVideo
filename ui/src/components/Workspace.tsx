@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline } from '../api/client';
+import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS } from '../api/client';
 import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
 import { stageProgressInfo } from '../progress';
+import { flagBelongsToStage } from '../qa_stage_filter';
 import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
 import { ArtifactCard } from './ArtifactCard';
 import { StatsPanel } from './StatsPanel';
 import { DevLogPanel } from './DevLogPanel';
+import { SSMLToolbar, renderTtsMarkup } from './SSMLToolbar';
 import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
@@ -47,6 +49,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const videoRef = useRef<HTMLVideoElement>(null);
   // Ссылки на DOM-узлы карточек сегментов для авто-скролла
   const segRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  // Ref на textarea активного SSML-редактора. Нужен SSMLToolbar для работы с selection.
+  // ВАЖНО: должен быть ДО любого раннего return (Rules of Hooks).
+  const ssmlTextareaRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
 
   // Undo/redo история
   const [history, setHistory] = useState<Segment[][]>([]);
@@ -122,20 +127,37 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     tts_pretrim: 'warning', timeline_shifted: 'warning',
     rewrite_provider_quota_limited: 'warning', rewrite_provider_cooldown: 'warning',
   };
+
+  // Какие флаги принадлежат каждой стадии пайплайна (импортировано из qa_stage_filter.ts).
+  // Используется чтобы в live-ленте показывать ТОЛЬКО флаги текущей стадии,
+  // а не флаги от предыдущих запусков (timing_fit, translate и т.д.).
+
   type LiveSev = 'critical' | 'error' | 'warning' | 'info';
   interface LiveFlag { flag: string; sev: LiveSev; count: number; }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const liveFlags: LiveFlag[] = React.useMemo(() => {
     const isRunningNow = project?.status === 'running';
     if (!isRunningNow || !project) return [];
+
+    // Стадия, которая выполняется СЕЙЧАС
+    const activeStage = (project.stage_runs ?? []).find(r => r.status === 'running')?.stage;
+
     const segs = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
     const counts: Record<string, number> = {};
     segs.forEach(seg =>
-      (seg.qa_flags ?? []).forEach(f => { counts[f] = (counts[f] ?? 0) + 1; })
+      (seg.qa_flags ?? []).forEach(f => { counts[f] = (counts[f] ?? 0) + 1; }),
     );
+
     const SEV_ORDER: LiveSev[] = ['critical', 'error', 'warning', 'info'];
     return Object.entries(counts)
-      .filter(([f]) => FLAG_SEV[f] !== 'info' && FLAG_SEV[f] !== undefined)
+      .filter(([f]) => {
+        // Показываем только известные (не info) флаги
+        if (FLAG_SEV[f] === 'info' || FLAG_SEV[f] === undefined) return false;
+        // Если известна активная стадия — показываем ТОЛЬКО её флаги.
+        // Флаги других стадий (даже если они есть в сегментах) — скрываем.
+        if (activeStage) return flagBelongsToStage(f, activeStage);
+        return true; // активная стадия неизвестна → показываем всё
+      })
       .map(([flag, count]) => ({ flag, sev: FLAG_SEV[flag] ?? 'info' as LiveSev, count }))
       .sort((a, b) => SEV_ORDER.indexOf(a.sev) - SEV_ORDER.indexOf(b.sev));
   }, [project]);
@@ -178,6 +200,31 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     setDirty(true);
   };
 
+  /** Изменить SSML-override для сегмента (поле tts_ssml_override). */
+  const handleSsmlChange = (segId: string, newSsml: string) => {
+    setProject(prev => {
+      if (!prev) return prev;
+      const newSegments = (prev.segments as Segment[]).map(s =>
+        s.id === segId ? { ...s, tts_ssml_override: newSsml } : s,
+      );
+      return { ...prev, segments: newSegments };
+    });
+    setDirty(true);
+  };
+
+  /** Сбросить SSML-override — TTS вернётся к translated_text. */
+  const handleSsmlReset = (segId: string) => {
+    setProject(prev => {
+      if (!prev) return prev;
+      const newSegments = (prev.segments as Segment[]).map(s =>
+        s.id === segId ? { ...s, tts_ssml_override: '' } : s,
+      );
+      return { ...prev, segments: newSegments };
+    });
+    setDirty(true);
+  };
+
+
   const undo = () => {
     if (historyIndex <= 0) return;
     const ni = historyIndex - 1;
@@ -218,6 +265,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     setMessage('');
     setRightTab('status');
     try {
+      // Автосохранение несохранённых правок перед запуском пайплайна.
+      // Без этого TTS использует старый текст с диска, а не отредактированный.
+      if (dirty) {
+        setSaving(true);
+        try {
+          await saveProjectSegments(projectId, segments);
+          setDirty(false);
+        } catch (saveErr) {
+          setMessage(`${t('workspace.saveError', locale)}: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
+          setSaving(false);
+          return; // не запускать пайплайн если не удалось сохранить
+        } finally {
+          setSaving(false);
+        }
+      }
       await runPipeline(projectId, force, undefined, undefined, fromStage);
       // Оптимистично переключаем статус — поллинг подхватит реальный
       setProject(prev => prev ? { ...prev, status: 'running' } : prev);
@@ -578,9 +640,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           {/* Редактор сегментов */}
           <div className="panel segments-panel glass-panel">
             <div className="panel-header">
-              <h3><AlignLeft size={16} /> {t('workspace.translationEditor', locale)}</h3>
-              <span className="text-sm text-muted">
-                {segments.length} сегментов
+              <h3 style={{minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}><AlignLeft size={16} /> {t('workspace.translationEditor', locale)}</h3>
+              <span className="panel-header-meta">
+                {segments.length} {t('workspace.segments', locale) || 'сегм.'}
                 {dirty && <span className="dirty-indicator"> · {t('workspace.unsaved', locale)}</span>}
               </span>
             </div>
@@ -611,13 +673,74 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     <span className="seg-status">{statusLabel(seg.status ?? '', locale)}</span>
                   </div>
                   <div className="seg-source">{seg.source_text}</div>
+
+                  {/* TTS-тулбар — показывается только при Яндекс TTS */}
+                  {project.config?.professional_tts_provider === 'yandex' && (() => {
+                    const ssmlOverride = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override || '';
+                    const currentText = ssmlOverride || seg.translated_text || '';
+                    return (
+                      <SSMLToolbar
+                        getTextarea={() => ssmlTextareaRefs.current.get(seg.id) ?? null}
+                        currentText={currentText}
+                        hasOverride={!!ssmlOverride}
+                        onChange={(v) => handleSsmlChange(seg.id, v)}
+                        onReset={() => handleSsmlReset(seg.id)}
+                        onPreview={async (text) => {
+                          const url = await previewTTS(projectId, text, false);
+                          const audio = new Audio();
+                          // Сохраняем ссылку на window чтобы GC не убил объект во время воспроизведения
+                          (window as any).__ttsPreviewAudio = audio;
+                          audio.onended = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; };
+                          audio.onerror = (e) => { console.error('[preview] audio error', e); URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; };
+                          audio.src = url;
+                          audio.load();
+                          try { await audio.play(); } catch(e) { console.error('[preview] play error', e); }
+                        }}
+                      />
+                    );
+                  })()}
+
                   <textarea
-                    className={`seg-translated text-input ${!seg.translated_text?.trim() ? 'seg-empty' : ''}`}
-                    value={seg.translated_text ?? ''}
-                    onChange={(e) => handleTextChange(seg.id, e.target.value)}
-                    placeholder={t('workspace.enterTranslation', locale)}
+                    ref={(el) => {
+                      if (el) ssmlTextareaRefs.current.set(seg.id, el);
+                      else ssmlTextareaRefs.current.delete(seg.id);
+                    }}
+                    className={`seg-translated text-input ${
+                      !seg.translated_text?.trim() ? 'seg-empty' : ''
+                    }${
+                      (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override ? ' seg-has-ssml' : ''
+                    }`}
+                    value={
+                      (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
+                        || (seg.translated_text ?? '')
+                    }
+                    onChange={(e) => {
+                      const hasOverride = !!(seg as Segment & { tts_ssml_override?: string }).tts_ssml_override;
+                      if (hasOverride) {
+                        handleSsmlChange(seg.id, e.target.value);
+                      } else {
+                        handleTextChange(seg.id, e.target.value);
+                      }
+                    }}
+                    placeholder={
+                      (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
+                        ? 'SSML / текст с тегами Яндекс SpeechKit'
+                        : t('workspace.enterTranslation', locale)
+                    }
                     rows={2}
                   />
+                  {/* TTS Rich Preview — визуализация разметки */}
+                  {(() => {
+                    const ov = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override;
+                    if (!ov) return null;
+                    const hasTtsMarkup = /\*\*|sil<\[|<\[(tiny|small|medium|large|huge)\]>|\[\[|\+[аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU]/i.test(ov);
+                    if (!hasTtsMarkup) return null;
+                    return (
+                      <div className="tts-rich-preview" title="Предпросмотр TTS-разметки">
+                        {renderTtsMarkup(ov)}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
               {segments.length === 0 && !isRunning && (
@@ -789,6 +912,27 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           segments={segments}
           locale={locale}
           stageRuns={project.stage_runs ?? []}
+          speedChanged={(() => {
+            // Находим последний успешный timing_fit с metadata скорости
+            const timingRun = [...(project.stage_runs ?? [])]
+              .reverse()
+              .find(r => r.stage === 'timing_fit' && r.status === 'completed' && r.metadata);
+            const cfg = project.config as unknown as Record<string, unknown> | undefined;
+            const currentSpeed1 = cfg?.professional_tts_speed ?? 1.0;
+            const currentSpeed2 = cfg?.professional_tts_speed_2 ?? 1.0;
+            if (timingRun?.metadata) {
+              const savedSpeed1 = timingRun.metadata['tts_speed_1'] ?? 1.0;
+              const savedSpeed2 = timingRun.metadata['tts_speed_2'] ?? 1.0;
+              return Math.abs(Number(currentSpeed1) - Number(savedSpeed1)) > 0.001
+                  || Math.abs(Number(currentSpeed2) - Number(savedSpeed2)) > 0.001;
+            }
+            // Fallback: проверяем несохранённый configPatch
+            const patch = configPatch as Record<string, unknown>;
+            const saved = (project.config ?? {}) as Record<string, unknown>;
+            return ['professional_tts_speed', 'professional_tts_speed_2'].some(k =>
+              k in patch && patch[k] !== saved[k]
+            );
+          })()}
           onConfirm={(fromStage) => handleRunConfirmed(confirm.force, fromStage)}
           onCancel={() => setConfirm(null)}
         />

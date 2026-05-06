@@ -384,5 +384,156 @@ class DedupStageRunsTest(unittest.TestCase):
         self.assertEqual(result[0].status, JobStatus.RUNNING)
 
 
+class FromStageTest(unittest.TestCase):
+    """TVIDEO-093: from_stage должен пропускать предшествующие этапы даже при force=True.
+
+    Это был критический баг: при force=True условие `if not self.force and
+    already_completed` никогда не срабатывало → все этапы запускались заново,
+    даже если пользователь выбрал from_stage='tts'.
+    """
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.store = ProjectStore(Path(self.temp_dir.name) / "runs")
+        self.project = self.store.create_project("lesson.mp4", project_id="lesson")
+        # Помечаем первые два этапа как completed в stage_runs
+        self.project.stage_runs = [
+            StageRun(stage=Stage.EXTRACT_AUDIO, status=JobStatus.COMPLETED),
+            StageRun(stage=Stage.TRANSCRIBE,    status=JobStatus.COMPLETED),
+        ]
+        self.store.save_project(self.project)
+        self.context = StageContext(project=self.project, store=self.store)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def _stages(self):
+        """Возвращает три StageRun-заглушки: extract_audio, transcribe, tts."""
+        s1 = StaticStage(StageRun(stage=Stage.EXTRACT_AUDIO, status=JobStatus.COMPLETED))
+        s2 = StaticStage(StageRun(stage=Stage.TRANSCRIBE,    status=JobStatus.COMPLETED))
+        s3 = StaticStage(StageRun(stage=Stage.TTS,           status=JobStatus.COMPLETED))
+        return s1, s2, s3
+
+    # ── Основной фикс TVIDEO-093 ──────────────────────────────────────────────
+
+    def test_from_stage_tts_force_true_skips_earlier_stages(self):
+        """КЛЮЧЕВОЙ ТЕСТ: from_stage='tts' + force=True → extract/transcribe пропущены."""
+        s1, s2, s3 = self._stages()
+        runner = PipelineRunner([s1, s2, s3], force=True, from_stage="tts")
+        runner.run(self.context)
+
+        self.assertFalse(s1.called, "extract_audio должен быть пропущен (он ДО tts)")
+        self.assertFalse(s2.called, "transcribe должен быть пропущен (он ДО tts)")
+        self.assertTrue(s3.called,  "tts должен быть запущен")
+
+    def test_from_stage_tts_force_false_skips_earlier_stages(self):
+        """from_stage='tts' + force=False → то же поведение (ранние этапы пропускаются)."""
+        s1, s2, s3 = self._stages()
+        runner = PipelineRunner([s1, s2, s3], force=False, from_stage="tts")
+        runner.run(self.context)
+
+        self.assertFalse(s1.called, "extract_audio пропущен")
+        self.assertFalse(s2.called, "transcribe пропущен")
+        self.assertTrue(s3.called,  "tts запущен")
+
+    def test_from_stage_first_stage_runs_all(self):
+        """from_stage='extract_audio' → все этапы выполняются."""
+        s1, s2, s3 = self._stages()
+        runner = PipelineRunner([s1, s2, s3], force=True, from_stage="extract_audio")
+        runner.run(self.context)
+
+        self.assertTrue(s1.called, "extract_audio должен запуститься")
+        self.assertTrue(s2.called, "transcribe должен запуститься")
+        self.assertTrue(s3.called, "tts должен запуститься")
+
+    def test_from_stage_unknown_value_runs_all(self):
+        """Неизвестный from_stage → _is_before не ломает пайплайн, все этапы идут."""
+        s1, s2, s3 = self._stages()
+        # При неизвестном from_stage _reset_from() ничего не делает,
+        # is_before_from_stage=False → все этапы через стандартную логику.
+        runner = PipelineRunner([s1, s2, s3], force=True, from_stage="nonexistent_stage")
+        runner.run(self.context)
+
+        # force=True + нет from_stage-фильтра → все запускаются
+        self.assertTrue(s1.called)
+        self.assertTrue(s2.called)
+        self.assertTrue(s3.called)
+
+    def test_from_stage_none_force_true_reruns_all(self):
+        """from_stage=None + force=True → ВСЕ этапы перезапускаются (штатная логика)."""
+        s1, s2, s3 = self._stages()
+        runner = PipelineRunner([s1, s2, s3], force=True, from_stage=None)
+        runner.run(self.context)
+
+        self.assertTrue(s1.called)
+        self.assertTrue(s2.called)
+        self.assertTrue(s3.called)
+
+    def test_from_stage_none_force_false_skips_completed(self):
+        """from_stage=None + force=False → пропускает completed (resume-режим)."""
+        s1, s2, s3 = self._stages()
+        runner = PipelineRunner([s1, s2, s3], force=False, from_stage=None)
+        runner.run(self.context)
+
+        # extract_audio и transcribe уже completed в setUp → пропускаются
+        self.assertFalse(s1.called, "extract_audio пропущен (completed)")
+        self.assertFalse(s2.called, "transcribe пропущен (completed)")
+        self.assertTrue(s3.called,  "tts запущен (не completed)")
+
+    # ── _is_before helper ────────────────────────────────────────────────────
+
+    def test_is_before_extract_before_tts(self):
+        """extract_audio идёт раньше tts."""
+        s1, s2, s3 = self._stages()
+        runner = PipelineRunner([s1, s2, s3])
+        self.assertTrue(runner._is_before("extract_audio", "tts"))
+
+    def test_is_before_tts_not_before_extract(self):
+        """tts НЕ идёт раньше extract_audio."""
+        s1, s2, s3 = self._stages()
+        runner = PipelineRunner([s1, s2, s3])
+        self.assertFalse(runner._is_before("tts", "extract_audio"))
+
+    def test_is_before_same_stage_false(self):
+        """Один и тот же этап не является «раньше» самого себя."""
+        s1, s2, s3 = self._stages()
+        runner = PipelineRunner([s1, s2, s3])
+        self.assertFalse(runner._is_before("tts", "tts"))
+
+
+class StageRunMetadataTest(unittest.TestCase):
+    """Проверяет поле metadata в StageRun (TVIDEO-093)."""
+
+    def test_default_metadata_is_empty_dict(self):
+        """Новый StageRun по умолчанию имеет пустой metadata."""
+        run = StageRun(stage=Stage.TTS, status=JobStatus.COMPLETED)
+        self.assertEqual(run.metadata, {})
+
+    def test_metadata_persists_through_to_dict_from_dict(self):
+        """metadata сохраняется при сериализации/десериализации."""
+        run = StageRun(stage=Stage.TIMING_FIT, status=JobStatus.COMPLETED)
+        run.metadata["tts_speed_1"] = 1.5
+        run.metadata["tts_speed_2"] = 1.2
+
+        restored = StageRun.from_dict(run.to_dict())
+
+        self.assertAlmostEqual(restored.metadata["tts_speed_1"], 1.5)
+        self.assertAlmostEqual(restored.metadata["tts_speed_2"], 1.2)
+
+    def test_from_dict_without_metadata_gives_empty_dict(self):
+        """Старые JSON без поля metadata десериализуются без ошибок → {}."""
+        payload = {
+            "id": "stage_abc",
+            "stage": "timing_fit",
+            "status": "completed",
+            "inputs": [],
+            "outputs": [],
+            "attempt": 1,
+            # metadata намеренно отсутствует — старый формат
+        }
+        run = StageRun.from_dict(payload)
+        self.assertEqual(run.metadata, {})
+
+
 if __name__ == "__main__":
     unittest.main()

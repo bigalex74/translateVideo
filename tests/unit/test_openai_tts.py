@@ -242,5 +242,77 @@ class BuildOpenAITTSProviderTest(unittest.TestCase):
         self.assertEqual(provider.voice_2, "fable")
 
 
+
+class OpenAIQaFlagsResetTest(unittest.TestCase):
+    """TVIDEO-096: QA-флаги TTS сбрасываются при повторном запуске (OpenAI провайдер)."""
+
+    def setUp(self):
+        import tempfile
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.work_dir = Path(self._tmpdir.name)
+        (self.work_dir / "tts").mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def _provider(self) -> OpenAITTSProvider:
+        return OpenAITTSProvider(
+            base_url="https://fake.api/v1",
+            api_key="test",
+            model="tts-1",
+            voice_1="nova",
+            voice_2="onyx",
+            http_post=lambda *a, **kw: b"mp3",
+        )
+
+    def _seg_with_flags(self, flags: list[str]) -> Segment:
+        s = Segment(id="s0", start=0.0, end=2.0, source_text="Hi")
+        s.translated_text = "Привет"
+        s.status = SegmentStatus.TRANSLATED
+        s.qa_flags = list(flags)
+        return s
+
+    def test_stale_tts_flags_removed(self):
+        """tts_openai_error и tts_voice_X удаляются перед новой озвучкой."""
+        project = _make_project(self.work_dir)
+        seg = self._seg_with_flags(["tts_openai_error", "tts_voice_onyx"])
+        project.segments = [seg]
+
+        self._provider().synthesize(project, project.segments)
+
+        flags = project.segments[0].qa_flags
+        self.assertNotIn("tts_openai_error", flags)
+        self.assertNotIn("tts_voice_onyx", flags)
+
+    def test_non_tts_flags_preserved(self):
+        """timing_fit_* и translation_* флаги сохраняются при повторной озвучке."""
+        project = _make_project(self.work_dir)
+        seg = self._seg_with_flags([
+            "timing_fit_failed",
+            "translation_rewritten_for_timing",
+            "tts_openai_error",  # должен удалиться
+        ])
+        project.segments = [seg]
+
+        self._provider().synthesize(project, project.segments)
+
+        flags = project.segments[0].qa_flags
+        self.assertIn("timing_fit_failed", flags)
+        self.assertIn("translation_rewritten_for_timing", flags)
+        self.assertNotIn("tts_openai_error", flags)
+
+    def test_new_voice_flag_replaces_old(self):
+        """После сброса добавляется актуальный tts_voice_nova, старый tts_voice_fable удалён."""
+        project = _make_project(self.work_dir, tts_voice="nova")
+        seg = self._seg_with_flags(["tts_voice_fable"])
+        project.segments = [seg]
+
+        self._provider().synthesize(project, project.segments)
+
+        flags = project.segments[0].qa_flags
+        self.assertIn("tts_voice_nova", flags)
+        self.assertNotIn("tts_voice_fable", flags)
+
+
 if __name__ == "__main__":
     unittest.main()
