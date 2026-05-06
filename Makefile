@@ -1,8 +1,10 @@
-.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:release release\:fix release\:finish lint ui-build ui-dev visual-check visual-check-ci css-guard
+.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:metadata test\:release ci\:quick release\:checklist release\:fix release\:finish lint ui-build ui-dev visual-check visual-check-ci css-guard
 
 # Цвета для вывода
 CYAN  := \033[0;36m
 GREEN := \033[0;32m
+YELLOW := \033[0;33m
+RED   := \033[0;31m
 RESET := \033[0m
 
 ## help: Показать все доступные команды
@@ -88,10 +90,29 @@ test\:coverage:
 	@echo "$(CYAN)▶ Coverage: TypeScript...$(RESET)"
 	cd ui && npm run test -- --coverage
 
+## test:metadata: Проверить версии, changelog, roadmap, CI и Docker healthcheck
+test\:metadata:
+	PYTHONPATH=src python3 -m unittest tests.unit.test_version_consistency tests.unit.test_version_metadata tests.unit.test_release_metadata
+
+## ci:quick: Быстрый CI gate для PR: metadata, Python tests, lint, UI tests/build
+ci\:quick:
+	$(MAKE) test\:metadata
+	PYTHONPATH=src python3 -m unittest discover -s tests -q
+	python3 -m compileall -q src tests
+	cd ui && npm run lint
+	cd ui && npm run test
+	cd ui && npm run build
+	git diff --check
+
+## release:checklist: Показать обязательный чеклист релиза
+release\:checklist:
+	@sed -n '1,220p' docs/release-checklist.md
+
 ## test:release: Полный release gate перед merge в master
 # Запускать ПЕРЕД каждым merge develop→master.
 # Если падают → НЕ пушить master, создать release-fix ветку (make release:fix).
 test\:release:
+	$(MAKE) test\:metadata
 	PYTHONPATH=src python3 -m unittest discover -s tests
 	python3 -m compileall -q src tests
 	cd ui && npm run lint
@@ -213,4 +234,39 @@ round-close:
 	  echo "$(RED)╚══════════════════════════════════════════════════════════╝$(RESET)"; \
 	  exit 1; \
 	fi
+
+## verify:deployed: Проверить что прод совпадает с локальной версией (smoke check после deploy)
+verify\:deployed:
+	@LOCAL_VER=$$(cat VERSION 2>/dev/null || echo "UNKNOWN"); \
+	PROD_VER=$$(curl -s http://localhost:8002/api/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version','ERR'))" 2>/dev/null || echo "UNREACHABLE"); \
+	echo "$(CYAN)🔍 Локальная версия:    $$LOCAL_VER$(RESET)"; \
+	echo "$(CYAN)🌐 Продакшн версия:     $$PROD_VER$(RESET)"; \
+	if [ "$$LOCAL_VER" = "$$PROD_VER" ]; then \
+	  echo "$(GREEN)✅ Версии совпадают — деплой актуален.$(RESET)"; \
+	else \
+	  echo "$(RED)❌ ВЕРСИИ НЕ СОВПАДАЮТ!$(RESET)"; \
+	  echo "$(YELLOW)   Запусти: make deploy$(RESET)"; \
+	  exit 1; \
+	fi
+
+## iteration: Полный цикл итерации = тесты + агенты + деплой + верификация
+iteration:
+	@echo "$(CYAN)╔══════════════════════════════════════════════════════════════╗$(RESET)"
+	@echo "$(CYAN)║          ITERATION GATE — полный цикл итерации               ║$(RESET)"
+	@echo "$(CYAN)╚══════════════════════════════════════════════════════════════╝$(RESET)"
+	@echo ""
+	@echo "$(CYAN)Шаг 1/3: Тесты + coverage...$(RESET)"
+	@$(MAKE) test:all
+	@$(MAKE) test:coverage
+	@echo ""
+	@echo "$(CYAN)Шаг 2/3: Деплой...$(RESET)"
+	@$(MAKE) deploy
+	@echo ""
+	@echo "$(CYAN)Шаг 3/3: Верификация деплоя...$(RESET)"
+	@$(MAKE) verify:deployed
+	@echo ""
+	@echo "$(GREEN)╔══════════════════════════════════════════════════════════════╗$(RESET)"
+	@echo "$(GREEN)║  ✅ ITERATION COMPLETE — прод обновлён, версии совпадают    ║$(RESET)"
+	@echo "$(GREEN)║  Теперь: запроси агентов и выполни make round-close         ║$(RESET)"
+	@echo "$(GREEN)╚══════════════════════════════════════════════════════════════╝$(RESET)"
 
