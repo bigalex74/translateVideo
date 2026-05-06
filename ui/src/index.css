@@ -1300,3 +1300,99 @@ code {
     margin-bottom: 8px;
   }
 }
+
+/* ─── R8-И2: Анимации модалов (Designer) ───────────────────────────────── */
+@keyframes modal-slide-in {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Применяем к .modal-overlay — fade-in backdrop */
+.modal-overlay {
+  animation: modal-overlay-in 0.18s ease;
+}
+/* Применяем к .modal-box — slide up + scale */
+.modal-box {
+  animation: modal-slide-in 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ─── R8-И2: Mobile touch targets (min 44px — WCAG 2.5.5) ──────────────── */
+/* Нина Н4, Светлана — крупные кнопки на тач-устройствах */
+@media (pointer: coarse) {
+  .btn-sm, .btn-xs, .btn-icon {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+  /* Сегменты — делаем зону клика textarea больше */
+  .seg-translated {
+    min-height: 80px !important;
+    font-size: 1rem !important;
+    padding: 10px !important;
+  }
+  /* Card actions — больше gap между кнопками */
+  .card-actions {
+    gap: 10px;
+  }
+  /* Header row — кнопки не теснятся */
+  .header-row-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* ─── R8-И3: Skeleton loader для списка проектов (Нина Н2) ─────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton-card {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.skeleton-line {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--border, #2e303a) 25%,
+    color-mix(in srgb, var(--border, #2e303a) 50%, transparent) 50%,
+    var(--border, #2e303a) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.4s infinite ease-in-out;
+}
+.skeleton-title   { height: 18px; width: 70%; margin-bottom: 10px; }
+.skeleton-meta    { height: 12px; width: 50%; margin-bottom: 10px; }
+.skeleton-actions { height: 28px; width: 90%; }
+
+/* ─── R8-И5: DnD «Один клик» опции ───────────────────────────────────────── */
+.dnd-options {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.dnd-option-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  color: #fff;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.18s;
+  backdrop-filter: blur(4px);
+}
+.dnd-option-btn:hover { background: rgba(255,255,255,0.22); }
+.dnd-option-run {
+  background: rgba(99,102,241,0.4);
+  border-color: rgba(99,102,241,0.8);
+  font-weight: 600;
+}
+.dnd-option-run:hover { background: rgba(99,102,241,0.65); }

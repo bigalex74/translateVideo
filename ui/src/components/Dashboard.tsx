@@ -41,6 +41,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) => {
   const [project, setProject] = useState<VideoProject | null>(null);
   const [projects, setProjects] = useState<VideoProject[]>([]);
+  const [initialLoading, setInitialLoading] = useState(true); // R8-И3: skeleton loader
   const [searchInput, setSearchInput] = useState('');
   const [projectSearch, setProjectSearch] = useState('');  // K3: поиск по списку проектов
   // А9: Сортировка с persist через localStorage
@@ -56,6 +57,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // R7-И1: id проекта для удаления
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dragOver, setDragOver] = useState(false);  // Z4.15: DnD upload
+  const [autoRun, setAutoRun] = useState(false);    // R8-И5: «Один клик» — запуск сразу после загрузки
   // О1: Inline rename состояние
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -139,12 +141,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
     let cancelled = false;
     void listProjects()
       .then(data => {
-        if (!cancelled) setProjects(data);
+        if (!cancelled) {
+          setProjects(data);
+          setInitialLoading(false); // R8-И3: скрываем skeleton
+        }
       })
-      .catch(e => console.error(e));
-    return () => {
-      cancelled = true;
-    };
+      .catch(e => { console.error(e); setInitialLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   // Автопобновление статуса открытого проекта
@@ -189,18 +192,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
         }
         setLoading(true);
         try {
-          const { uploadProject } = await import('../api/client');
+          const { uploadProject, runPipeline } = await import('../api/client');
           const created = await uploadProject(file);
+          if (autoRun) {
+            // R8-И5: «Один клик» — сразу запустить перевод
+            await runPipeline(created.project_id, false, getPersistedProvider());
+          }
           onOpenProject(created.project_id);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Upload failed');
-        } finally { setLoading(false); }
+        } finally { setLoading(false); setAutoRun(false); }
       }}
     >
-      {/* Z4.15: Drag-and-drop overlay */}
+      {/* Z4.15 + R8-И5: Drag-and-drop overlay «Один клик» */}
       {dragOver && (
         <div className="dashboard-dnd-overlay">
-          <span>📽 Перетащите видео для создания проекта</span>
+          <span>📽 Перетащите видео</span>
+          <div className="dnd-options">
+            <button
+              className="dnd-option-btn"
+              onClick={() => { setAutoRun(false); }}
+              onDragEnter={() => setAutoRun(false)}
+            >
+              📁 Создать проект
+            </button>
+            <button
+              className="dnd-option-btn dnd-option-run"
+              onClick={() => { setAutoRun(true); }}
+              onDragEnter={() => setAutoRun(true)}
+              title="Загрузить видео и сразу запустить перевод без дополнительных шагов"
+            >
+              ⚡ Создать и перевести
+            </button>
+          </div>
         </div>
       )}
       <header className="page-header">
@@ -529,82 +553,95 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
             </div>
           </div>
           <div className="projects-grid" data-testid="project-list">
-            {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).map(item => (
-              <article key={item.project_id} className="project-mini-card">
-                <div className="mini-card-title">
-                  {/* О1: Переименование проекта */}
-                  {renamingId === item.project_id ? (
-                    <div style={{ display: 'flex', gap: '4px', flex: 1, minWidth: 0 }}>
-                      <input
-                        ref={renameInputRef}
-                        className="select-input"
-                        style={{ flex: 1, padding: '2px 6px', fontSize: '0.85rem' }}
-                        value={renameValue}
-                        onChange={e => setRenameValue(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleRenameSubmit(item.project_id);
-                          if (e.key === 'Escape') setRenamingId(null);
-                        }}
-                        placeholder="Название проекта…"
-                        maxLength={120}
-                      />
-                      <button onClick={() => handleRenameSubmit(item.project_id)} title="Сохранить" style={{ padding: '2px 6px', cursor: 'pointer' }}><Check size={13} /></button>
-                      <button onClick={() => setRenamingId(null)} title="Отмена" style={{ padding: '2px 6px', cursor: 'pointer' }}><X size={13} /></button>
+            {/* R8-И3: Skeleton loader при первой загрузке */}
+            {initialLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <article key={i} className="project-mini-card skeleton-card" aria-hidden="true">
+                  <div className="skeleton-line skeleton-title" />
+                  <div className="skeleton-line skeleton-meta" />
+                  <div className="skeleton-line skeleton-actions" />
+                </article>
+              ))
+            ) : (
+              <>
+                {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).map(item => (
+                  <article key={item.project_id} className="project-mini-card">
+                    <div className="mini-card-title">
+                      {/* О1: Переименование проекта */}
+                      {renamingId === item.project_id ? (
+                        <div style={{ display: 'flex', gap: '4px', flex: 1, minWidth: 0 }}>
+                          <input
+                            ref={renameInputRef}
+                            className="select-input"
+                            style={{ flex: 1, padding: '2px 6px', fontSize: '0.85rem' }}
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleRenameSubmit(item.project_id);
+                              if (e.key === 'Escape') setRenamingId(null);
+                            }}
+                            placeholder="Название проекта…"
+                            maxLength={120}
+                          />
+                          <button onClick={() => handleRenameSubmit(item.project_id)} title="Сохранить" style={{ padding: '2px 6px', cursor: 'pointer' }}><Check size={13} /></button>
+                          <button onClick={() => setRenamingId(null)} title="Отмена" style={{ padding: '2px 6px', cursor: 'pointer' }}><X size={13} /></button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                          <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            title={item.project_id}>
+                            {(item as VideoProject & { display_name?: string }).display_name || item.project_id}
+                          </strong>
+                          <button
+                            onClick={() => handleRenameStart(item.project_id,
+                              (item as VideoProject & { display_name?: string }).display_name || '')}
+                            title="Переименовать проект (О1)"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)', flexShrink: 0 }}
+                          ><Pencil size={11} /></button>
+                        </div>
+                      )}
+                      <span
+                        className={`badge ${item.status}`}
+                        title={
+                          item.status === 'created'   ? '⏳ Проект создан, ещё не запущен' :
+                          item.status === 'running'   ? '🔄 Перевод выполняется прямо сейчас' :
+                          item.status === 'completed' ? '✅ Перевод успешно завершён — файлы готовы к скачиванию' :
+                          item.status === 'failed'    ? '❌ Ошибка при переводе — нажмите для деталей' :
+                          item.status
+                        }
+                      >
+                        {STATUS_EMOJI[item.status] ?? ''} {statusLabel(item.status, locale)}
+                      </span>
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                      <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                        title={item.project_id}>
-                        {(item as VideoProject & { display_name?: string }).display_name || item.project_id}
-                      </strong>
+                    <div className="mini-card-meta">
+                      <span>{item.config?.source_language ?? 'auto'}</span>
+                      <ArrowRight size={12} />
+                      <span>{item.config?.target_language ?? 'ru'}</span>
+                      <Clock size={12} />
+                      <span>{Array.isArray(item.segments) ? item.segments.length : item.segments} {t('dashboard.segmentShort', locale)}</span>
+                    </div>
+                    <div className="mini-card-actions">
                       <button
-                        onClick={() => handleRenameStart(item.project_id,
-                          (item as VideoProject & { display_name?: string }).display_name || '')}
-                        title="Переименовать проект (О1)"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)', flexShrink: 0 }}
-                      ><Pencil size={11} /></button>
+                        className="btn-secondary"
+                        onClick={() => loadStatus(item.project_id)}
+                        aria-label={`${t('dashboard.status', locale)} ${item.project_id}`}
+                      >
+                        <Search size={14} /> {t('dashboard.status', locale)}
+                      </button>
+                      <button
+                        className="btn-primary"
+                        onClick={() => onOpenProject(item.project_id)}
+                        aria-label={`${t('dashboard.openEditor', locale)} ${item.project_id}`}
+                      >
+                        <FolderOpen size={14} /> {t('dashboard.editor', locale)}
+                      </button>
                     </div>
-                  )}
-                  <span
-                    className={`badge ${item.status}`}
-                    title={
-                      item.status === 'created'   ? '⏳ Проект создан, ещё не запущен' :
-                      item.status === 'running'   ? '🔄 Перевод выполняется прямо сейчас' :
-                      item.status === 'completed' ? '✅ Перевод успешно завершён — файлы готовы к скачиванию' :
-                      item.status === 'failed'    ? '❌ Ошибка при переводе — нажмите для деталей' :
-                      item.status
-                    }
-                  >
-                    {STATUS_EMOJI[item.status] ?? ''} {statusLabel(item.status, locale)}
-                  </span>
-                </div>
-                <div className="mini-card-meta">
-                  <span>{item.config?.source_language ?? 'auto'}</span>
-                  <ArrowRight size={12} />
-                  <span>{item.config?.target_language ?? 'ru'}</span>
-                  <Clock size={12} />
-                  <span>{Array.isArray(item.segments) ? item.segments.length : item.segments} {t('dashboard.segmentShort', locale)}</span>
-                </div>
-                <div className="mini-card-actions">
-                  <button
-                    className="btn-secondary"
-                    onClick={() => loadStatus(item.project_id)}
-                    aria-label={`${t('dashboard.status', locale)} ${item.project_id}`}
-                  >
-                    <Search size={14} /> {t('dashboard.status', locale)}
-                  </button>
-                  <button
-                    className="btn-primary"
-                    onClick={() => onOpenProject(item.project_id)}
-                    aria-label={`${t('dashboard.openEditor', locale)} ${item.project_id}`}
-                  >
-                    <FolderOpen size={14} /> {t('dashboard.editor', locale)}
-                  </button>
-                </div>
-              </article>
-            ))}
-            {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).length === 0 && (
-              <p className="empty-text">{t('dashboard.empty', locale)}</p>
+                  </article>
+                ))}
+                {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).length === 0 && (
+                  <p className="empty-text">{t('dashboard.empty', locale)}</p>
+                )}
+              </>
             )}
           </div>
         </section>

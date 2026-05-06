@@ -1,3 +1,29 @@
+## 1.82.0 - 2026-05-06 - FEAT - TVIDEO-199-202
+### Round 8 Итерации 2-5: Анимации, Skeleton, Один клик, Batch API
+
+**Итерация 2 — Анимации модалов + Mobile touch (Designer):**
+- CSS: @keyframes modal-slide-in — modal-box появляется с scale+translateY анимацией
+- CSS: @keyframes modal-overlay-in — backdrop fade-in
+- CSS: @media (pointer: coarse) — min 44px тач-зоны для btn-sm/xs/icon (WCAG 2.5.5)
+- CSS: seg-translated min-height 80px и font-size 1rem на тач-устройствах
+
+**Итерация 3 — Skeleton loader (Нина Н2):**
+- Dashboard: initialLoading state — 3 skeleton карточки с shimmer анимацией
+- CSS: .skeleton-card, .skeleton-line, @keyframes skeleton-shimmer
+
+**Итерация 4 — Batch API UX (Тимур Т1):**
+- API client: batchCreateProjects() — POST /projects/batch
+- Типы: BatchItem, BatchResult
+
+**Итерация 5 — «Один клик» режим (В1-R6):**
+- DnD overlay: две кнопки «📁 Создать» и «⚡ Создать и перевести»
+- onDrop: при autoRun=true сразу вызывает runPipeline после uploadProject
+- CSS: .dnd-option-btn, .dnd-option-run — стилизованные кнопки в оверлее
+
+**Тесты:** 832 ✅ / Build ✅ 228ms
+
+---
+
 ## 1.81.0 - 2026-05-06 - FEAT - TVIDEO-198
 ### Round 8 Итерация 1: WebSocket frontend hook (Глеб Г7)
 

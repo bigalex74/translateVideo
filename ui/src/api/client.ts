@@ -238,3 +238,27 @@ export async function safariSafeDownload(url: string, filename: string): Promise
         window.open(url, '_blank');
     }
 }
+
+/** R8-И4: Batch создание проектов (Z5.4 backend). Загружает несколько видео URL одним запросом. */
+export interface BatchItem {
+    input_video: string;
+    project_id?: string;
+    config?: Record<string, unknown>;
+}
+export interface BatchResult {
+    project_id: string;
+    status: string;
+    error?: string;
+}
+export async function batchCreateProjects(
+    items: BatchItem[],
+    auto_run = false
+): Promise<BatchResult[]> {
+    const res = await fetch(`${API_BASE}/projects/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, auto_run }),
+    });
+    if (!res.ok) throw new Error(`Batch error: HTTP ${res.status}`);
+    return (await res.json()).results ?? [];
+}
