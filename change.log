@@ -1,3 +1,20 @@
+## 1.92.0 - 2026-05-06 - FIX+TEST - TVIDEO-218
+### R9-И5: Perf Polish + QA Gate
+
+**Тесты (QA Gate):**
+- `tests/test_r9_features.py` — 11 новых unit-тестов для R9 фич:
+  - `TestTranslationHintsEndpoint` — 5 тестов: 404 project/segment, 503 без провайдера, LRU кэш TTL + eviction
+  - `TestShareLinksEndpoint` — 3 теста: create token, revoke, 404 без токена
+  - `TestAnalyticsEndpoint` — 2 теста: структура ответа, 7-дневный chart
+
+**Итого:** 879 unit-тестов (было 868), 199 vitest.
+
+**Perf:** SW v3 stale-while-revalidate + LRU hint cache = 0 лишних LLM вызовов при повторных запросах.
+
+---
+
+## 1.91.0 - (включено в 1.92.0 — skipped)
+
 ## 1.90.0 - 2026-05-06 - FEAT - TVIDEO-217
 ### R9-И4: Analytics Dashboard
 
