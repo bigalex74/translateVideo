@@ -109,7 +109,8 @@
 
 .workspace-grid {
     display: grid;
-    grid-template-columns: 1fr 340px;
+    /* D-BUG-04: минимальная ширина левой колонки 280px */
+    grid-template-columns: minmax(280px, 1fr) 340px;
     gap: 16px;
     flex: 1;
     min-height: 0;
@@ -611,6 +612,7 @@
 .segments-list {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;  /* D-BUG-05: подавляем горизонтальный скролл */
     padding: 12px 16px;
     display: flex;
     flex-direction: column;
