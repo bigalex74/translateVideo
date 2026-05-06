@@ -8,6 +8,7 @@ validate_changelog.py — Валидатор журнала изменений (
   - TYPE для legacy записей < 1.24.0: дополнительно допускаются MINOR | PATCH | MAJOR | SEMVER
   - Версии должны идти в убывающем порядке
   - Нет дублирующихся версий
+  - Нет пропущенных minor/patch-версий (например 1.62→1.73 = пропуск 1.63..1.72)
   - Каждая запись должна иметь хотя бы 1 строку описания
 
 Использование:
@@ -48,6 +49,52 @@ def parse_version(v: str) -> tuple[int, ...]:
 def is_legacy(version: str) -> bool:
     """Версия до введения современных типов."""
     return parse_version(version) < MODERN_TYPES_SINCE
+
+
+def check_gaps(versions: list[str]) -> list[str]:
+    """Ищет пропущенные minor и patch версии.
+
+    Логика:
+      - Берём все версии в порядке убывания (как они идут в файле)
+      - Для каждой пары соседних версий проверяем: если major одинаков,
+        то между minor должна быть разница ровно в 1 (иначе пропуск).
+      - Patch версии (X.Y.1, X.Y.2...) могут идти внутри одного minor —
+        если между ними пропуск, тоже предупреждаем.
+      - Прыжок major (1.x -> 2.x) считается нормальным.
+    """
+    gaps: list[str] = []
+    # Сортируем по убыванию версии (как и в файле)
+    parsed = [(v, parse_version(v)) for v in versions]
+
+    for i in range(len(parsed) - 1):
+        v_curr, (maj_c, min_c, pat_c) = parsed[i]
+        v_next, (maj_n, min_n, pat_n) = parsed[i + 1]
+
+        # Прыжок major — ок
+        if maj_c != maj_n:
+            continue
+
+        if min_c == min_n:
+            # Тот же minor — проверяем patch
+            if pat_c - pat_n > 1:
+                missing = [f"{maj_c}.{min_c}.{p}" for p in range(pat_n + 1, pat_c)]
+                gaps.append(
+                    f"WARN: Пропущены patch-версии между {v_next} и {v_curr}: "
+                    f"{', '.join(missing)}"
+                )
+        else:
+            # Разные minor — должна быть разница 1
+            if min_c - min_n > 1:
+                missing_minors = []
+                for m in range(min_n + 1, min_c):
+                    missing_minors.append(f"{maj_c}.{m}.0")
+                gaps.append(
+                    f"WARN: Пропущены версии между {v_next} и {v_curr}: "
+                    f"{', '.join(missing_minors)}"
+                )
+            # Если minor увеличился на 1, но patch у curr > 0 — предыдущие patch тоже ок
+
+    return gaps
 
 
 def validate(content: str, strict: bool = False) -> tuple[list[str], list[str]]:
@@ -129,6 +176,11 @@ def validate(content: str, strict: bool = False) -> tuple[list[str], list[str]]:
         except Exception:
             pass
 
+    # ── Пропущенные версии ────────────────────────────────────────────────
+    unique_ordered = list(dict.fromkeys(versions_ordered))  # убираем дубли для gap-check
+    for gap_warn in check_gaps(unique_ordered):
+        warnings.append(gap_warn)
+
     return errors, warnings
 
 
@@ -137,6 +189,7 @@ def main():
     parser.add_argument('file', nargs='?', default='change.log', help='Path to changelog file')
     parser.add_argument('--strict', action='store_true', help='Treat warnings as errors')
     parser.add_argument('--summary', action='store_true', help='Only print summary line')
+    parser.add_argument('--gaps-only', action='store_true', help='Only check for missing versions')
     args = parser.parse_args()
 
     try:
@@ -151,9 +204,24 @@ def main():
     headers = list(HEADER_RE.finditer(content))
     versions = [m.group(1) for m in headers]
 
+    if args.gaps_only:
+        # Только проверка пропущенных версий
+        unique = list(dict.fromkeys(versions))
+        gaps = check_gaps(unique)
+        if gaps:
+            print(f"⚠️  Найдено пропущенных диапазонов: {len(gaps)}")
+            for g in gaps:
+                print(f"  {g}")
+            sys.exit(2)
+        else:
+            print(f"✅ Пропущенных версий нет ({len(versions)} записей)")
+            sys.exit(0)
+
     if args.summary:
+        gap_count = len([w for w in (validate(open(args.file, encoding='utf-8').read())[1]) if 'Пропущены' in w])
         status = '✅ OK' if not errors else '❌ FAIL'
-        print(f"{status} | {len(headers)} версий | {len(errors)} ошибок | {len(warnings)} предупреждений")
+        gap_str = f" | ⚠️ пропусков: {gap_count}" if gap_count else ''
+        print(f"{status} | {len(headers)} версий | {len(errors)} ошибок | {len(warnings)} предупреждений{gap_str}")
         sys.exit(1 if errors else (2 if warnings else 0))
 
     print(f"📋 Журнал изменений: {args.file}")
