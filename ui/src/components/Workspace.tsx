@@ -19,6 +19,7 @@ import {
   Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info, Share2, ExternalLink, Columns2,
 } from 'lucide-react';
 import './Workspace.css';
+import { useProjectStatus } from '../hooks/useProjectStatus';
 
 interface WorkspaceProps {
   projectId: string;
@@ -157,44 +158,22 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     prevStatusRef.current = project.status;
   }, [project?.status]);
 
-  // В7: Адаптивный поллинг статуса — быстро в начале, медленнее при долгой работе.
-  // При cancelling=true ускоряем до 500ms, чтобы overlay закрылся сразу после остановки.
-  // Стратегия: 0-2мин → 2000ms, 2-5мин → 3000ms, 5+ мин → 5000ms
-  const [pollStartTime] = useState<number>(() => Date.now());
-  useEffect(() => {
-    if (project?.status !== 'running') return;
-
-    const getAdaptiveInterval = () => {
-      if (cancelling) return 500;
-      const elapsed = (Date.now() - pollStartTime) / 1000 / 60; // минуты
-      if (elapsed > 5) return 5000;   // > 5 мин → 5с
-      if (elapsed > 2) return 3000;   // > 2 мин → 3с
-      return 2000;                    // 0-2 мин → 2с
-    };
-
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const doPoll = async () => {
-      try {
-        const data = await getProjectStatus(projectId);
-        // Во время поллинга не затираем локально отредактированные сегменты.
-        setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
-        // Когда перевод завершился — сбрасываем состояние отмены
-        if (data.status !== 'running') {
-          setCancelling(false);
-          setCancelConfirm(false);
-          setCancelTimedOut(false);
-          return; // прекращаем поллинг
-        }
-      } catch (e) {
-        console.error('poll error', e);
+  // R8-И1: WebSocket + adaptive HTTP fallback через useProjectStatus hook (Глеб Г7)
+  // Заменяет инлайн поллинг — больше нет дёргающего setInterval
+  useProjectStatus({
+    projectId,
+    isRunning: project?.status === 'running',
+    cancelling,
+    onUpdate: (data) => {
+      setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
+      if (data.status !== 'running') {
+        setCancelling(false);
+        setCancelConfirm(false);
+        setCancelTimedOut(false);
       }
-      // Планируем следующий опрос с адаптивным интервалом
-      timeoutId = setTimeout(doPoll, getAdaptiveInterval());
-    };
-
-    timeoutId = setTimeout(doPoll, getAdaptiveInterval());
-    return () => clearTimeout(timeoutId);
-  }, [cancelling, dirty, project?.status, projectId, pollStartTime]);
+    },
+    onError: (e) => console.error('[status] error', e),
+  });
 
   // Zombie-timeout: если через 8с после отмены статус не изменился — показываем Force Stop.
   useEffect(() => {

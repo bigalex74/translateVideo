@@ -1,3 +1,15 @@
+## 1.81.0 - 2026-05-06 - FEAT - TVIDEO-198
+### Round 8 Итерация 1: WebSocket frontend hook (Глеб Г7)
+
+**Фронтенд:**
+- Новый хук ui/src/hooks/useProjectStatus.ts — WS primary + HTTP adaptive fallback
+- Workspace: поллинг заменён на useProjectStatus hook (−21 строка inline кода)
+- При WS недоступен — автоматический fallback на 2с/3с/5с поллинг
+
+**Тесты:** 832 ✅ / Build ✅ 339ms
+
+---
+
 ## 1.80.0 - 2026-05-06 - FEAT - TVIDEO-195-197
 ### Round 7 Итерации 3-5: Side-by-side, Safari download fix, WebSocket backend
 
