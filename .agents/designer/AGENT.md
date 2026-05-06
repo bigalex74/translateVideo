@@ -192,32 +192,49 @@ make visual-check
 
 ---
 
-### 🔵 Уровень 3 — browser_subagent (ручной, при сложных изменениях)
+### 🔵 Уровень 3 — Chrome DevTools MCP (основной интерактивный инструмент)
 
-Когда скриншотов недостаточно — нужна **интерактивная** проверка:
-(например: drag-and-drop, анимации, hover-states)
+**Chrome DevTools MCP** — прямой доступ к браузеру. Использовать когда нужна интерактивная проверка.
+
+**Стандартная проверка модалки:**
+```
+1. mcp_chrome-devtools-mcp_navigate_page(url='http://localhost:8002')
+2. mcp_chrome-devtools-mcp_wait_for(text=['Мои переводы'])
+3. mcp_chrome-devtools-mcp_take_screenshot()           — главный экран
+4. mcp_chrome-devtools-mcp_take_snapshot()             — получить uid кнопок
+5. mcp_chrome-devtools-mcp_click(uid='...')            — открыть модалку
+6. mcp_chrome-devtools-mcp_take_screenshot()           — скриншот модалки
+7. mcp_chrome-devtools-mcp_evaluate_script(() => {
+     const el = document.querySelector('.modal-overlay');
+     const s = getComputedStyle(el);
+     return { position: s.position, background: s.background, zIndex: s.zIndex };
+   })                                                   — проверить overlay программно
+```
 
 **Триггеры для обязательного использования:**
 
-| Изменение | Почему нужен browser_subagent |
+| Изменение | Что проверять |
 |---|---|
-| Новый CSS-класс с `position/z-index` | Надо убедиться что не перекрывает другие элементы |
-| Изменение `[data-theme]` | Переключение темы может ломать переменные |
-| Новый overlay/modal компонент | Проверить что backdrop затемняет страницу |
-| Изменение мобильного layout | touch-targets, скролл, sticky header |
-| Анимации (`@keyframes`) | Убедиться что нет дёргания и FOUC |
+| CSS `position/z-index` | Не перекрывает ли другие элементы |
+| `[data-theme]` переключение | Переменные работают в обеих темах |
+| Новый modal/overlay | backdrop затемняет страницу |
+| Мобильный layout | viewport 375px, горизонтальный скролл |
+| Анимации `@keyframes` | Нет FOUC, плавность |
+| После каждого `make deploy` | console errors, SW логи, кэш заголовки |
 
-**Шаблон задачи для browser_subagent:**
+**Эмуляция мобильного:**
 ```
-Открой http://localhost:8002.
-1. Сделай скриншот Dashboard.
-2. Нажми кнопку «🗑» на первом проекте.
-3. Сделай скриншот — проверь: фон страницы затемнён оверлеем?
-4. Нажми «Отмена».
-5. Перейди в проект → нажми «Запустить заново».
-6. Сделай скриншот модалки — overlay непрозрачный?
-Верни: 3 скриншота + вывод что видишь.
+mcp_chrome-devtools-mcp_emulate(viewport='375x812x2,mobile,touch')
+mcp_chrome-devtools-mcp_take_screenshot()
 ```
+
+**Проверка консольных ошибок:**
+```
+mcp_chrome-devtools-mcp_list_console_messages(types=['error','warn'])
+```
+
+**browser_subagent** — только для сложных сценариев с условной логикой (drag-and-drop, многошаговые формы).
+Полная документация MCP: `/home/user/.gemini/skills/CHROME_DEVTOOLS_MCP.md`
 
 
 

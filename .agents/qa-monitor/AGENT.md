@@ -129,6 +129,16 @@ python3 scripts/validate_changelog.py --gaps-only change.log
 [ ] make visual-check → скриншоты в .agents/designer/screenshots/  ← Designer Level 2
 ```
 
+После каждого деплоя (ОБЯЗАТЕЛЬНО) — Chrome DevTools MCP:
+```
+[ ] mcp_chrome-devtools-mcp_navigate_page(url='http://localhost:8002')
+[ ] mcp_chrome-devtools-mcp_wait_for(text=['Мои переводы'])
+[ ] mcp_chrome-devtools-mcp_list_console_messages(types=['error','warn'])  → 0 ошибок
+[ ] mcp_chrome-devtools-mcp_list_network_requests()                        → sw.js: no-store
+[ ] mcp_chrome-devtools-mcp_take_screenshot()                              → в qa-report.md
+```
+Документация: `/home/user/.gemini/skills/CHROME_DEVTOOLS_MCP.md`
+
 
 ### 5. Правила архитектуры
 - Нет хардкода секретов (ключей, паролей) в коде
