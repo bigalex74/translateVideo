@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { getProjectStatus, listProjects, runPipeline, artifactDownloadUrl, renameProject, deleteProject } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
 import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
@@ -660,7 +661,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
       )}
     </div>
     {/* R7-И1: Диалог подтверждения удаления проекта */}
-    {confirmDelete && (
+    {confirmDelete && createPortal(
       <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
         <div className="modal-box delete-confirm-modal" onClick={e => e.stopPropagation()}>
           <h3>🗑 Удалить проект?</h3>
@@ -675,7 +676,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
           </div>
         </div>
       </div>
-    )}
+    , document.body)}
     <CompletionToast
       projectId={project?.project_id ?? null}
       status={project?.status}

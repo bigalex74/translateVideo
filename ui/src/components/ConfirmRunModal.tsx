@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Clock, DollarSign, Info, Play, RefreshCw, X, SkipForward } from 'lucide-react';
 import { needsReviewCount, providerWarning, t, stageLabel } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -69,7 +70,7 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
     : firstIncompleteStage(stageRuns);
   const [fromStage, setFromStage] = useState<string | null>(defaultStage ?? null);
 
-  return (
+  return createPortal(
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-run-title">
       <div className="modal-box">
         <div className="modal-header">
@@ -228,5 +229,5 @@ export const ConfirmRunModal: React.FC<ConfirmRunModalProps> = ({
         </div>
       </div>
     </div>
-  );
+  , document.body);
 };

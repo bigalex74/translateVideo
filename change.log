@@ -1,3 +1,17 @@
+## 1.86.0 - 2026-05-06 - FIX - TVIDEO-206
+### Hotfix: Modal overlay — createPortal (истинная причина прозрачности)
+
+**Фронтенд:**
+- ConfirmRunModal.tsx: return теперь createPortal(..., document.body)
+- Dashboard.tsx: delete-modal обёрнут в createPortal(..., document.body)
+- Причина бага: .dashboard.fade-in использует animation с transform: translateY() — 
+  это создаёт новый CSS stacking context, в котором position:fixed фиксируется
+  относительно родителя, а не viewport. Модалка рендерилась поверх Dashboard,
+  но не поверх всей страницы — overflow/transform родителя «обрезал» overlay.
+- Решение: createPortal выносит модалки в document.body, вне stacking context.
+
+---
+
 ## 1.85.0 - 2026-05-06 - FIX - TVIDEO-205
 ### Hotfix: SW не перехватывает Range-запросы (видео)
 
