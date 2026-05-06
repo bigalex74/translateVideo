@@ -392,3 +392,33 @@ CSS-изменение выглядело «добавлением анимац�
 - [x] CSS Guard — ✅ пройден
 
 **Подпись:** Designer Agent | 2026-05-06T15:28
+
+---
+
+## ✅ АПРУV — Round R9 / Итерации И1-И5 (2026-05-06 21:47)
+
+**Ветки:** TVIDEO-214/215/216/217/218 → develop  
+**Статус:** APPROVED
+
+### Визуальные проверки (скриншоты: .agents/designer/screenshots/r9-0*.png):
+
+- [x] **OfflineBanner** — sticky position: fixed, z-index: 9999, анимация fade-in — ✅ CSS корректен
+- [x] **AnalyticsDashboard тёмная тема** — 4 stat-карточки видны, bar chart рендерится ✅
+- [x] **AnalyticsDashboard светлая тема** — класс `light` применяется, читаемость OK ✅
+- [x] **CSS переменные** — `--accent` задан (`#8b5cf6` — light theme override) ✅
+- [x] **Горизонтальный overflow** — 375px: scrollWidth = viewportWidth = 375 ✅ (нет overflow)
+- [x] **Hamburger меню** — `.sidebar-toggle` найден, click → sidebar открывается ✅
+- [x] **Мобильный сайдбар с Analytics** — пункт "Аналитика" с BarChart2 иконкой виден ✅
+- [x] **Нет критических CSS конфликтов** — проверено через getComputedStyle ✅
+- [x] **Console errors** — только `Failed to fetch` (нет бэкенда в dev), не UI-баги ✅
+
+### Новые CSS-классы (дизайн-система):
+- `.hint-dropdown`, `.hint-item` — используют `var(--bg-elevated)`, `var(--accent)` ✅
+- `.analytics-stat-card`, `.analytics-bar` — используют `var(--bg-secondary)`, `var(--accent)` ✅  
+- `.share-url-input` — `var(--bg-primary)`, `var(--border-color)` ✅
+- `.modal-overlay` (ShareModal portal) — проверен CSS guard: position:fixed, inset:0, z-index:1000 ✅
+
+### Антипаттерны проверены:
+- [x] D-AP-01 Modal Overlay: ShareModal использует createPortal + класс `.modal-overlay` из index.css ✅
+
+**Подпись:** Designer Agent | 2026-05-06T21:47

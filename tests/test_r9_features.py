@@ -1,7 +1,9 @@
 """Тесты для R9-И2: AI Translation Hints endpoint (TVIDEO-215)."""
 
 import json
+import time
 import unittest
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
@@ -255,5 +257,181 @@ class TestAnalyticsEndpoint(unittest.TestCase):
         self.assertEqual(len(data["projects_per_day"]), 7)
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+
+class TestAnalyticsLogic(unittest.TestCase):
+    """Расширенные тесты analytics_summary для повышения coverage (QA Monitor — R9 gate)."""
+
+    def _make_mock_project(self, status="completed", segments=None,
+                           stage_runs=None, created_at=None):
+        """Вспомогательный метод создания мок-проекта."""
+        p = MagicMock()
+        p.status = status
+        p.segments = segments or []
+        p.stage_runs = stage_runs or []
+        p.created_at = created_at
+        return p
+
+    def test_analytics_with_segments_and_words(self):
+        """Считает сегменты и слова корректно."""
+        from translate_video.api.routes.analytics import analytics_summary
+
+        seg1 = MagicMock()
+        seg1.translated_text = "Привет мир это тест"
+
+        seg2 = MagicMock()
+        seg2.translated_text = None  # пустой — не считается
+
+        seg3 = MagicMock()
+        seg3.translated_text = "   "  # пробелы — не считается
+
+        project = self._make_mock_project(
+            status="completed",
+            segments=[seg1, seg2, seg3],
+        )
+
+        with patch("translate_video.api.routes.analytics._get_store") as mock_store_fn:
+            mock_store = MagicMock()
+            mock_store.list_projects.return_value = [project]
+            mock_store_fn.return_value = mock_store
+
+            result = analytics_summary()
+
+        self.assertEqual(result["total_segments"], 3)
+        self.assertEqual(result["total_words_translated"], 4)  # "Привет мир это тест"
+
+    def test_analytics_with_stage_runs_cost_and_provider(self):
+        """Суммирует cost_usd и считает провайдеры."""
+        from translate_video.api.routes.analytics import analytics_summary
+
+        run1 = MagicMock()
+        run1.to_dict.return_value = {"cost_usd": 0.05, "provider": "polza"}
+
+        run2 = MagicMock()
+        run2.to_dict.return_value = {"cost_usd": 0.10, "tts_provider": "openai", "provider": ""}
+
+        run3 = MagicMock()
+        run3.to_dict.return_value = {"cost_usd": None, "provider": "polza"}
+
+        project = self._make_mock_project(stage_runs=[run1, run2, run3])
+
+        with patch("translate_video.api.routes.analytics._get_store") as mock_store_fn:
+            mock_store = MagicMock()
+            mock_store.list_projects.return_value = [project]
+            mock_store_fn.return_value = mock_store
+
+            result = analytics_summary()
+
+        self.assertAlmostEqual(result["cost_usd_total"], 0.15, places=4)
+        self.assertEqual(result["most_used_provider"], "polza")  # 2 vs 1 для openai
+
+    def test_analytics_counts_projects_per_day(self):
+        """created_at в сегодняшнем дне попадает в chart."""
+        from translate_video.api.routes.analytics import analytics_summary
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        project = self._make_mock_project(created_at=today + "T12:00:00Z")
+
+        with patch("translate_video.api.routes.analytics._get_store") as mock_store_fn:
+            mock_store = MagicMock()
+            mock_store.list_projects.return_value = [project]
+            mock_store_fn.return_value = mock_store
+
+            result = analytics_summary()
+
+        today_entry = next(
+            (d for d in result["projects_per_day"] if d["date"] == today), None
+        )
+        self.assertIsNotNone(today_entry)
+        self.assertEqual(today_entry["count"], 1)
+
+    def test_analytics_created_at_datetime_object(self):
+        """created_at как datetime объект (не строка) тоже обрабатывается."""
+        from translate_video.api.routes.analytics import analytics_summary
+
+        created_dt = datetime.now(timezone.utc)
+        project = self._make_mock_project(created_at=created_dt)
+
+        with patch("translate_video.api.routes.analytics._get_store") as mock_store_fn:
+            mock_store = MagicMock()
+            mock_store.list_projects.return_value = [project]
+            mock_store_fn.return_value = mock_store
+
+            result = analytics_summary()
+
+        # Просто не должно падать
+        self.assertIn("projects_per_day", result)
+
+    def test_analytics_handles_store_exception(self):
+        """Если store.list_projects падает — возвращает 0, не исключение."""
+        from translate_video.api.routes.analytics import analytics_summary
+
+        with patch("translate_video.api.routes.analytics._get_store") as mock_store_fn:
+            mock_store = MagicMock()
+            mock_store.list_projects.side_effect = RuntimeError("DB down")
+            mock_store_fn.return_value = mock_store
+
+            result = analytics_summary()
+
+        self.assertEqual(result["total_projects"], 0)
+        self.assertEqual(result["total_segments"], 0)
+
+    def test_analytics_status_distribution(self):
+        """Распределение статусов считается корректно."""
+        from translate_video.api.routes.analytics import analytics_summary
+
+        projects = [
+            self._make_mock_project(status="completed"),
+            self._make_mock_project(status="completed"),
+            self._make_mock_project(status="failed"),
+        ]
+
+        with patch("translate_video.api.routes.analytics._get_store") as mock_store_fn:
+            mock_store = MagicMock()
+            mock_store.list_projects.return_value = projects
+            mock_store_fn.return_value = mock_store
+
+            result = analytics_summary()
+
+        dist = result["status_distribution"]
+        self.assertEqual(dist.get("completed"), 2)
+        self.assertEqual(dist.get("failed"), 1)
+
+    def test_analytics_provider_distribution_percentage(self):
+        """Проценты провайдеров суммируются в 100%."""
+        from translate_video.api.routes.analytics import analytics_summary
+
+        def make_run(provider):
+            r = MagicMock()
+            r.to_dict.return_value = {"cost_usd": 0.0, "provider": provider}
+            return r
+
+        project = self._make_mock_project(
+            stage_runs=[make_run("polza")] * 3 + [make_run("neuroapi")]
+        )
+
+        with patch("translate_video.api.routes.analytics._get_store") as mock_store_fn:
+            mock_store = MagicMock()
+            mock_store.list_projects.return_value = [project]
+            mock_store_fn.return_value = mock_store
+
+            result = analytics_summary()
+
+        pct_sum = sum(result["provider_distribution"].values())
+        self.assertAlmostEqual(pct_sum, 100.0, delta=1.0)
+
+    def test_analytics_invalid_created_at_skipped(self):
+        """Невалидный created_at не ломает агрегацию."""
+        from translate_video.api.routes.analytics import analytics_summary
+
+        project = self._make_mock_project(created_at="not-a-date")
+
+        with patch("translate_video.api.routes.analytics._get_store") as mock_store_fn:
+            mock_store = MagicMock()
+            mock_store.list_projects.return_value = [project]
+            mock_store_fn.return_value = mock_store
+
+            # Не должно падать
+            result = analytics_summary()
+
+        self.assertIn("projects_per_day", result)
