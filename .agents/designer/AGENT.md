@@ -396,3 +396,47 @@ make visual-check
 ```
 
 > **Если хотя бы один пункт не выполнен — раунд НЕ завершён.**
+
+---
+
+## 🔴 ПРАВИЛА МЕЖАГЕНТНОГО ВЗАИМОДЕЙСТВИЯ
+
+> Полный протокол: `.agents/WORKFLOW.md`
+
+### Правило 1 — Баги фиксятся немедленно
+
+Если Designer видит сломанную вёрстку, overflow, нечитаемый текст, проблему с темой или overlay — **создаёт ветку и фиксит в этом же раунде**, без вопросов, без бэклога.
+
+```bash
+git checkout develop && git pull origin develop
+git checkout -b TVIDEO-XXX-design-fix-short-desc
+# ... fix ...
+make css-guard && make deploy
+# Визуальная проверка (8 шагов из раздела выше)
+```
+
+### Правило 2 — Апруv перед пушем в develop
+
+После визуальной проверки Designer ОБЯЗАН записать апруv в `design-log.md`:
+
+```markdown
+## ✅ АПРУV — Round N (YYYY-MM-DD HH:MM)
+**Ветка:** TVIDEO-XXX-name  
+**Статус:** APPROVED
+
+### Визуальные проверки:
+- [ ] Dashboard тёмная тема — ✅ OK
+- [ ] Dashboard светлая тема — ✅ OK
+- [ ] Мобильный 375px — ✅ OK (нет горизонтального скролла)
+- [ ] Console errors — ✅ ноль ошибок
+- [ ] Модалки overlay — ✅ затемняет (если менялись)
+- [ ] CSS Guard — ✅ пройден
+
+**Подпись:** Designer Agent | [время]
+```
+
+Если есть проблемы — ставит **БЛОК** и возвращает на доработку.
+
+### Правило 3 — Не пушим в develop без апрува QA + Tech Writer
+
+Даже если Designer уже написал ✅ — ждём апруv от QA Monitor и Tech Writer.

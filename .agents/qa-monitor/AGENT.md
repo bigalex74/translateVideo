@@ -209,3 +209,48 @@ docker builder prune -f && docker image prune -f
 
 **ПРАВИЛО:** После каждой итерации агент ОБЯЗАН дополнить свой output-файл.
 Запись без обновления output-файла = агент не выполнил работу.
+
+---
+
+## 🔴 ПРАВИЛА МЕЖАГЕНТНОГО ВЗАИМОДЕЙСТВИЯ
+
+> Полный протокол: `.agents/WORKFLOW.md`
+
+### Правило 1 — Баги фиксятся немедленно
+
+QA Monitor обнаружил падение тестов, coverage < порога или проблему деплоя — **немедленно создаёт ветку и фиксит**, без вопросов.
+
+```bash
+git checkout develop && git pull origin develop
+git checkout -b TVIDEO-XXX-fix-coverage
+# ... добавить тесты / исправить код ...
+make test:all && make test:coverage
+```
+
+### Правило 2 — Апруv перед пушем в develop
+
+После проверки QA Monitor записывает апруv в `qa-report.md`:
+
+```markdown
+## ✅ АПРУV — Round N (YYYY-MM-DD HH:MM)
+**Ветка:** TVIDEO-XXX-name  
+**Статус:** APPROVED
+
+### QA проверки:
+- [ ] Python unit-тесты — ✅ 832 OK (skipped=2 сетевых)
+- [ ] Frontend vitest — ✅ 182 OK
+- [ ] Coverage Python — ✅ 79%+
+- [ ] make deploy — ✅ OK, версия X.Y.Z
+- [ ] /api/health — ✅ {"status":"ok"}
+- [ ] Console errors после деплоя — ✅ ноль
+
+**Подпись:** QA Monitor | [время]
+```
+
+### Правило 3 — Блок при coverage < 79%
+
+Если coverage падает — ставит **БЛОК**, не снимается пока не добавлены тесты и coverage не восстановлен.
+
+### Правило 4 — Не пушим в develop без апрува Designer + Tech Writer
+
+Ждём апруv от обоих агентов. Порядок не важен — нужны все три.

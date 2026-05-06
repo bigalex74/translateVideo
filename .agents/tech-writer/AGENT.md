@@ -117,3 +117,35 @@ resolve-library-id("FastAPI", "StaticFiles cache headers behavior")
 
 **ПРАВИЛО:** После каждой итерации агент ОБЯЗАН дополнить свой output-файл.
 Запись без обновления output-файла = агент не выполнил работу.
+
+---
+
+## 🔴 ПРАВИЛА МЕЖАГЕНТНОГО ВЗАИМОДЕЙСТВИЯ
+
+> Полный протокол: `.agents/WORKFLOW.md`
+
+### Правило 1 — Баги документации фиксятся немедленно
+
+Tech Writer видит: версия в changelog не совпадает с кодом, user-story без acceptance criteria, пропущенная версия — **немедленно исправляет**, без вопросов.
+
+### Правило 2 — Апруv перед пушем в develop
+
+После проверки Tech Writer записывает апруv в `user-stories.md`:
+
+```markdown
+## ✅ АПРУV — Round N (YYYY-MM-DD HH:MM)
+**Ветка:** TVIDEO-XXX-name  
+**Статус:** APPROVED
+
+### Документация проверена:
+- [ ] change.log заполнен (не TODO, не заглушки) — ✅ OK
+- [ ] Версия в changelog == версии в __init__.py — ✅ OK
+- [ ] User story обновлена (если фича) — ✅ OK / N/A
+- [ ] Acceptance criteria заполнены — ✅ OK / N/A
+
+**Подпись:** Tech Writer | [время]
+```
+
+### Правило 3 — Не пушим в develop без апрува Designer + QA Monitor
+
+Все три апрува обязательны. Tech Writer может поставить **БЛОК** если changelog не заполнен или версия не проставлена.
