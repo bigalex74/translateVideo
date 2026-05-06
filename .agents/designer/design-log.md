@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🎨 Design Review — 2026-05-06
 
 **Агент:** Designer (Дизайнер)  
@@ -158,7 +157,9 @@ Bottom nav (iOS/Android паттерн) дал бы лучший UX.
 | 6 | D-BUG-07: API key copy button | `ui/src/components/Settings.css` | 🟡 |
 | 7 | D-BUG-06: Project name tooltip | `title` атрибут на `<h2>` в Workspace header | 🟡 |
 
-=======
+
+---
+
 # 🎨 Designer — Журнал дизайн-решений
 
 > Ведёт: Designer Agent | Обновляется после каждой итерации
@@ -346,4 +347,3 @@ CSS-изменение выглядело «добавлением анимац�
 **Статус:** ✅ Исправлено | Деплой будет в следующем раунде
 
 *Добавлено: 2026-05-06T08:16 | Designer Agent*
->>>>>>> master
