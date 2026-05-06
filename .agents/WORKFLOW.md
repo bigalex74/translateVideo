@@ -71,13 +71,13 @@ git add -A && git commit -m "fix(TVIDEO-XXX): описание"
 
 ```
 1. Разработчик/агент заканчивает фичу в ветке TVIDEO-XXX
-2. Запускает make test:all && make test:coverage
-3. Сообщает остальным агентам о готовности
-4. Designer → визуальная проверка → пишет апруv в design-log.md
-5. QA Monitor → прогон тестов, coverage → пишет апруv в qa-report.md
-6. Tech Writer → проверка changelog → пишет апруv в user-stories.md
-7. Только при ✅ от ВСЕХ трёх → merge в develop + push
-8. pre-push hook автоматически проверяет тесты + coverage
+2. Запускает make round-close  ← обязательный шаг перед merge
+3. Designer → визуальная проверка (grep LS_KEY сначала!) → апруv в design-log.md
+4. QA Monitor → прогон тестов, coverage ≥80% → апруv в qa-report.md
+5. Tech Writer → проверка changelog → апруv в user-stories.md
+6. Skill Modernizer → антипаттерны, обновление скиллов → отчёт в modernizer-log.md
+7. Только при ✅ от ВСЕХ ЧЕТЫРЁХ → merge в develop + push
+8. pre-push hook автоматически проверяет тесты + coverage + апрувы агентов (48ч)
 ```
 
 ---
