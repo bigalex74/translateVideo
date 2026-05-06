@@ -91,3 +91,43 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 | Docker build cache | <10GB | 10-20GB | >20GB |
 
 *Последнее обновление: 2026-05-06T04:16 | v1.80.0 | QA Monitor Agent*
+
+---
+
+## Round 8 (2026-05-06)
+
+### Итерация 1 — v1.81.0
+
+| Проверка | Результат | Детали |
+|---|---|---|
+| Python tests | ✅ 832/832 | OK (skipped=2) — 29.8с |
+| TS build | ✅ OK | ✓ built in 339ms |
+| Деплой health | ✅ 1.81.0 | `{"status":"ok","version":"1.81.0"}` |
+| Changelog | ✅ | `## 1.81.0 - 2026-05-06 - FEAT - TVIDEO-198` |
+| Docker cache | ✅ | 0 (уже очищен) |
+| Диск | ✅ 37% | 140G свободно |
+
+**QA Статус: ✅ ЗЕЛЁНЫЙ**
+
+---
+
+### Итерации 2-5 — v1.82.0
+
+| Проверка | Результат | Детали |
+|---|---|---|
+| Python tests | ✅ 832/832 | OK (skipped=2) — 29.5с |
+| TS build | ✅ OK | ✓ built in 228ms |
+| Деплой health | ✅ 1.82.0 | `{"status":"ok","version":"1.82.0","disk_usage_mb":118.8}` |
+| Changelog | ✅ | `## 1.82.0 - 2026-05-06 - FEAT - TVIDEO-199-202` |
+| Docker cache | ✅ | Очищено: 3.021GB |
+| Диск | ✅ 37% | 140G свободно |
+
+**QA Статус: ✅ ЗЕЛЁНЫЙ**
+
+### ⚠️ Активные предупреждения (обновление)
+
+| ID | Уровень | Описание |
+|---|---|---|
+| QA-001 | 🟡 WARN | `[INEFFECTIVE_DYNAMIC_IMPORT]` — запланировано на R9 (refactor) |
+
+*Обновлено: 2026-05-06T04:46 | v1.82.0 | QA Monitor Agent*

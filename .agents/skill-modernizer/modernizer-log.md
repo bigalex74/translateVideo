@@ -81,3 +81,39 @@
 | v3.0 | 2026-04 | Введена система раундов |
 
 *Последнее обновление: 2026-05-06 | v1.80.0 | Skill Modernizer Agent*
+
+---
+
+## Round 8 (2026-05-06)
+
+### Выявленные антипаттерны
+
+#### [R8-AP-01] Inline polling useEffect вместо хука
+- **Где:** Workspace.tsx строки 161-198 (до R8)
+- **Симптом:** 38 строк inline async polling с setTimeout, сложно тестировать
+- **Исправление:** Вынесен в `hooks/useProjectStatus.ts` — WS primary + HTTP fallback
+- **Правило:** Любая асинхронная стратегия > 10 строк → выносить в хук
+
+#### [R8-AP-02] Один `client.ts` со смешанными import типами
+- **Где:** `src/api/client.ts` импортируется и статически и динамически
+- **Симптом:** `[INEFFECTIVE_DYNAMIC_IMPORT]` в каждом build (QA-001)
+- **Исправление:** Запланировано R9 — убрать `import('../api/client')` в onDrop/onSubmit, заменить статическими импортами
+- **Правило:** Один файл — один тип импорта. Динамический импорт только для code-splitting по маршрутам.
+
+### Хорошие паттерны R8
+
+| Паттерн | Где | Оценка |
+|---|---|---|
+| `@media (pointer: coarse)` для touch | index.css | ✅ Правильно — не трогает desktop mouse users |
+| `aria-hidden="true"` на skeleton cards | Dashboard.tsx | ✅ Accessibility-first |
+| Gradient-based shimmer через CSS vars | index.css | ✅ Автоматически темизирован |
+| WebSocket + fallback в одном хуке | useProjectStatus.ts | ✅ Надёжно, легко тестировать |
+
+### Обновления SKILL.md
+
+| Действие | Дата |
+|---|---|
+| Добавлен R8-AP-01 в раздел антипаттернов | 2026-05-06 |
+| Добавлен R8-AP-02 (dynamic import) в раздел | 2026-05-06 |
+
+*Обновлено: 2026-05-06 | v1.82.0 | Skill Modernizer Agent*

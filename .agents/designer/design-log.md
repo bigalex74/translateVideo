@@ -98,3 +98,50 @@
 | Toast notifications | ✅ R6 | ✅ |
 
 *Последнее обновление: 2026-05-06 | v1.80.0 | Designer Agent*
+
+---
+
+## Round 8 (2026-05-06)
+
+### Итерация 2 — Анимации модалов
+
+**✨ modal-slide-in animation**
+- `@keyframes modal-slide-in`: scale(0.94) + translateY(12px) → normal
+- Время: 0.22s, easing: cubic-bezier(0.34, 1.4, 0.64, 1) — небольшой «отскок»
+- Overlay: простой fade-in 0.18s
+- **Оценка:** ✅ Приятно. Не навязчиво. Стандарт Material/Radix.
+
+**✨ Mobile touch targets (WCAG 2.5.5)**
+- `@media (pointer: coarse)` — только тач-устройства, не трогает desktop
+- btn-sm/xs/icon → min 44px × 44px
+- seg-translated → min-height 80px, font-size 1rem — читаемо на экране телефона
+- **Оценка:** ✅ Критически важно для Нины (планшет) и Светланы (iPhone)
+
+### Итерация 3 — Skeleton Loader
+
+**✨ Shimmer skeleton**
+- Gradient-based shimmer: `linear-gradient(90deg, border-color 25%, transparent 50%, ...)`
+- Использует CSS переменные темы → работает в обеих темах
+- 3 карточки, aria-hidden=true → не мешает screen reader
+- **Оценка:** ✅ Профессиональный паттерн. Нина не увидит «пустой экран».
+- ⚠️ Замечание: на очень медленном соединении skeleton может мелькать долго — рассмотреть добавление timeout 5s → fallback «Загрузка не удалась»
+
+### Итерация 5 — «Один клик» DnD
+
+**✨ Two-option DnD overlay**
+- Две кнопки в оверлее: «📁 Создать проект» и «⚡ Создать и перевести»
+- ⚡ кнопка подсвечена индиго — визуально главный CTA
+- backdrop-filter: blur(4px) на кнопках — консистентно с glassmorphism системой
+- **Оценка:** ✅ Тимур Т1 оценит (batch через URL остаётся для API), Валентина получила «один клик»
+- ⚠️ Замечание: DnD опции кнопками-hover работают только на mouse. На touch — нет hover. Рассмотреть R9: radio toggle ПЕРЕД drop zone.
+
+### Бэклог дизайна — обновление
+
+| Приоритет | Задача | Раунд |
+|---|---|---|
+| 🔴 | DnD touch: radio «Режим» вместо hover-only кнопок | R9 |
+| 🔴 | Skeleton timeout → error state при медленном соединении | R9 |
+| 🟡 | Batch UI: список URL + прогресс каждого | R9 |
+| 🟢 | Анимация удаления карточки из списка | R9 |
+
+*Обновлено: 2026-05-06 | v1.82.0 | Designer Agent*
