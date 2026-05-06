@@ -542,3 +542,50 @@ button {
   pointer-events: none;
   z-index: 100;
 }
+
+/* ═══ OfflineBanner (R9-И1) ═══ */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: banner-slide-in 0.25s ease-out;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes banner-slide-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+.offline-banner--offline {
+  background: linear-gradient(90deg, #92400e, #b45309);
+  color: #fef3c7;
+}
+
+.offline-banner--restored {
+  background: linear-gradient(90deg, #065f46, #047857);
+  color: #d1fae5;
+  animation: banner-slide-in 0.25s ease-out;
+}
+
+.offline-banner__icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.offline-banner__link {
+  margin-left: auto;
+  color: inherit;
+  opacity: 0.8;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: default;
+}

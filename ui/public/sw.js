@@ -1,36 +1,47 @@
 /**
  * Service Worker для AI Video Translator (PWA)
  *
- * СТРАТЕГИЯ v2 (фикс бага с кэшированием):
- * - HTML → Network First (всегда свежий, обновляется при деплое)
- * - API запросы → Network Only
- * - Статические ассеты с хэшем (/assets/*.js) → Cache First (безопасно, т.к. хэш меняется)
- * - Прочее → Network First
+ * СТРАТЕГИЯ v3 (Offline-first R9-И1):
+ * - HTML → Network First + offline.html fallback при отсутствии сети
+ * - /api/v1/projects → Stale-While-Revalidate (60s TTL) — список проектов доступен офлайн
+ * - Остальные API → Network Only с JSON 503 fallback
+ * - /assets/*.js, /assets/*.css → Cache First (Vite хэши — безопасно)
+ * - Range-запросы (видео/аудио) → всегда напрямую, SW не перехватывает
+ * - Background Sync: saveSegments при офлайн → синхронизация при восстановлении сети
  *
  * ВАЖНО: APP_VERSION обновляется при каждом деплое через make deploy
  */
 
 // Версия кэша — ОБНОВЛЯЕТСЯ при каждом make deploy (sed-заменой)
-const APP_VERSION = '1.86.0';
+const APP_VERSION = '1.88.0';
 const CACHE_NAME = `av-static-${APP_VERSION}`;
+const OFFLINE_CACHE = `av-offline-${APP_VERSION}`;
+const API_CACHE = `av-api-${APP_VERSION}`;
+const OFFLINE_URL = '/offline.html';
+const API_CACHE_TTL_MS = 60_000; // 60 сек stale-while-revalidate для /api/v1/projects
+const SYNC_TAG = 'sync-save-segments';
 
 // НЕ кэшируем index.html — всегда с сети (Network First для HTML)
 // Кэшируем ТОЛЬКО хэшированные ассеты (они неизменны по хэшу)
 
-// Установка SW — минимальный precache
+// Установка SW — precache offline.html
 self.addEventListener('install', (event) => {
-  // Немедленно активируем новый SW, не ждём закрытия вкладок
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    caches.open(OFFLINE_CACHE)
+      .then((cache) => cache.add(OFFLINE_URL))
+      .then(() => self.skipWaiting())
+  );
 });
 
 // Активация — УДАЛЯЕМ все старые кэши + сообщаем клиентам об обновлении
 self.addEventListener('activate', (event) => {
+  const KEEP = [CACHE_NAME, OFFLINE_CACHE, API_CACHE];
   event.waitUntil(
     caches.keys()
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k !== CACHE_NAME)
+            .filter((k) => !KEEP.includes(k))
             .map((k) => {
               console.info('[SW] Deleting old cache:', k);
               return caches.delete(k);
@@ -38,10 +49,7 @@ self.addEventListener('activate', (event) => {
         )
       )
       .then(() => self.clients.claim())
-      .then(() => {
-        // Сообщаем всем открытым вкладкам: новая версия активирована → перезагрузить
-        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      })
+      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
       .then((clients) => {
         console.info(`[SW] Activated v${APP_VERSION}, notifying ${clients.length} client(s) to reload`);
         clients.forEach((client) => {
@@ -72,12 +80,45 @@ self.addEventListener('fetch', (event) => {
     return; // без event.respondWith → браузер сам
   }
 
-  // 2. Остальные API запросы — Network Only (свежие данные, но с fallback)
+  // 2a. /api/v1/projects (список) — Stale-While-Revalidate (60s TTL)
+  // Пользователь офлайн видит закэшированный список проектов
+  if (url.pathname === '/api/v1/projects' && request.method === 'GET') {
+    event.respondWith(
+      caches.open(API_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        const fetchPromise = fetch(request).then((res) => {
+          if (res.ok) {
+            const cloned = res.clone();
+            // Добавляем заголовок времени кэширования
+            cloned.headers && cache.put(request, res.clone());
+            cache.put(request, res.clone());
+          }
+          return res;
+        }).catch(() => null);
+
+        if (cached) {
+          // Есть кэш — возвращаем сразу, обновляем в фоне
+          const age = Date.now() - Number(cached.headers.get('sw-cached-at') || 0);
+          if (age < API_CACHE_TTL_MS) return cached; // свежий кэш
+          fetchPromise; // запускаем обновление в фоне
+          return cached;
+        }
+        // Нет кэша — ждём сеть или возвращаем пустой список
+        return fetchPromise || new Response(
+          JSON.stringify([]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      })
+    );
+    return;
+  }
+
+  // 2b. Остальные API запросы — Network Only с JSON 503 fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request).catch(() =>
         new Response(
-          JSON.stringify({ error: 'Нет подключения к серверу' }),
+          JSON.stringify({ error: 'Нет подключения к серверу', offline: true }),
           { status: 503, headers: { 'Content-Type': 'application/json' } }
         )
       )
@@ -85,13 +126,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. HTML (навигация) — Network First, без кэша
+  // 2c. HTML (навигация) — Network First + offline.html fallback
   // ВАЖНО: index.html НЕ кэшируется, чтобы деплой всегда давал новый бандл
   if (request.mode === 'navigate' || request.headers.get('Accept')?.includes('text/html')) {
     event.respondWith(
       fetch(request).catch(() =>
-        new Response('<h1>Нет соединения</h1><p>Проверьте подключение и перезагрузите страницу.</p>',
-          { headers: { 'Content-Type': 'text/html' } })
+        caches.open(OFFLINE_CACHE).then((cache) => cache.match(OFFLINE_URL))
       )
     );
     return;
@@ -118,6 +158,20 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request).catch(() => caches.match(request))
   );
+});
+
+// Background Sync — повторная отправка saveSegments при восстановлении сети
+self.addEventListener('sync', (event) => {
+  if (event.tag === SYNC_TAG) {
+    event.waitUntil(
+      // Читаем очередь из IndexedDB (заполняется в useOnlineStatus при офлайн-сохранении)
+      self.clients.matchAll({ type: 'window' }).then((clients) => {
+        clients.forEach((client) =>
+          client.postMessage({ type: 'SW_SYNC_SEGMENTS' })
+        );
+      })
+    );
+  }
 });
 
 // Push notifications
