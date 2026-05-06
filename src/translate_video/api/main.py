@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from translate_video import __version__
 from translate_video.api.middleware.auth import APIKeyMiddleware
-from translate_video.api.routes import admin, metrics, pipeline, preflight, projects, providers, video
+from translate_video.api.routes import admin, analytics, metrics, pipeline, preflight, projects, providers, video
 from translate_video.core.env import load_env_file
 from translate_video.core.log import configure_from_env, get_logger
 
@@ -198,6 +198,37 @@ app.include_router(providers.router)
 app.include_router(video.router)
 app.include_router(admin.router)
 app.include_router(metrics.router)
+app.include_router(analytics.router)
+
+
+@app.get("/api/v1/share/{token}", tags=["share"], summary="Read-only доступ по share-токену (R9-И3)")
+def read_shared_project(token: str):
+    """Public endpoint — вернуть проект по share-токену без авторизации.
+
+    Проверяет: токен существует, не истёк.
+    Возвращает project payload в read-only режиме (без системных полей).
+    """
+    import datetime  # noqa: PLC0415
+    store_obj = projects.get_store()
+    for project in store_obj.list_projects():
+        extra = getattr(project, "_extra", None) or {}
+        if extra.get("share_token") == token:
+            # Проверяем срок действия
+            exp = extra.get("share_expires_at")
+            if exp:
+                try:
+                    exp_dt = datetime.datetime.fromisoformat(exp.replace("Z", "+00:00"))
+                    if datetime.datetime.now(datetime.timezone.utc) > exp_dt:
+                        from fastapi import HTTPException  # noqa: PLC0415
+                        raise HTTPException(status_code=410, detail="Ссылка истекла")
+                except ValueError:
+                    pass
+            payload = projects.project_payload(project, include_segments=True)
+            payload["_readonly"] = True
+            payload["_share_token"] = token
+            return payload
+    from fastapi import HTTPException  # noqa: PLC0415
+    raise HTTPException(status_code=404, detail="Ссылка недействительна или не существует")
 
 @app.get("/api/health")
 def health_check():

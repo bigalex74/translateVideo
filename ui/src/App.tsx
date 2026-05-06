@@ -5,6 +5,7 @@ import { NewProject } from './components/NewProject';
 import { Settings as SettingsPage } from './components/Settings';
 import { OnboardingTour } from './components/OnboardingTour';
 import { OfflineBanner } from './components/OfflineBanner';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { t } from './i18n';
 import {
   applyLocale,
@@ -18,11 +19,11 @@ import {
   persistLocale,
   type AppLocale,
 } from './store/settings';
-import { LayoutList, PlusCircle, Settings, Video, Sun, Moon } from 'lucide-react';
+import { LayoutList, PlusCircle, Settings, Video, Sun, Moon, BarChart2 } from 'lucide-react';
 import './App.css';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'new_project' | 'workspace' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'new_project' | 'workspace' | 'settings' | 'analytics'>('dashboard');
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [theme, setTheme] = useState(getPersistedTheme);
   const [locale, setLocale] = useState<AppLocale>(getPersistedLocale);
@@ -122,6 +123,14 @@ function App() {
               {t('nav.newProject', locale)}
             </li>
             <li
+              id="nav-analytics"
+              className={currentView === 'analytics' ? 'active' : ''}
+              onClick={() => navigateTo('analytics')}
+            >
+              <BarChart2 size={18} />
+              Аналитика
+            </li>
+            <li
               id="nav-settings"
               className={currentView === 'settings' ? 'active' : ''}
               style={{ marginTop: 'auto' }}
@@ -137,6 +146,7 @@ function App() {
         {currentView === 'dashboard'    && <Dashboard onOpenProject={openWorkspace} locale={locale} />}
         {currentView === 'new_project'  && <NewProject onProjectCreated={openWorkspace} locale={locale} />}
         {currentView === 'settings'     && <SettingsPage locale={locale} onLocaleChange={handleLocaleChange} />}
+        {currentView === 'analytics'    && <AnalyticsDashboard />}
         {currentView === 'workspace' && activeProject && (
           <Workspace projectId={activeProject} onBack={() => setCurrentView('dashboard')} locale={locale} />
         )}

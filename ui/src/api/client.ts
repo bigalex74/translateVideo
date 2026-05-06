@@ -282,3 +282,86 @@ export async function batchCreateProjects(
     if (!res.ok) throw new Error(`Batch error: HTTP ${res.status}`);
     return (await res.json()).results ?? [];
 }
+
+// ─── R9-И2: AI Translation Hints ─────────────────────────────────────────────
+
+export async function fetchTranslationHint(
+  project_id: string,
+  segment_id: string,
+  context_segments: Array<{ source_text?: string; translated_text?: string }> = [],
+): Promise<{ suggestions: string[]; cached: boolean }> {
+  const url = `${API_BASE}/api/v1/projects/${encodeURIComponent(project_id)}/segments/${encodeURIComponent(segment_id)}/hint`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: apiHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ context_segments }),
+  });
+  if (!res.ok) {
+    const msg = await readError(res);
+    throw new Error(`Hint error: ${msg} (HTTP ${res.status})`);
+  }
+  return res.json();
+}
+
+// ─── R9-И3: Share Links ───────────────────────────────────────────────────────
+
+export interface ShareLinkData {
+  share_token: string;
+  share_url: string;
+  expires_at: string;
+  project_id: string;
+}
+
+export async function createShareLink(project_id: string): Promise<ShareLinkData> {
+  const res = await fetch(`${API_BASE}/api/v1/projects/${encodeURIComponent(project_id)}/share`, {
+    method: 'POST',
+    headers: apiHeaders(),
+  });
+  if (!res.ok) throw new Error(`Share create error: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function getShareLink(project_id: string): Promise<ShareLinkData> {
+  const res = await fetch(`${API_BASE}/api/v1/projects/${encodeURIComponent(project_id)}/share`, {
+    headers: apiHeaders(),
+  });
+  if (!res.ok) throw new Error(`Share get error: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function revokeShareLink(project_id: string): Promise<{ revoked: boolean }> {
+  const res = await fetch(`${API_BASE}/api/v1/projects/${encodeURIComponent(project_id)}/share`, {
+    method: 'DELETE',
+    headers: apiHeaders(),
+  });
+  if (!res.ok) throw new Error(`Share revoke error: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function getSharedProject(token: string): Promise<VideoProject> {
+  const res = await fetch(`${API_BASE}/api/v1/share/${encodeURIComponent(token)}`);
+  if (!res.ok) throw new Error(`Shared project error: HTTP ${res.status}`);
+  return res.json();
+}
+
+// ─── R9-И4: Analytics ────────────────────────────────────────────────────────
+
+export interface AnalyticsSummary {
+  total_projects: number;
+  total_segments: number;
+  total_words_translated: number;
+  avg_translation_quality: string;
+  cost_usd_total: number;
+  most_used_provider: string;
+  projects_per_day: Array<{ date: string; count: number }>;
+  status_distribution: Record<string, number>;
+  provider_distribution: Record<string, number>;
+}
+
+export async function fetchAnalytics(): Promise<AnalyticsSummary> {
+  const res = await fetch(`${API_BASE}/api/v1/analytics/summary`, {
+    headers: apiHeaders(),
+  });
+  if (!res.ok) throw new Error(`Analytics error: HTTP ${res.status}`);
+  return res.json();
+}

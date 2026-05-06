@@ -1,3 +1,28 @@
+## 1.90.0 - 2026-05-06 - FEAT - TVIDEO-217
+### R9-И4: Analytics Dashboard
+
+**Backend:** `src/translate_video/api/routes/analytics.py` — `/api/v1/analytics/summary` (проекты, слова, cost, провайдеры, bar chart за 7 дней).
+**Frontend:** `AnalyticsDashboard.tsx` — 4 stat-карточки, CSS bar chart, таблица провайдеров, распределение статусов. Новый пункт «Аналитика» в сайдбаре.
+**CSS:** `.analytics-*` — полная стилизация всех элементов.
+
+---
+
+## 1.89.0 - 2026-05-06 - FEAT - TVIDEO-215+216
+### R9-И2: AI Translation Hints + R9-И3: Share Links
+
+**И2 (AI Hints):**
+- `POST /api/v1/projects/{id}/segments/{seg_id}/hint` — 3 альтернативы от LLM, LRU-кэш 256/5мин.
+- `HintDropdown.tsx` — кнопка 💡 с выпадающим списком вариантов.
+- `client.ts` — `fetchTranslationHint()`.
+
+**И3 (Share Links):**
+- `POST/GET/DELETE /api/v1/projects/{id}/share` — создание/получение/отзыв токена (7 дней).
+- `GET /api/v1/share/{token}` — public read-only endpoint без авторизации.
+- `ShareModal.tsx` — модальное окно с копированием и отзывом ссылки.
+- `client.ts` — `createShareLink, getShareLink, revokeShareLink, getSharedProject`.
+
+---
+
 ## 1.88.0 - 2026-05-06 - FEAT - TVIDEO-214
 ### R9-И1: Offline-first PWA — SW v3, OfflineBanner, useOnlineStatus
 
