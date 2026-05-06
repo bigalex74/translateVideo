@@ -19,6 +19,15 @@
 - В master — только через PR с e2e-тестами
 - Changelog заполняется ДО bump_version, НЕ после
 - Conventional commits: feat/fix/refactor/chore/test/docs
+- **SemVer обязателен**: `fix/*`, `hotfix` → PATCH (`1.x.Z+1`), `feat/*` → MINOR (`1.Y+1.0`), breaking → MAJOR
+
+  | Тип изменения | Версия | Пример |
+  |---|---|---|
+  | Исправление бага | PATCH | `1.82.0` → `1.82.1` |
+  | Новая фича (совместимо) | MINOR | `1.82.1` → `1.83.0` |
+  | Ломающее изменение API | MAJOR | `1.x.y` → `2.0.0` |
+
+  > **BLOCKER**: несколько hotfix-ов подряд НЕ должны поднимать MINOR (`1.83→1.84→1.85→1.86` за один деплой — ошибка!).
 
 ### 3. Changelog — Валидация (MANDATORY + BLOCKER)
 
