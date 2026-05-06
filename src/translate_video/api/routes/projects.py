@@ -2183,3 +2183,241 @@ def rename_project(
         "display_name": project.display_name,
         "status": "renamed",
     }
+
+
+# ─── R9-И2: AI Translation Hints ─────────────────────────────────────────────
+
+class HintRequest(BaseModel):
+    """Запрос AI-подсказок перевода для сегмента."""
+    context_segments: list[dict] = Field(
+        default_factory=list,
+        description="Соседние сегменты для контекста (start/end/source_text/translated_text)"
+    )
+
+
+# LRU-кэш (256 записей, TTL 5 мин)
+import time as _time
+_hints_cache: dict[str, tuple[list[str], float]] = {}
+_HINTS_CACHE_MAX = 256
+_HINTS_CACHE_TTL = 300.0  # 5 минут
+
+
+def _hints_cache_get(key: str) -> list[str] | None:
+    if key in _hints_cache:
+        suggestions, ts = _hints_cache[key]
+        if _time.monotonic() - ts < _HINTS_CACHE_TTL:
+            return suggestions
+        del _hints_cache[key]
+    return None
+
+
+def _hints_cache_set(key: str, suggestions: list[str]) -> None:
+    if len(_hints_cache) >= _HINTS_CACHE_MAX:
+        # Удаляем самую старую запись
+        oldest = min(_hints_cache, key=lambda k: _hints_cache[k][1])
+        del _hints_cache[oldest]
+    _hints_cache[key] = (suggestions, _time.monotonic())
+
+
+@router.post(
+    "/{project_id}/segments/{segment_id}/hint",
+    summary="AI-подсказки альтернативного перевода сегмента (R9-И2)",
+)
+def get_translation_hint(
+    project_id: str = FastAPIPath(...),
+    segment_id: str = FastAPIPath(...),
+    body: HintRequest = Body(...),
+    store: ProjectStore = Depends(get_store),
+) -> dict:
+    """Вернуть 3 альтернативы перевода для сегмента с учётом контекста.
+
+    Использует тот же LLM-провайдер что и пайплайн (Gemini bridge / Polza / NeuroAPI).
+    Результаты кэшируются in-memory (LRU 256 записей, TTL 5 мин).
+
+    Возвращает 503 если LLM-провайдер не настроен.
+    """
+    import hashlib as _hashlib, os as _os  # noqa: PLC0415
+
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    seg = next((s for s in (project.segments or []) if s.id == segment_id), None)
+    if seg is None:
+        raise HTTPException(status_code=404, detail=f"Сегмент '{segment_id}' не найден")
+
+    # Проверяем наличие провайдера
+    has_provider = any([
+        _os.getenv("GEMINI_BRIDGE_URL"),
+        _os.getenv("POLZA_API_KEY"),
+        _os.getenv("NEUROAPI_API_KEY"),
+    ])
+    if not has_provider:
+        raise HTTPException(
+            status_code=503,
+            detail="LLM-провайдер не настроен. Установите GEMINI_BRIDGE_URL, POLZA_API_KEY или NEUROAPI_API_KEY.",
+        )
+
+    # Строим ключ кэша
+    ctx_text = "|".join(c.get("source_text", "") for c in body.context_segments[:4])
+    cache_key = _hashlib.md5(
+        f"{seg.source_text}|{seg.translated_text}|{ctx_text}".encode()
+    ).hexdigest()
+
+    cached = _hints_cache_get(cache_key)
+    if cached is not None:
+        return {"segment_id": segment_id, "suggestions": cached, "cached": True}
+
+    # Строим промпт
+    context_lines = []
+    for c in body.context_segments[:2]:
+        src = c.get("source_text", "")
+        tgt = c.get("translated_text", "")
+        if src and tgt:
+            context_lines.append(f'  "{src}" → "{tgt}"')
+
+    context_block = ""
+    if context_lines:
+        context_block = "Контекст (соседние сегменты):\n" + "\n".join(context_lines) + "\n\n"
+
+    target_lang = getattr(project.config, "target_language", "ru") or "ru"
+    prompt = (
+        f"Ты переводчик видеосубтитров. "
+        f"Целевой язык: {target_lang}.\n"
+        f"{context_block}"
+        f'Оригинальная фраза: "{seg.source_text}"\n'
+        f'Текущий перевод: "{seg.translated_text or "(нет)"}"\n\n'
+        f"Дай ровно 3 коротких альтернативных перевода этой фразы.\n"
+        f"Каждый вариант — отдельная строка, без нумерации и кавычек.\n"
+        f"Учитывай ограничение субтитров: ≤42 символа в строке."
+    )
+
+    try:
+        raw_text, _model = _call_analysis_llm(prompt, project.config)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Ошибка LLM: {exc}")
+
+    # Парсим варианты (каждая непустая строка = вариант)
+    suggestions = [
+        line.strip().lstrip("•-–—*0123456789.) ")
+        for line in raw_text.strip().splitlines()
+        if line.strip()
+    ][:3]
+
+    if not suggestions:
+        suggestions = [raw_text.strip()[:120]]
+
+    _hints_cache_set(cache_key, suggestions)
+
+    return {"segment_id": segment_id, "suggestions": suggestions, "cached": False}
+
+
+# ─── R9-И3: Shared Links + Read-only режим ────────────────────────────────────
+
+import secrets as _secrets
+
+
+class ShareResponse(BaseModel):
+    share_token: str
+    share_url: str
+    expires_at: str
+
+
+@router.post(
+    "/{project_id}/share",
+    summary="Создать публичную ссылку на проект (R9-И3)",
+)
+def create_share_link(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+) -> dict:
+    """Создать или обновить публичную read-only ссылку для проекта.
+
+    Токен генерируется как URL-safe случайная строка 16 байт.
+    Срок действия: 7 дней. Хранится в project.json.
+    Не требует авторизации для чтения.
+    """
+    import datetime  # noqa: PLC0415
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    token = _secrets.token_urlsafe(16)
+    expires_at = (
+        datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    ).isoformat() + "Z"
+
+    # Сохраняем в project.json через extra_data
+    if not hasattr(project, "_extra") or project._extra is None:
+        project._extra = {}
+    project._extra["share_token"] = token
+    project._extra["share_expires_at"] = expires_at
+    store.save_project(project)
+
+    base_url = os.getenv("APP_BASE_URL", "http://localhost:8002")
+    return {
+        "share_token": token,
+        "share_url": f"{base_url}/share/{token}",
+        "expires_at": expires_at,
+        "project_id": project_id,
+    }
+
+
+@router.get(
+    "/{project_id}/share",
+    summary="Получить текущий share-токен проекта (R9-И3)",
+)
+def get_share_link(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+) -> dict:
+    """Вернуть текущий share-токен если он есть и не истёк."""
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    extra = getattr(project, "_extra", None) or {}
+    token = extra.get("share_token")
+    expires_at = extra.get("share_expires_at")
+
+    if not token:
+        raise HTTPException(status_code=404, detail="Публичная ссылка не создана")
+
+    base_url = os.getenv("APP_BASE_URL", "http://localhost:8002")
+    return {
+        "share_token": token,
+        "share_url": f"{base_url}/share/{token}",
+        "expires_at": expires_at,
+        "project_id": project_id,
+    }
+
+
+@router.delete(
+    "/{project_id}/share",
+    summary="Отозвать публичную ссылку проекта (R9-И3)",
+)
+def revoke_share_link(
+    project_id: str = FastAPIPath(...),
+    store: ProjectStore = Depends(get_store),
+) -> dict:
+    """Удалить share-токен. Ссылка перестаёт работать немедленно."""
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    extra = getattr(project, "_extra", None) or {}
+    had_token = bool(extra.get("share_token"))
+    extra.pop("share_token", None)
+    extra.pop("share_expires_at", None)
+    project._extra = extra
+    store.save_project(project)
+
+    return {"revoked": had_token, "project_id": project_id}
