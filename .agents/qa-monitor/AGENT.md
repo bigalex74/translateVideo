@@ -146,6 +146,15 @@ python3 scripts/validate_changelog.py --gaps-only change.log
 - FileNotFoundError → 404, ValueError → 400, Exception → 500
 - sanitize_project_id() при каждом обращении к файловой системе
 
+**При аудите кода на устаревшие API** — использовать Context7:
+```
+# Пример: проверяем что используем актуальный Playwright API
+resolve-library-id("Playwright", "browser context launch options channel")
+→ query-docs("/microsoft/playwright", "channel system browser chrome chromium")
+→ сравниваем с текущим ui/playwright.config.ts
+```
+Документация Context7: `/home/user/.gemini/skills/CONTEXT7_MCP.md`
+
 ## Мониторинг (автоматический)
 
 ### После каждого деплоя запускать:

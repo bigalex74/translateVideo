@@ -77,6 +77,15 @@ grep "^##" /home/user/translateVideo/change.log | head -20
 - `/redoc` — актуальна автоматически
 - `README.md` — обновляет при добавлении новых фич
 
+**При описании поведения библиотеки/фреймворка** — верифицировать через Context7:
+```
+# Пример: описываем поведение FastAPI StaticFiles
+resolve-library-id("FastAPI", "StaticFiles cache headers behavior")
+→ query-docs("/websites/fastapi_tiangolo", "StaticFiles ETag Last-Modified Cache-Control")
+→ использовать актуальную информацию, не обучающие данные модели
+```
+Документация: `/home/user/.gemini/skills/CONTEXT7_MCP.md`
+
 ## Еженедельный отчёт CEO
 
 ```markdown
