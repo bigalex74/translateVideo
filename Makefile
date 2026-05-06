@@ -1,4 +1,4 @@
-.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:release lint ui-build ui-dev
+.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:release lint ui-build ui-dev visual-check css-guard
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -113,3 +113,16 @@ ui-build:
 ## ui-dev: Запустить Vite dev-сервер на localhost:5173
 ui-dev:
 	cd ui && npm run dev
+
+## css-guard: Статический анализ CSS (Designer Level 1) — проверка обязательных свойств
+css-guard:
+	@echo "$(CYAN)🛡  CSS Guard — проверка обязательных свойств...$(RESET)"
+	python3 scripts/css_guard.py ui/src/index.css ui/src/components/ConfirmRunModal.css
+	@echo "$(GREEN)✔ CSS Guard OK$(RESET)"
+
+## visual-check: Playwright visual smoke — скриншоты критических состояний UI (Designer Level 2)
+visual-check:
+	@echo "$(CYAN)📸 Visual Smoke — снимаем скриншоты UI...$(RESET)"
+	@echo "   Убедитесь что приложение запущено на :8002"
+	cd ui && npx playwright test e2e/visual.spec.ts --reporter=list
+	@echo "$(GREEN)✔ Скриншоты в .agents/designer/screenshots/$(RESET)"

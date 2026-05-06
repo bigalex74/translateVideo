@@ -108,11 +108,18 @@ python3 scripts/validate_changelog.py --gaps-only change.log
 [ ] PYTHONPATH=src python3 -m unittest discover -s tests -q → OK
 [ ] cd ui && npm run build → ✓ built
 [ ] make test:coverage → Python ≥80%, TS ≥80%
-[ ] python3 scripts/validate_changelog.py --summary change.log → ✅ OK  ← НОВОЕ
+[ ] python3 scripts/validate_changelog.py --summary change.log → ✅ OK
+[ ] make css-guard → ✅ CSS Guard OK          ← Designer Level 1
 [ ] change.log обновлён (русский, версия указана, TYPE из допустимых)
 [ ] VERSION, pyproject.toml, __init__.py синхронизированы
 [ ] git commit с conventional commit message
 ```
+
+После деплоя (если изменялся CSS):
+```
+[ ] make visual-check → скриншоты в .agents/designer/screenshots/  ← Designer Level 2
+```
+
 
 ### 5. Правила архитектуры
 - Нет хардкода секретов (ключей, паролей) в коде
