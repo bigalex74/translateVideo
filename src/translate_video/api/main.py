@@ -110,6 +110,46 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Выставляет правильные Cache-Control заголовки для статики.
+
+    Стратегия:
+      sw.js, index.html         → no-store  (никогда не кэшировать — критично для обновлений!)
+      /assets/*.js, *.css       → immutable, 1 год (Vite генерирует уникальные хэши в имени)
+      /api/*                    → no-store  (всегда свежие данные)
+      manifest.webmanifest      → no-cache  (проверять при каждом запросе)
+      прочая статика            → no-cache  (проверять, но использовать кэш если 304)
+
+    Без этого middleware браузер эвристически кэширует sw.js на часы → старая версия сайта.
+    """
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+        path = request.url.path
+
+        if "Cache-Control" not in response.headers:
+            if path in ("/sw.js", "/", "/index.html") or path.endswith("/index.html"):
+                # SW и HTML — НИКОГДА не кэшировать (каждый деплой меняет содержимое)
+                response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+            elif path.startswith("/assets/"):
+                # Хэшированные ассеты — кэшировать навсегда (имя файла изменится при следующем билде)
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif path.startswith("/api/"):
+                # API — всегда свежие данные
+                response.headers["Cache-Control"] = "no-store"
+            elif path.endswith(".webmanifest") or path.endswith("manifest.json"):
+                # PWA manifest — проверять, но использовать кэш
+                response.headers["Cache-Control"] = "no-cache"
+            else:
+                # Favicon, иконки и т.д. — проверять при каждом запросе
+                response.headers["Cache-Control"] = "no-cache"
+
+        return response
+
+app.add_middleware(CacheControlMiddleware)
+
+
+
 class TraceIDMiddleware(BaseHTTPMiddleware):
     """В9: Добавить X-Trace-ID к каждому ответу + request_id в логи (Z5.7).
 

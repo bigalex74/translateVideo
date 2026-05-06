@@ -1,3 +1,19 @@
+## 1.83.0 - 2026-05-06 - FIX - TVIDEO-203
+### Hotfix: Cache-Control для статических файлов (SW + index.html)
+
+**Бэкенд:**
+- main.py: добавлен CacheControlMiddleware — правильная стратегия кэширования:
+  - sw.js, index.html → no-store, no-cache (браузер НИКОГДА не кэширует)
+  - /assets/*.js, *.css → public, max-age=31536000, immutable (Vite хэши — безопасно)
+  - /api/* → no-store (всегда свежие данные)
+  - manifest.webmanifest → no-cache
+- Причина: без Cache-Control браузер эвристически кэшировал sw.js на часы
+  после деплоя — пользователь видел старую версию сайта
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
 ## 1.82.0 - 2026-05-06 - FEAT - TVIDEO-199-202
 ### Round 8 Итерации 2-5: Анимации, Skeleton, Один клик, Batch API
 
