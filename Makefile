@@ -1,4 +1,4 @@
-.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:release lint ui-build ui-dev visual-check visual-check-ci css-guard
+.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:release release\:fix release\:finish lint ui-build ui-dev visual-check visual-check-ci css-guard
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -89,6 +89,8 @@ test\:coverage:
 	cd ui && npm run test -- --coverage
 
 ## test:release: Полный release gate перед merge в master
+# Запускать ПЕРЕД каждым merge develop→master.
+# Если падают → НЕ пушить master, создать release-fix ветку (make release:fix).
 test\:release:
 	PYTHONPATH=src python3 -m unittest discover -s tests
 	python3 -m compileall -q src tests
@@ -99,6 +101,38 @@ test\:release:
 	cd ui && npm run test:e2e:fullstack
 	$(MAKE) test\:coverage
 	git diff --check
+	@echo "$(GREEN)✅ Release gate пройден. Можно делать: git checkout master && git merge --no-ff develop$(RESET)"
+
+## release:fix: Создать release-fix ветку от develop (когда E2E провалились)
+# Использование: make release:fix TICKET=TVIDEO-XXX NAME=short-desc
+# Пример:        make release:fix TICKET=TVIDEO-210 NAME=fix-ws-auth
+release\:fix:
+	@if [ -z "$(TICKET)" ] || [ -z "$(NAME)" ]; then \
+	  echo "$(RED)Использование: make release:fix TICKET=TVIDEO-XXX NAME=short-desc$(RESET)"; \
+	  exit 1; \
+	fi
+	@BRANCH=$(TICKET)-$(NAME)
+	git checkout develop
+	git pull origin develop
+	git checkout -b "release-fix/$(TICKET)-$(NAME)"
+	@echo "$(GREEN)✅ Ветка release-fix/$(TICKET)-$(NAME) создана. Исправьте баги, затем запустите make release:finish TICKET=$(TICKET) NAME=$(NAME)$(RESET)"
+
+## release:finish: Завершить release-fix — merge в develop + прогон E2E
+# Использование: make release:finish TICKET=TVIDEO-XXX NAME=short-desc
+release\:finish:
+	@if [ -z "$(TICKET)" ] || [ -z "$(NAME)" ]; then \
+	  echo "$(RED)Использование: make release:finish TICKET=TVIDEO-XXX NAME=short-desc$(RESET)"; \
+	  exit 1; \
+	fi
+	@echo "$(CYAN)▶ Прогон unit-тестов + coverage перед merge...$(RESET)"
+	$(MAKE) test\:all
+	$(MAKE) test\:coverage
+	git checkout develop
+	git merge --no-ff "release-fix/$(TICKET)-$(NAME)" -m "Merge release-fix/$(TICKET)-$(NAME) into develop"
+	git push origin develop "release-fix/$(TICKET)-$(NAME)"
+	@echo "$(CYAN)▶ Запуск полного E2E gate...$(RESET)"
+	$(MAKE) test\:release
+
 
 ## lint: Проверить ESLint, типы TypeScript и синтаксис Python
 lint:
