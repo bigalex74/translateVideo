@@ -4,10 +4,14 @@ import json
 import logging
 import os
 import shutil
+import ipaddress
+import socket
+import uuid
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Body, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, File, UploadFile, Form, Body, WebSocket, WebSocketDisconnect
 from fastapi import Path as FastAPIPath
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -20,11 +24,91 @@ from translate_video.core.store import ProjectStore, sanitize_filename, sanitize
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
 
+_BLOCKED_URL_HOSTNAMES = {"localhost", "localhost.localdomain"}
+
 
 def get_store() -> ProjectStore:
     """Зависимость для получения хранилища проектов."""
     work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
     return ProjectStore(work_root)
+
+
+def _truthy_env(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_private_or_local_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return any(
+        (
+            addr.is_private,
+            addr.is_loopback,
+            addr.is_link_local,
+            addr.is_reserved,
+            addr.is_multicast,
+            addr.is_unspecified,
+        )
+    )
+
+
+def _validate_public_download_url(url: str) -> None:
+    """Запретить URL, ведущие на локальные или внутренние адреса."""
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="input_video URL: только http/https схемы")
+    hostname = (parsed.hostname or "").strip().lower()
+    if not hostname:
+        raise HTTPException(status_code=400, detail="input_video URL: hostname обязателен")
+    if hostname in _BLOCKED_URL_HOSTNAMES or hostname.endswith(".localhost"):
+        raise HTTPException(status_code=400, detail="input_video URL: локальные hostname запрещены")
+
+    try:
+        addresses = [ipaddress.ip_address(hostname)]
+    except ValueError:
+        try:
+            records = socket.getaddrinfo(hostname, parsed.port, type=socket.SOCK_STREAM)
+        except socket.gaierror as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="input_video URL: hostname не удалось проверить",
+            ) from exc
+        addresses = []
+        for record in records:
+            try:
+                addresses.append(ipaddress.ip_address(record[4][0]))
+            except ValueError:
+                continue
+
+    if not addresses:
+        raise HTTPException(status_code=400, detail="input_video URL: hostname не удалось проверить")
+    if any(_is_private_or_local_address(addr) for addr in addresses):
+        raise HTTPException(status_code=400, detail="input_video URL: внутренние IP-адреса запрещены")
+
+
+def _validate_api_input_video(input_video: str, work_root: Path) -> None:
+    """Ограничить JSON API от чтения произвольных локальных файлов сервера."""
+
+    if input_video.startswith(("http://", "https://")):
+        _validate_public_download_url(input_video)
+        return
+
+    candidate = Path(input_video).expanduser()
+    if not candidate.exists():
+        return
+    if _truthy_env("ALLOW_LOCAL_INPUT_PATHS", default=False):
+        return
+
+    resolved = candidate.resolve()
+    root = work_root.resolve()
+    if resolved == root or root in resolved.parents:
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="Локальные input_video вне WORK_ROOT запрещены. Используйте upload или URL.",
+    )
 
 
 class CreateProjectRequest(BaseModel):
@@ -51,9 +135,24 @@ _STAGE_WEIGHTS: dict[str, float] = {
     "transcribe": 0.30,
     "translate": 0.20,
     "tts": 0.35,
-    "merge": 0.10,
+    "render": 0.10,
 }
 _TOTAL_WEIGHT: float = sum(_STAGE_WEIGHTS.values())
+
+
+def _stage_elapsed_seconds(run) -> float:
+    """Вернуть длительность stage_run по ISO timestamps."""
+
+    if not getattr(run, "started_at", None) or not getattr(run, "finished_at", None):
+        return 0.0
+    try:
+        from datetime import datetime  # noqa: PLC0415
+
+        started = datetime.fromisoformat(run.started_at)
+        finished = datetime.fromisoformat(run.finished_at)
+        return max(0.0, (finished - started).total_seconds())
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _compute_progress(project: "VideoProject") -> dict[str, Any]:
@@ -104,7 +203,7 @@ def _compute_progress(project: "VideoProject") -> dict[str, Any]:
     if project.status.value == "running" and completed_weight > 0:
         # Суммируем реальное время завершённых этапов
         total_elapsed = sum(
-            getattr(run, "elapsed", 0.0) or 0.0
+            _stage_elapsed_seconds(run)
             for run in stage_runs
             if run.status == JobStatus.COMPLETED
         )
@@ -125,7 +224,7 @@ def project_payload(project: "VideoProject", include_segments: bool = True) -> d
     payload = _project_summary(project)
     payload["config"] = project.config.to_dict()
     payload["artifact_records"] = [record.to_dict() for record in project.artifact_records]
-    payload["stage_runs"] = [run.to_dict() for run in project.stage_runs]
+    payload["stage_runs"] = [_stage_run_payload(run) for run in project.stage_runs]
     payload["segments"] = (
         [segment.to_dict() for segment in project.segments]
         if include_segments
@@ -144,6 +243,12 @@ def project_payload(project: "VideoProject", include_segments: bool = True) -> d
     return payload
 
 
+def _stage_run_payload(run) -> dict[str, Any]:
+    payload = run.to_dict()
+    payload["elapsed"] = _stage_elapsed_seconds(run) or None
+    return payload
+
+
 @router.post("")
 def create_project(req: CreateProjectRequest, store: ProjectStore = Depends(get_store)):
     """Создать новый проект перевода по локальному пути или URL.
@@ -155,6 +260,7 @@ def create_project(req: CreateProjectRequest, store: ProjectStore = Depends(get_
     try:
         project_id = sanitize_project_id(req.project_id) if req.project_id else None
         input_video = req.input_video
+        _validate_api_input_video(input_video, store.root)
 
         # C-06 / backlog: URL-загрузка через yt-dlp
         if input_video.startswith(("http://", "https://")):
@@ -169,6 +275,8 @@ def create_project(req: CreateProjectRequest, store: ProjectStore = Depends(get_
         if input_path.is_file():
             store.attach_input_video(project, input_path)
         return project_payload(project)
+    except FileExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except (ValueError, FileNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -192,6 +300,7 @@ def _download_url_video(url: str, work_root: Path) -> str:
             detail="yt-dlp не установлен. Добавьте в зависимости: pip install yt-dlp",
         ) from exc
 
+    _validate_public_download_url(url)
     MAX_MB = int(os.getenv("MAX_UPLOAD_MB", "2048"))
     download_dir = work_root / "_url_downloads"
     download_dir.mkdir(parents=True, exist_ok=True)
@@ -278,10 +387,12 @@ def create_project_from_file(
             if project_id and project_id.strip()
             else sanitize_project_id(base_name)
         )
+        if (store.root / final_project_id / ProjectStore.PROJECT_FILE).exists():
+            raise HTTPException(status_code=409, detail=f"проект уже существует: {final_project_id}")
 
         temp_dir = store.root / "_uploads"
         temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_path = temp_dir / upload_name
+        temp_path = temp_dir / f"{final_project_id}-{uuid.uuid4().hex[:8]}-{upload_name}"
 
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -293,8 +404,12 @@ def create_project_from_file(
         )
         store.attach_input_video(project, temp_path)
         return project_payload(project)
+    except FileExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except (ValueError, FileNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Неожиданная ошибка при загрузке файла")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
@@ -376,6 +491,24 @@ def list_projects(
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
+@router.get("/stats", summary="Агрегированная статистика по всем проектам (Nm4-12)")
+def get_global_stats(store: ProjectStore = Depends(get_store)):
+    """Вернуть сводную статистику по всем проектам в work_root."""
+
+    projects = store.list_projects()
+    by_status: dict[str, int] = {}
+    for p in projects:
+        key = p.status.value if hasattr(p.status, "value") else str(p.status)
+        by_status[key] = by_status.get(key, 0) + 1
+
+    total_segments = sum(len(p.segments) for p in projects)
+    return {
+        "total_projects": len(projects),
+        "by_status": by_status,
+        "total_segments": total_segments,
+    }
+
+
 @router.get("/{project_id}")
 def get_project_status(project_id: str, store: ProjectStore = Depends(get_store)):
     """Получить статус и данные проекта."""
@@ -404,6 +537,60 @@ def get_project_artifacts(project_id: str, store: ProjectStore = Depends(get_sto
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+@router.get(
+    "/{project_id}/artifacts/audio",
+    summary="Скачать аудиодорожку дубляжа (WAV/MP3) (Z2.6)",
+)
+def download_dubbed_audio(
+    project_id: str = FastAPIPath(...),
+    format: str = "wav",  # noqa: A002
+    store: ProjectStore = Depends(get_store),
+):
+    """Вернуть смешанную аудиодорожку дубляжа для импорта в редактор."""
+
+    import subprocess  # noqa: PLC0415
+
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    work_dir = project.work_dir
+    candidates = [
+        work_dir / "artifacts" / "dubbed_audio.wav",
+        work_dir / "artifacts" / "mixed_audio.wav",
+        work_dir / "dubbed_audio.wav",
+        work_dir / "mixed_audio.wav",
+    ]
+    artifacts_dir = work_dir / "artifacts"
+    if artifacts_dir.is_dir():
+        candidates.extend(sorted(artifacts_dir.glob("*.wav")))
+
+    audio_file: Path | None = next((p for p in candidates if p.is_file()), None)
+    if audio_file is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Аудиодорожка дубляжа ещё не создана. Запустите пайплайн до этапа 'render'.",
+        )
+
+    if format == "mp3":
+        mp3_path = audio_file.with_suffix(".exported.mp3")
+        if not mp3_path.exists():
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", str(audio_file), "-b:a", "192k", str(mp3_path)],
+                    capture_output=True,
+                    check=True,
+                    timeout=60,
+                )
+            except subprocess.CalledProcessError as e:
+                raise HTTPException(status_code=500, detail=f"ffmpeg: {e.stderr.decode()[:200]}")
+        return FileResponse(mp3_path, media_type="audio/mpeg", filename=f"{safe_id}_dubbed.mp3")
+
+    return FileResponse(audio_file, media_type="audio/wav", filename=f"{safe_id}_dubbed.wav")
 
 
 @router.get("/{project_id}/artifacts/{kind}")
@@ -435,71 +622,6 @@ def download_project_artifact(
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
-
-
-@router.get(
-    "/{project_id}/artifacts/audio",
-    summary="Скачать аудиодорожку дубляжа (WAV/MP3) (Z2.6)",
-)
-def download_dubbed_audio(
-    project_id: str = FastAPIPath(...),
-    format: str = "wav",  # noqa: A002
-    store: ProjectStore = Depends(get_store),
-):
-    """Вернуть смешанную аудиодорожку дубляжа для импорта в DaVinci Resolve / Premiere.
-
-    Ищет файлы в порядке приоритета:
-    1. artifacts/dubbed_audio.wav (после render/mix)
-    2. artifacts/mixed_audio.wav
-    3. Первый .wav из work_dir
-
-    ?format=wav (default) или ?format=mp3 — конвертация через ffmpeg.
-    """
-    import subprocess  # noqa: PLC0415
-
-    safe_id = sanitize_project_id(project_id)
-    try:
-        project = store.load_project(store.root / safe_id)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    work_dir = project.work_dir
-
-    # Ищем аудиофайл
-    candidates = [
-        work_dir / "artifacts" / "dubbed_audio.wav",
-        work_dir / "artifacts" / "mixed_audio.wav",
-        work_dir / "dubbed_audio.wav",
-        work_dir / "mixed_audio.wav",
-    ]
-    # Ищем любой WAV в work_dir/artifacts
-    artifacts_dir = work_dir / "artifacts"
-    if artifacts_dir.is_dir():
-        for wav in sorted(artifacts_dir.glob("*.wav")):
-            candidates.append(wav)
-
-    audio_file: Path | None = next((p for p in candidates if p.is_file()), None)
-
-    if audio_file is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Аудиодорожка дубляжа ещё не создана. Запустите пайплайн до этапа 'render'.",
-        )
-
-    if format == "mp3":
-        # Конвертируем в MP3 через ffmpeg
-        mp3_path = audio_file.with_suffix(".exported.mp3")
-        if not mp3_path.exists():
-            try:
-                subprocess.run(
-                    ["ffmpeg", "-y", "-i", str(audio_file), "-b:a", "192k", str(mp3_path)],
-                    capture_output=True, check=True, timeout=60,
-                )
-            except subprocess.CalledProcessError as e:
-                raise HTTPException(status_code=500, detail=f"ffmpeg: {e.stderr.decode()[:200]}")
-        return FileResponse(mp3_path, media_type="audio/mpeg", filename=f"{safe_id}_dubbed.mp3")
-
-    return FileResponse(audio_file, media_type="audio/wav", filename=f"{safe_id}_dubbed.wav")
 
 
 @router.put("/{project_id}/segments")
@@ -798,7 +920,7 @@ def clone_project(
 ):
     """Создать клон проекта с теми же настройками и (опционально) сегментами.
 
-    Статус сбрасывается в PENDING, stage_runs очищаются.
+    Статус сбрасывается в CREATED, stage_runs очищаются.
     """
     from translate_video.core.schemas import ProjectStatus  # lazy
     import uuid as _uuid
@@ -812,7 +934,7 @@ def clone_project(
     new_id = body.new_project_id or f"{safe_id}-clone-{_uuid.uuid4().hex[:6]}"
     new_id = sanitize_project_id(new_id)
 
-    new_dir = store.work_root / new_id
+    new_dir = store.root / new_id
     if new_dir.exists():
         raise HTTPException(status_code=409, detail=f"Проект '{new_id}' уже существует.")
 
@@ -825,7 +947,7 @@ def clone_project(
     # Копируем сегменты если нужно
     if body.copy_segments and project.segments:
         cloned.segments = list(project.segments)
-    cloned.status = ProjectStatus.PENDING
+    cloned.status = ProjectStatus.CREATED
     cloned.stage_runs = []
     store.save_project(cloned)
 
@@ -862,9 +984,9 @@ def export_project_zip(
         ))
         # Бинарные артефакты (субтитры, аудио и т.д.)
         for record in project.artifact_records:
-            art_path = Path(record.path) if not Path(record.path).is_absolute() else Path(record.path)
+            art_path = store.resolve_project_file(project, record.path)
             if art_path.exists():
-                zf.write(art_path, arcname=art_path.name)
+                zf.write(art_path, arcname=record.path)
         # NC11-01: Скрипт перевода (TXT + TSV) если есть сегменты
         if project.segments:
             script_lines = [
@@ -889,25 +1011,6 @@ def export_project_zip(
     )
 
 
-# ─── Nm4-12: Stats endpoint ───────────────────────────────────────────────────
-
-@router.get("/stats", summary="Агрегированная статистика по всем проектам (Nm4-12)")
-def get_global_stats(store: ProjectStore = Depends(get_store)):
-    """Вернуть сводную статистику по всем проектам в work_root."""
-    from translate_video.core.schemas import ProjectStatus  # noqa: PLC0415
-    projects = store.list_projects()
-    by_status: dict[str, int] = {}
-    for p in projects:
-        key = p.status.value if hasattr(p.status, "value") else str(p.status)
-        by_status[key] = by_status.get(key, 0) + 1
-
-    total_segments = sum(len(p.segments) for p in projects)
-    return {
-        "total_projects": len(projects),
-        "by_status": by_status,
-        "total_segments": total_segments,
-    }
-
 # ─── Z5.8: stage-runs детальный эндпоинт ──────────────────────────────────
 
 @router.get(
@@ -930,7 +1033,7 @@ def get_stage_runs(
 
     runs = []
     for run in project.stage_runs:
-        run_dict = run.to_dict()
+        run_dict = _stage_run_payload(run)
         # Добавляем duration из metadata если есть
         metadata = run_dict.get("metadata") or {}
         cost_usd = metadata.get("cost_usd") or metadata.get("translation_cost_usd")
@@ -963,6 +1066,7 @@ class RetryFromStageRequest(BaseModel):
 def retry_from_stage(
     project_id: str = FastAPIPath(..., description="ID проекта"),
     body: RetryFromStageRequest = Body(default_factory=RetryFromStageRequest),
+    background_tasks: BackgroundTasks = None,
     store: ProjectStore = Depends(get_store),
 ):
     """Запустить пайплайн повторно начиная с ``from_stage``.
@@ -970,17 +1074,22 @@ def retry_from_stage(
     Используется для автоматического retry в n8n и CI/CD.
     Эквивалентно POST /pipeline/{id}/run?from_stage=...
     """
-    project = store.load_project(sanitize_project_id(project_id))
-    if project is None:
+    safe_id = sanitize_project_id(project_id)
+    try:
+        store.load_project(store.root / safe_id)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Проект '{project_id}' не найден")
 
-    from translate_video.api.routes.pipeline import _running_projects  # noqa: PLC0415
-    if project_id in _running_projects:
-        raise HTTPException(status_code=409, detail="Проект уже выполняется")
+    from translate_video.api.routes.pipeline import (  # noqa: PLC0415
+        RunPipelineRequest,
+        _running_lock,
+        _running_projects,
+        run_pipeline_task,
+    )
 
     valid_stages = [
         "extract_audio", "transcribe", "regroup", "translate",
-        "timing_fit", "tts", "render", "export",
+        "timing_fit", "tts", "render", "export", "embed_subtitles",
     ]
     if body.from_stage not in valid_stages:
         raise HTTPException(
@@ -988,19 +1097,26 @@ def retry_from_stage(
             detail=f"Неизвестный этап '{body.from_stage}'. Допустимые: {valid_stages}",
         )
 
-    # Делегируем существующему роутеру пайплайна
-    from translate_video.api.routes import pipeline as pipeline_module  # noqa: PLC0415
-    # Формируем запрос через RunRequest
-    from translate_video.api.routes.pipeline import RunRequest as _RunRequest  # noqa: PLC0415
-    run_req = _RunRequest(
+    with _running_lock:
+        if safe_id in _running_projects:
+            raise HTTPException(status_code=409, detail="Проект уже выполняется")
+        _running_projects.add(safe_id)
+
+    run_req = RunPipelineRequest(
+        provider="legacy",
         from_stage=body.from_stage,
         force=body.force,
     )
-    return pipeline_module.run_pipeline(
-        project_id=project_id,
-        req=run_req,
-        store=store,
-    )
+    if background_tasks is None:
+        with _running_lock:
+            _running_projects.discard(safe_id)
+        raise HTTPException(status_code=500, detail="BackgroundTasks недоступен")
+    background_tasks.add_task(run_pipeline_task, safe_id, store, run_req, None)
+    return {
+        "status": "accepted",
+        "project_id": safe_id,
+        "message": f"Pipeline retry started from {body.from_stage}",
+    }
 
 # ─── Z3.10: Итоговое резюме качества ──────────────────────────────────────
 

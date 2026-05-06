@@ -219,12 +219,24 @@ def batch_run_pipeline_early(
             continue
 
         with _running_lock:
-            already_running = safe_id in _running_projects
+            if safe_id in _running_projects:
+                items_result.append(BatchRunItem(project_id=safe_id, queued=False, reason="already_running"))
+                skipped += 1
+                continue
 
-        if already_running:
-            items_result.append(BatchRunItem(project_id=safe_id, queued=False, reason="already_running"))
+        try:
+            store.load_project(store.root / safe_id)
+        except FileNotFoundError:
+            items_result.append(BatchRunItem(project_id=safe_id, queued=False, reason="not_found"))
             skipped += 1
             continue
+
+        with _running_lock:
+            if safe_id in _running_projects:
+                items_result.append(BatchRunItem(project_id=safe_id, queued=False, reason="already_running"))
+                skipped += 1
+                continue
+            _running_projects.add(safe_id)
 
         sub_req = RunPipelineRequest(
             force=req.force,
@@ -693,4 +705,3 @@ def tts_preview(
     except Exception as exc:
         _log.exception("tts.preview.error", project=project_id)
         raise HTTPException(status_code=500, detail=f"Ошибка синтеза: {exc}")
-

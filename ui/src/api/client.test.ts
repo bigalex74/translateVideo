@@ -6,9 +6,12 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  apiHeaders,
   artifactDownloadUrl,
+  batchCreateProjects,
   cancelPipeline,
   createProject,
+  deleteProject,
   fetchProviderBalance,
   fetchProviderModels,
   getProjectArtifacts,
@@ -17,9 +20,14 @@ import {
   patchProjectConfig,
   preflightVideo,
   previewTTS,
+  renameProject,
   runPipeline,
+  safariSafeDownload,
   saveProjectSegments,
+  subtitleExportUrl,
+  subtitleExportZipUrl,
   uploadProject,
+  withApiKeyQuery,
 } from './client';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -83,15 +91,42 @@ describe('runPipeline', () => {
   });
 });
 
+// ── auth helpers ─────────────────────────────────────────────────────────────
+
+describe('auth helpers', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('apiHeaders добавляет X-API-Key из настроек UI', () => {
+    localStorage.setItem('tv_api_key', 'secret123');
+    expect(apiHeaders({ 'Content-Type': 'application/json' })).toMatchObject({
+      'Content-Type': 'application/json',
+      'X-API-Key': 'secret123',
+    });
+  });
+
+  it('apiHeaders и withApiKeyQuery не меняют запрос без ключа', () => {
+    expect(apiHeaders()).toEqual({});
+    expect(withApiKeyQuery('/api/v1/projects')).toBe('/api/v1/projects');
+  });
+
+  it('withApiKeyQuery добавляет api_key к download/media URL', () => {
+    localStorage.setItem('tv_api_key', 'secret 123');
+    expect(withApiKeyQuery('/api/v1/video/p/input.mp4')).toBe('/api/v1/video/p/input.mp4?api_key=secret%20123');
+    expect(withApiKeyQuery('/api/v1/projects/p/subtitles?format=srt')).toBe('/api/v1/projects/p/subtitles?format=srt&api_key=secret%20123');
+  });
+});
+
 // ── createProject ─────────────────────────────────────────────────────────────
 
 describe('createProject', () => {
   it('POST /projects с input_video', async () => {
+    localStorage.setItem('tv_api_key', 'secret123');
     const m = mockFetch(okResponse({ id: 'proj1', input_video: 'video.mp4' }));
     const result = await createProject('video.mp4');
     const [url, init] = lastCall(m) as [string, RequestInit];
     expect(url).toContain('/projects');
     expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>)['X-API-Key']).toBe('secret123');
     expect(JSON.parse(String(init.body))).toMatchObject({ input_video: 'video.mp4' });
     expect((result as unknown as { id: string }).id).toBe('proj1');
   });
@@ -303,12 +338,117 @@ describe('fetchProviderBalance', () => {
   });
 });
 
+// ── rename/delete/download helpers ───────────────────────────────────────────
+
+describe('project helper actions', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('renameProject отправляет PATCH display_name', async () => {
+    const m = mockFetch(okResponse({ project_id: 'proj1', display_name: 'New name', status: 'created' }));
+    const result = await renameProject('proj1', 'New name');
+    const [url, init] = lastCall(m) as [string, RequestInit];
+    expect(url).toContain('/projects/proj1/rename');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(String(init.body))).toEqual({ display_name: 'New name' });
+    expect(result.display_name).toBe('New name');
+  });
+
+  it('deleteProject кодирует project_id и добавляет API key', async () => {
+    localStorage.setItem('tv_api_key', 'secret123');
+    const m = mockFetch(okResponse({ deleted: 'my project', ok: true }));
+    const result = await deleteProject('my project');
+    const [url, init] = lastCall(m) as [string, RequestInit];
+    expect(url).toContain('/projects/my%20project');
+    expect(init.method).toBe('DELETE');
+    expect((init.headers as Record<string, string>)['X-API-Key']).toBe('secret123');
+    expect(result.ok).toBe(true);
+  });
+
+  it('subtitle export URLs добавляют api_key для media/download ссылок', () => {
+    localStorage.setItem('tv_api_key', 'secret123');
+    expect(subtitleExportUrl('proj1', 'srt')).toContain('format=srt&api_key=secret123');
+    expect(subtitleExportZipUrl('proj1')).toContain('/projects/proj1/subtitles/all?api_key=secret123');
+  });
+});
+
+describe('safariSafeDownload', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn().mockReturnValue('blob:http://localhost/download'),
+      revokeObjectURL: vi.fn(),
+    });
+  });
+
+  it('скачивает blob через временную ссылку', async () => {
+    const click = vi.fn();
+    const appendChild = vi.spyOn(document.body, 'appendChild');
+    const removeChild = vi.spyOn(document.body, 'removeChild');
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      const el = originalCreateElement(tagName);
+      if (tagName === 'a') {
+        Object.defineProperty(el, 'click', { value: click });
+      }
+      return el;
+    });
+    mockFetch(new Response(new Blob(['data']), { status: 200 }));
+
+    await safariSafeDownload('/api/v1/projects/p/artifacts/srt', 'file.srt');
+    expect(click).toHaveBeenCalledOnce();
+    expect(appendChild).toHaveBeenCalled();
+    vi.runAllTimers();
+    expect(removeChild).toHaveBeenCalled();
+  });
+
+  it('fallback открывает URL в новой вкладке при ошибке fetch', async () => {
+    const open = vi.fn();
+    vi.stubGlobal('open', open);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 500 })));
+
+    await safariSafeDownload('/download', 'file.srt');
+    expect(open).toHaveBeenCalledWith('/download', '_blank');
+  });
+});
+
+// ── batchCreateProjects ──────────────────────────────────────────────────────
+
+describe('batchCreateProjects', () => {
+  it('POST /projects/batch возвращает results', async () => {
+    const m = mockFetch(okResponse({ results: [{ project_id: 'p1', status: 'created' }] }));
+    const result = await batchCreateProjects([{ input_video: 'v.mp4', project_id: 'p1' }], true);
+    const [url, init] = lastCall(m) as [string, RequestInit];
+    expect(url).toContain('/projects/batch');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toMatchObject({ auto_run: true });
+    expect(result[0].project_id).toBe('p1');
+  });
+
+  it('batchCreateProjects возвращает пустой массив без results', async () => {
+    mockFetch(okResponse({}));
+    await expect(batchCreateProjects([])).resolves.toEqual([]);
+  });
+
+  it('batchCreateProjects бросает HTTP ошибку', async () => {
+    mockFetch(new Response('', { status: 500 }));
+    await expect(batchCreateProjects([])).rejects.toThrow('Batch error: HTTP 500');
+  });
+});
+
 // ── artifactDownloadUrl ───────────────────────────────────────────────────────
 
 describe('artifactDownloadUrl', () => {
+  beforeEach(() => localStorage.clear());
+
   it('формирует правильный URL без fetch', () => {
     const url = artifactDownloadUrl('my project', 'srt');
     expect(url).toContain('/projects/my%20project/artifacts/srt');
+  });
+
+  it('добавляет api_key query для обычной ссылки скачивания', () => {
+    localStorage.setItem('tv_api_key', 'secret123');
+    const url = artifactDownloadUrl('my project', 'srt');
+    expect(url).toContain('api_key=secret123');
   });
 });
 

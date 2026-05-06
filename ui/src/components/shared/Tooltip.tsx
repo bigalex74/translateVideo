@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Shared Tooltip component (CI iter 2 — предложение Frontend агента).
  * Переиспользуется в NewProject, Workspace и онбординге.

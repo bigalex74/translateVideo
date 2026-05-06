@@ -310,4 +310,5 @@ class VideoProject:
             started_at=payload.get("started_at"),
             tags=list(payload.get("tags", [])),  # NC10-01
             archived=bool(payload.get("archived", False)),  # NC10-02
+            display_name=payload.get("display_name"),
         )

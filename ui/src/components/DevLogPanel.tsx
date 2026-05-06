@@ -3,6 +3,7 @@ import {
   RefreshCw, Download, Copy, Search, ChevronDown, ChevronRight,
   Zap, AlertTriangle, GitBranch, MessageSquare, BarChart2, Loader2, X,
 } from 'lucide-react';
+import { apiHeaders } from '../api/client';
 import './DevLogPanel.css';
 
 interface DevEvent {
@@ -89,7 +90,7 @@ function EventRow({ evt }: { evt: DevEvent }) {
   const cls  = getEventClass(evt.event);
 
   // Build short summary
-  let summary = '';
+  let summary: string;
   if (evt.event === 'translate.prompt') {
     summary = `${evt.provider || ''} / ${evt.model || ''} — сегм. ${(evt.segment_index ?? 0) + 1} (${evt.elapsed_s?.toFixed(2)}с)`;
   } else if (evt.event === 'rewrite.attempt') {
@@ -181,7 +182,7 @@ export const DevLogPanel: React.FC<Props> = ({ projectId, devMode }) => {
       const params = new URLSearchParams({ limit: '500' });
       if (stageFilter !== 'all') params.set('stage', stageFilter);
       if (typeFilter  !== 'all') params.set('event_type', typeFilter);
-      const res = await fetch(`/api/v1/projects/${projectId}/devlog?${params}`);
+      const res = await fetch(`/api/v1/projects/${projectId}/devlog?${params}`, { headers: apiHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setData(await res.json());
     } catch (e) {
@@ -191,7 +192,10 @@ export const DevLogPanel: React.FC<Props> = ({ projectId, devMode }) => {
     }
   }, [projectId, stageFilter, typeFilter]);
 
-  useEffect(() => { loadLog(); }, [loadLog]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadLog();
+  }, [loadLog]);
 
   const filteredEvents = (data?.events || []).filter(evt => {
     if (!search) return true;
@@ -222,7 +226,7 @@ export const DevLogPanel: React.FC<Props> = ({ projectId, devMode }) => {
     try {
       const res = await fetch(`/api/v1/projects/${projectId}/analyze-log`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ mode: aiMode }),
       });
       if (!res.ok) {

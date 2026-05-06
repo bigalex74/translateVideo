@@ -161,7 +161,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   // C-13/C-19: Stale detection — если >5 мин работает без завершения → предупреждение
   const [staleWarning, setStaleWarning] = useState(false);
   useEffect(() => {
-    if (project?.status !== 'running') { setStaleWarning(false); return; }
+    if (project?.status !== 'running') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStaleWarning(false);
+      return;
+    }
     const timer = setTimeout(() => setStaleWarning(true), 5 * 60 * 1000); // 5 мин
     return () => clearTimeout(timer);
   }, [project?.status, project?.project_id]);

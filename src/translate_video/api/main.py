@@ -38,7 +38,8 @@ async def lifespan(application: FastAPI):
     """Инициализировать ресурсы приложения при старте."""
     work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
     work_root.mkdir(parents=True, exist_ok=True)
-    application.mount("/runs", StaticFiles(directory=str(work_root)), name="runs")
+    if os.getenv("EXPOSE_RUNS_STATIC", "").strip().lower() in {"1", "true", "yes", "on"}:
+        application.mount("/runs", StaticFiles(directory=str(work_root)), name="runs")
     _log.info("server.start", version=__version__, work_root=str(work_root))
 
     # ── Cleanup zombie pipelines ──────────────────────────────────────────────
@@ -302,11 +303,15 @@ async def health_providers():
         providers_status["openai"] = "not_configured"
 
     # Проверка Yandex SpeechKit
-    yandex_key = os.getenv("YANDEX_API_KEY") or os.getenv("YANDEX_SPEECHKIT_KEY")
+    yandex_key = (
+        os.getenv("YANDEX_API_KEY")
+        or os.getenv("YANDEX_SPEECHKIT_KEY")
+        or os.getenv("YANDEX_SPEECHKIT_API_KEY")
+    )
     providers_status["yandex"] = "not_configured" if not yandex_key else "configured"
 
     # Проверка Polza / NeuroAPI (через переменную)
-    polza_key = os.getenv("POLZA_API_KEY") or os.getenv("NEUROAPI_KEY")
+    polza_key = os.getenv("POLZA_API_KEY") or os.getenv("NEUROAPI_KEY") or os.getenv("NEUROAPI_API_KEY")
     providers_status["polza"] = "not_configured" if not polza_key else "configured"
 
     all_ok = all(v in ("ok", "configured", "not_configured") for v in providers_status.values())

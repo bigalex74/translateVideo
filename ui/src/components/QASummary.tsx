@@ -177,7 +177,11 @@ export const QASummary: React.FC<QASummaryProps> = ({ segments, projectStatus, l
   const toggleFlag = (flag: string) => {
     setExpandedFlags(prev => {
       const next = new Set(prev);
-      next.has(flag) ? next.delete(flag) : next.add(flag);
+      if (next.has(flag)) {
+        next.delete(flag);
+      } else {
+        next.add(flag);
+      }
       return next;
     });
   };

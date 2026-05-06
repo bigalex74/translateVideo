@@ -1,4 +1,7 @@
 import tempfile
+import socket
+import zipfile
+import io
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
@@ -44,6 +47,54 @@ class APIProjectsTest(TestCase):
         self.assertEqual(data["config"]["source_language"], "en")
         self.assertEqual(data["segments"], [])
 
+    def test_create_project_duplicate_returns_409_and_keeps_original(self):
+        """Повторный project_id через API не должен перетирать существующий проект."""
+
+        self.store.create_project("first.mp4", project_id="dup_api")
+        response = self.client.post("/api/v1/projects", json={
+            "input_video": "second.mp4",
+            "project_id": "dup_api",
+        })
+
+        self.assertEqual(response.status_code, 409)
+        restored = self.store.load_project(self.work_root / "dup_api")
+        self.assertEqual(restored.input_video, Path("first.mp4"))
+
+    def test_create_project_rejects_existing_local_file_outside_work_root(self):
+        """JSON API не должен копировать произвольные локальные файлы сервера."""
+
+        outside = Path(self.temp_dir.name) / "secret.mp4"
+        outside.write_bytes(b"secret")
+
+        response = self.client.post("/api/v1/projects", json={
+            "input_video": str(outside),
+            "project_id": "local_secret",
+        })
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_create_project_rejects_private_url_download(self):
+        """URL-загрузка не должна ходить на loopback/private адреса."""
+
+        response = self.client.post("/api/v1/projects", json={
+            "input_video": "http://127.0.0.1/video.mp4",
+            "project_id": "ssrf_url",
+        })
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_create_project_rejects_hostname_resolving_to_private_ip(self):
+        """DNS-имя для URL-загрузки проверяется до запуска yt-dlp."""
+
+        private_dns = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 80))]
+        with patch("translate_video.api.routes.projects.socket.getaddrinfo", return_value=private_dns):
+            response = self.client.post("/api/v1/projects", json={
+                "input_video": "https://video.example.test/file.mp4",
+                "project_id": "ssrf_dns_url",
+            })
+
+        self.assertEqual(response.status_code, 400)
+
     def test_list_projects(self):
         """Список проектов должен возвращать краткие карточки."""
 
@@ -86,6 +137,18 @@ class APIProjectsTest(TestCase):
         self.assertEqual(data["segments"][0]["translated_text"], "Привет")
         self.assertEqual(data["artifact_records"][0]["kind"], "translated_transcript")
 
+    def test_runs_static_does_not_expose_project_json(self):
+        """Рабочая папка runs не должна отдаваться как публичная статика."""
+
+        self.store.create_project("dummy.mp4", project_id="static_secret")
+
+        response = self.client.get("/runs/static_secret/project.json")
+
+        self.assertFalse(
+            response.status_code == 200 and response.headers.get("content-type", "").startswith("application/json"),
+            "project.json не должен быть доступен через /runs",
+        )
+
     def test_get_project_not_found(self):
         """Проверка 404 для несуществующего проекта."""
         response = self.client.get("/api/v1/projects/nonexistent")
@@ -124,6 +187,68 @@ class APIProjectsTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ok": True})
+
+    def test_dubbed_audio_route_is_not_shadowed_by_artifact_kind_route(self):
+        """Специфичный /artifacts/audio route должен вызываться раньше /artifacts/{kind}."""
+
+        project = self.store.create_project("dummy.mp4", project_id="audio_route")
+        audio_dir = project.work_dir / "artifacts"
+        audio_dir.mkdir()
+        (audio_dir / "dubbed_audio.wav").write_bytes(b"RIFF")
+
+        response = self.client.get("/api/v1/projects/audio_route/artifacts/audio")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("audio/wav", response.headers["content-type"])
+
+    def test_global_stats_route_is_not_shadowed_by_project_id_route(self):
+        """GET /projects/stats должен возвращать агрегаты, а не 404 Project not found."""
+
+        self.store.create_project("dummy.mp4", project_id="stats_one")
+
+        response = self.client.get("/api/v1/projects/stats")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["total_projects"], 1)
+
+    def test_zip_export_includes_relative_artifacts(self):
+        """ZIP export должен резолвить artifact.path относительно project.work_dir."""
+
+        project = self.store.create_project("dummy.mp4", project_id="zip_route")
+        report = project.work_dir / "qa_report.json"
+        report.write_text('{"ok": true}', encoding="utf-8")
+        self.store.add_artifact(
+            project,
+            kind=ArtifactKind.QA_REPORT,
+            path=report,
+            stage=Stage.QA,
+            content_type="application/json",
+        )
+
+        response = self.client.get("/api/v1/projects/zip_route/export/zip")
+
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+            self.assertIn("qa_report.json", zf.namelist())
+
+    def test_clone_project_success(self):
+        """Clone endpoint не должен падать на несуществующем store.work_root/PENDING."""
+
+        project = self.store.create_project("dummy.mp4", project_id="clone_src")
+        self.store.save_segments(
+            project,
+            [Segment(id="seg_1", start=0, end=1, source_text="Hello")],
+        )
+
+        response = self.client.post(
+            "/api/v1/projects/clone_src/clone",
+            json={"new_project_id": "clone_dst", "copy_segments": True},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "created")
+        cloned = self.store.load_project(self.work_root / "clone_dst")
+        self.assertEqual(len(cloned.segments), 1)
 
     def test_download_artifact_rejects_unsafe_record_path(self):
         """Скачивание не должно отдавать файлы вне папки проекта.

@@ -157,3 +157,33 @@ class APIPipelineTest(TestCase):
         self.client.post("/api/v1/projects/cleanup_test/run", json={"provider": "fake"})
         # TestClient выполняет background tasks синхронно
         self.assertNotIn("cleanup_test", _running_projects)
+
+    @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
+    def test_retry_from_stage_starts_background_task(self, mock_thread):
+        """Retry endpoint должен ставить пайплайн в фон без несуществующих RunRequest/work_dir ошибок."""
+
+        self.store.create_project("dummy.mp4", project_id="retry_test")
+
+        response = self.client.post(
+            "/api/v1/projects/retry_test/retry",
+            json={"from_stage": "tts", "force": False},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "accepted")
+
+    @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
+    def test_batch_run_skips_duplicate_project_ids_in_same_request(self, mock_thread):
+        """Batch run не должен дважды ставить один project_id в очередь."""
+
+        self.store.create_project("dummy.mp4", project_id="batch_dup")
+
+        response = self.client.post(
+            "/api/v1/projects/batch/run",
+            json={"project_ids": ["batch_dup", "batch_dup"], "provider": "fake"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["queued"], 1)
+        self.assertEqual(data["skipped"], 1)
