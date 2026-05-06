@@ -271,7 +271,11 @@ class VideoProject:
                 if (rec := ArtifactRecord.from_dict(item)) is not None
             ],
 
-            stage_runs=[StageRun.from_dict(item) for item in payload.get("stage_runs", [])],
+            stage_runs=[
+                run for item in payload.get("stage_runs", [])
+                if (run := StageRun.from_dict(item)) is not None
+            ],
+
             status=ProjectStatus(payload.get("status", "created")),
             billing_snapshots=dict(payload.get("billing_snapshots", {})),
         )
