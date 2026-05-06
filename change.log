@@ -1,6 +1,40 @@
 # Журнал Изменений
 
+## 1.22.23 - 2026-05-06 - FIX - TVIDEO-UI-DESIGN-FIX
+
+### UI: исправлены все дизайн-баги (7 критичных + мобильный гамбургер)
+
+**D-BUG-01: Светлая тема** — добавлены полные CSS overrides для всех компонентов
+(`App.css`, `Workspace.css`): sidebar, panel-header, panel-tabs, segment-items,
+inputs, buttons, badges, running-overlay, dev-links.
+
+**D-BUG-02: PWA Banner мобильный** — баннер больше не разваливается на 3 строки.
+`flex-wrap:nowrap`, `min-width:0`, текст с `ellipsis`, иконка `flex-shrink:0`.
+На `≤480px` subtitle скрывается.
+
+**D-BUG-03: Search bar мобильный** — input и кнопки в одной строке через
+`.search-bar-actions`. На `≤480px` поле на всю ширину, кнопки ниже.
+
+**D-BUG-04: Workspace сегменты** — grid колонка `minmax(360px, 1fr)` вместо `1fr`.
+`seg-header` получил `flex-wrap` чтобы тайминг и счётчик не перекрывались.
+
+**D-BUG-05: Горизонтальный scroll в Workspace** — добавлен `overflow-x:hidden`
+на scroll-body панели сегментов.
+
+**D-BUG-06: Заголовок проекта** — `cursor:default` + `.header-row-title h2`
+позволяет HTML-тайтлу работать как tooltip для длинных имён.
+
+**D-BUG-07: API key input** — стили `input-group` для `.api-key-row`: input +
+кнопка-копирования в одной строке с фокус-рамкой.
+
+**MOBILE HAMBURGER** — добавлена кнопка `.sidebar-toggle` в `App.tsx` с state
+`sidebarOpen`. `@media (≤768px)`: sidebar становится drawer с `position:fixed;
+transform:translateX(-100%)`. Overlay закрывает при клике вне.
+
+---
+
 ## 1.22.24 - 2026-05-02 - FEAT - TVIDEO-091
+
 
 ### Амплуа, скорость и высота голоса в TTS-настройках
 
