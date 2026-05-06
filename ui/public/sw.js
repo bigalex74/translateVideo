@@ -11,7 +11,7 @@
  */
 
 // Версия кэша — ОБНОВЛЯЕТСЯ при каждом make deploy (sed-заменой)
-const APP_VERSION = '1.84.0';
+const APP_VERSION = '1.85.0';
 const CACHE_NAME = `av-static-${APP_VERSION}`;
 
 // НЕ кэшируем index.html — всегда с сети (Network First для HTML)
@@ -56,8 +56,24 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. API запросы — ВСЕГДА сеть (свежие данные)
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/runs/')) {
+  // 0. Range-запросы (видео/аудио стриминг) — НЕ перехватывать совсем
+  // SW не может корректно обработать Range requests — браузер делает это сам
+  if (request.headers.get('Range')) {
+    return; // не вызываем event.respondWith → браузер идёт напрямую на сервер
+  }
+
+  // 1. Видео-файлы /api/v1/video/ и /runs/ — всегда напрямую, без SW
+  // Видео стримится через Range requests и несовместимо с SW-кэшированием
+  if (
+    url.pathname.startsWith('/api/v1/video/') ||
+    url.pathname.startsWith('/runs/') ||
+    url.pathname.match(/\.(mp4|mp3|wav|webm|ogg|m4a|mkv)(\?|$)/)
+  ) {
+    return; // без event.respondWith → браузер сам
+  }
+
+  // 2. Остальные API запросы — Network Only (свежие данные, но с fallback)
+  if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request).catch(() =>
         new Response(
