@@ -251,6 +251,37 @@ h1, h2, h3, h4 {
   color: var(--text-muted);
 }
 
+/* D-BUG-07: API Key input-group — кнопка Copy вплотную к полю */
+.api-key-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.api-key-row .api-key-input {
+  flex: 1;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+  min-width: 0;
+}
+
+.api-key-row .api-key-copy-btn {
+  flex-shrink: 0;
+  border-radius: 0 var(--radius-sm, 8px) var(--radius-sm, 8px) 0;
+  border-left: 1px solid var(--border-color);
+  padding: 8px 14px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.api-key-row .api-key-input:focus {
+  position: relative;
+  z-index: 1;
+}
+
 .text-input, .select-input {
   background: var(--bg-base);
   border: 1px solid var(--border-color);
