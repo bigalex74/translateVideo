@@ -10,6 +10,15 @@
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* D-BUG-01: семантические переменные (дефолт = светлая тема) */
+  --surface-card:   #f8f9fc;
+  --surface:        #f1f3f7;
+  --surface-2:      #e8eaf0;
+  --text-primary:   #1e293b;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+  --stat-card-bg:   rgba(0,0,0,0.03);
+  --stat-card-border: rgba(0,0,0,0.08);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -43,6 +52,14 @@
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    --surface-card:   #1e293b;
+    --surface:        #1e1f2e;
+    --surface-2:      #2a2b3d;
+    --text-primary:   #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted:     #64748b;
+    --stat-card-bg:   rgba(255,255,255,0.04);
+    --stat-card-border: rgba(255,255,255,0.08);
   }
 
   #social .button-icon {
@@ -64,6 +81,15 @@
   --shadow:
     rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   color-scheme: dark;
+  /* D-BUG-01: семантические переменные для компонентов */
+  --surface-card:   #1e293b;
+  --surface:        #1e1f2e;
+  --surface-2:      #2a2b3d;
+  --text-primary:   #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted:     #64748b;
+  --stat-card-bg:   rgba(255,255,255,0.04);
+  --stat-card-border: rgba(255,255,255,0.08);
 }
 
 [data-theme="dark"] #social .button-icon {
@@ -83,6 +109,15 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
   color-scheme: light;
+  /* D-BUG-01: семантические переменные для светлой темы */
+  --surface-card:   #f8f9fc;
+  --surface:        #f1f3f7;
+  --surface-2:      #e8eaf0;
+  --text-primary:   #1e293b;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+  --stat-card-bg:   rgba(0,0,0,0.03);
+  --stat-card-border: rgba(0,0,0,0.08);
 }
 
 #root {
@@ -227,14 +262,20 @@ code {
     width: 100%;
   }
 
-  /* Search bar: stack */
+  /* D-BUG-03: Search bar — строка в одну строку на mobile, не стек */
   .search-bar {
-    flex-direction: column;
-    gap: 8px;
+    flex-wrap: nowrap;
+    gap: 6px;
   }
 
   .search-bar input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;  /* позволяет flex shrink ниже content width */
+  }
+
+  .search-bar button {
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   /* NewProject: wizard steps */
@@ -409,6 +450,7 @@ code {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: nowrap;  /* D-BUG-02: принудительно в одну строку */
   background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1));
   border: 1px solid rgba(99,102,241,0.25);
   border-radius: 10px;
@@ -423,12 +465,26 @@ code {
 .pwa-install-icon { font-size: 1.4rem; flex-shrink: 0; }
 .pwa-install-text {
   flex: 1;
+  min-width: 0;  /* D-BUG-02: позволяет тексту shrink-иться */
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.pwa-install-text strong { font-size: 0.88rem; color: var(--text-primary, #e2e8f0); }
-.pwa-install-text span { font-size: 0.76rem; color: var(--text-secondary, #94a3b8); }
+/* D-BUG-02: текст обрезается, не переносится на 3 строки */
+.pwa-install-text strong {
+  font-size: 0.88rem;
+  color: var(--text-primary, #e2e8f0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pwa-install-text span {
+  font-size: 0.76rem;
+  color: var(--text-secondary, #94a3b8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pwa-install-btn {
   display: flex;
   align-items: center;
@@ -442,6 +498,7 @@ code {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;  /* D-BUG-02: кнопка не сжимается */
   transition: background 0.2s;
 }
 .pwa-install-btn:hover { background: #4f46e5; }
@@ -454,6 +511,7 @@ code {
   border-radius: 4px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;  /* D-BUG-02: кнопка закрытия не сжимается */
 }
 .pwa-dismiss-btn:hover { color: var(--text-primary, #e2e8f0); }
 
@@ -475,15 +533,22 @@ code {
   gap: 4px;
   padding: 12px 8px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.04);
+  /* D-BUG-08: используем CSS-переменные вместо хардкода rgba(255,255,255,*) */
+  border: 1px solid var(--stat-card-border, rgba(255,255,255,0.08));
+  background: var(--stat-card-bg, rgba(255,255,255,0.04));
   text-align: center;
   transition: transform 0.15s;
 }
 .stat-card:hover { transform: translateY(-1px); }
-.stat-icon { opacity: 0.7; }
+.stat-icon { opacity: 0.7; font-size: 1.2rem; }
 .stat-value { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+/* D-BUG-08: убираем uppercase на mobile (<480px) */
 .stat-label { font-size: 0.72rem; color: var(--text-secondary, #94a3b8); text-transform: uppercase; letter-spacing: 0.05em; }
+@media (max-width: 480px) {
+  .stat-label { text-transform: none; font-size: 0.7rem; letter-spacing: 0; }
+  .stat-icon { font-size: 1.4rem; }
+  .stat-value { font-size: 1.3rem; }
+}
 .stat-total .stat-value { color: #a5b4fc; }
 .stat-total .stat-icon { color: #6366f1; }
 .stat-ok .stat-value { color: #86efac; }

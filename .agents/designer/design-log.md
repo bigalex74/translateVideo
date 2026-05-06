@@ -347,3 +347,48 @@ CSS-изменение выглядело «добавлением анимац�
 **Статус:** ✅ Исправлено | Деплой будет в следующем раунде
 
 *Добавлено: 2026-05-06T08:16 | Designer Agent*
+
+---
+
+## Round R9 — Итерация 1 (2026-05-06 15:27)
+
+### Исправленные баги:
+- **D-BUG-01**: Светлая тема — добавлены `--surface-card`, `--surface`, `--surface-2`, `--text-primary`, `--text-secondary`, `--stat-card-bg/border` в `:root`, `[data-theme="light"]`, `[data-theme="dark"]`, `@media prefers-color-scheme: dark`
+- **D-BUG-02**: PWA banner — `flex-wrap: nowrap`, текст с `text-overflow: ellipsis`, кнопки `flex-shrink: 0`
+- **D-BUG-03**: Search bar — `flex-wrap: nowrap` и на desktop (Dashboard.css) и на mobile ≤480px, `flex: 1; min-width: 0` на input
+- **D-BUG-08**: Stat карточки — `background/border` через CSS-переменные, stat-label без uppercase на mobile ≤480px
+
+### Визуальная проверка (Designer Agent):
+
+✅ **CSS Guard**: пройден  
+✅ **Нет горизонтального скролла** на 375px (scrollWidth=375=clientWidth)  
+✅ **search-bar**: `flexWrap: nowrap` на mobile ✅  
+✅ **PWA banner**: `flexWrap: nowrap`, height=74px (не 3 строки) ✅  
+✅ **Светлая тема**: `--surface-card: #f8f9fc`, `--text-primary: #18181b`, `statCardBg: rgba(0,0,0,0.03)` ✅  
+✅ **stat-label**: `textTransform: none` на mobile ✅  
+⚠️ **Console**: 1 deprecation warn для `apple-mobile-web-app-capable` meta тега (не критично, не наш код)
+
+### Скриншоты:
+- `1-dashboard-dark.png` — главный экран, тёмная тема ✅
+- `2-dashboard-light.png` — тёмная тема после первого переключения
+- `3-mobile-375-light.png` — мобильный до второго деплоя
+- `4-mobile-375-dark-v2.png` — мобильный после фикса Dashboard.css ✅
+- `5-mobile-375-light-v2.png` — мобильный светлая тема ✅
+- `6-desktop-light-final.png` — desktop светлая тема финал ✅
+
+## ✅ АПРУV — Round R9 / Итерация 1 (2026-05-06 15:28)
+
+**Ветка:** TVIDEO-210-light-theme-and-mobile  
+**Статус:** APPROVED
+
+### Визуальные проверки:
+- [x] Dashboard тёмная тема — ✅ OK
+- [x] Dashboard светлая тема — ✅ OK (новые CSS переменные работают)
+- [x] Мобильный 375px — ✅ OK (нет горизонтального скролла)
+- [x] Search bar mobile — ✅ nowrap, одна строка
+- [x] PWA banner mobile — ✅ nowrap, нет 3-строчного текста
+- [x] Stat карточки mobile — ✅ читаемы, без uppercase
+- [x] Console errors — ✅ ноль ошибок (1 deprecation warn не критичен)
+- [x] CSS Guard — ✅ пройден
+
+**Подпись:** Designer Agent | 2026-05-06T15:28

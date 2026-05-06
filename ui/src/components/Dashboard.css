@@ -22,18 +22,18 @@
 @media (max-width: 480px) {
     .search-bar {
         padding: 12px 16px;
-        gap: 8px;
-        flex-wrap: wrap;     /* если совсем мало места — кнопки на вторую строку */
+        gap: 6px;
+        flex-wrap: nowrap;   /* D-BUG-03: строка, не стек */
     }
 
     .search-bar .text-input {
-        flex: 1 1 100%;      /* сначала поле на всю ширину */
+        flex: 1;
+        min-width: 0;        /* shrink ниже content width */
     }
 
     .search-bar-actions {
-        flex: 0 0 auto;
-        width: 100%;
-        justify-content: flex-end;
+        flex-shrink: 0;
+        gap: 4px;
     }
 }
 
