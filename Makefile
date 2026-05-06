@@ -124,5 +124,5 @@ css-guard:
 visual-check:
 	@echo "$(CYAN)📸 Visual Smoke — снимаем скриншоты UI...$(RESET)"
 	@echo "   Убедитесь что приложение запущено на :8002"
-	cd ui && npx playwright test e2e/visual.spec.ts --reporter=list
+	cd ui && npx playwright test --config=playwright.visual.config.ts --reporter=list
 	@echo "$(GREEN)✔ Скриншоты в .agents/designer/screenshots/$(RESET)"

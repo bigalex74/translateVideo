@@ -11,6 +11,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+// ESM-совместимый __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ─── Конфигурация ────────────────────────────────────────────────────────────
 
@@ -52,6 +57,14 @@ async function screenshot(page: Page, name: string, description: string) {
 }
 
 async function setupMockAPI(page: Page) {
+  // Пропускаем onboarding (показывается при первом запуске в чистом браузере)
+  // Устанавливаем localStorage до загрузки страницы через route
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('tv_onboarded', '1'); // OnboardingTour.tsx: LS_KEY = 'tv_onboarded'
+    } catch (_) {}
+  });
+
   // Мокируем API чтобы тесты не зависели от живых данных
   await page.route('**/api/v1/projects', (route) => {
     if (route.request().method() === 'GET') {
