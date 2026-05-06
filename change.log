@@ -91,30 +91,55 @@
 
 ---
 
-## 1.77.0 - 2026-05-05 - FEAT - TVIDEO-189-192
-### Round 6 Итерации 2-5: Find&Replace, Completion Toast, Shortcuts, Mobile Polish
+## 1.77.0 - 2026-05-05 - FEAT - TVIDEO-192
+### Round 6 Итерация 5: Mobile Polish — финальная полировка
 
-**Фронтенд — Итерация 2 (v1.74.0):**
-- Workspace: Человекочитаемые ошибки — убраны пути, Traceback, добавлен "💡 Что делать?" (Г2, В6)
+**Фронтенд:**
+- CSS: btn-sm/btn-xs токены дизайн-системы (Designer fix R6)
+- CSS: .seg-replace-row — flex-row для Replace UI
+- CSS: Mobile panel-tabs::after — fade-маска по правому краю
+- CSS: [data-tooltip] — CSS tooltip система для провайдеров (Г5)
+- CSS: .provider-hint — подсказка под select провайдера
+
+**Тесты:** 832 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.76.0 - 2026-05-05 - FEAT - TVIDEO-191
+### Round 6 Итерация 4: Find & Replace (Л5)
+
+**Фронтенд:**
+- Workspace: Ctrl+H → Find & Replace панель (Л5)
+- Workspace: «Заменить всё» — batch replace в translated_text всех сегментов
+- Workspace: кнопка ⇄ рядом с полем поиска
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.75.0 - 2026-05-05 - FEAT - TVIDEO-190
+### Round 6 Итерация 3: Completion Toast (Designer)
+
+**Фронтенд:**
+- Workspace: Toast «✅ Перевод завершён!» при running→completed
+- Workspace: prevStatusRef — отслеживание переходов статусов без лишних рендеров
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.74.0 - 2026-05-05 - FEAT - TVIDEO-189
+### Round 6 Итерация 2: Human-readable errors, Alt+]/[ навигация
+
+**Фронтенд:**
+- Workspace: Человекочитаемые ошибки — убраны пути, Traceback, добавлен «💡 Что делать?» (Г2, В6)
 - Workspace: Alt+] / Alt+[ — навигация между сегментами (Л3)
 - Workspace: data-seg-id attr на сегментах для keyboard nav
 
-**Фронтенд — Итерация 3 (grouped):**
-- Workspace: Toast "✅ Перевод завершён!" при running→completed (Designer)
-- Workspace: prevStatusRef для tracking status transitions
+**Бэкенд:**
+- pipeline.py: исправлена повреждённость бинарным патчем (replace_file_content bug)
 
-**Фронтенд — Итерация 4 (grouped):**
-- Workspace: Ctrl+H → Find & Replace панель (Л5)
-- Workspace: "Заменить всё" — batch replace в translated_text всех сегментов
-- Workspace: кнопка ⇄ рядом с поиском
-
-**CSS — Итерации 3-5:**
-- .seg-replace-row — flex-row для replace UI
-- Mobile panel-tabs::after — fade-маска по правому краю (Designer R6)
-- [data-tooltip] — CSS tooltip система для Г5 (провайдеры)
-- .provider-hint — подсказка под select провайдера
-
-**Тесты:** 832 ✅ / Build ✅ / Python 80% ✅
+**Тесты:** 832 ✅ / Build ✅
 
 ---
 
@@ -139,10 +164,148 @@
 
 **Тесты:** 832 ✅ / Build ✅ / Python 80% ✅
 
+
+
 ---
 
-# Журнал Изменений
+## 1.72.0 - 2026-05-05 - FEAT - TVIDEO-187
+### Round 5 Итерация 10: Settings UI — финальная полировка
+
+**Фронтенд:**
+- Settings: полная страница настроек с persist через localStorage
+- applyFontLevel() применяет размер шрифта и compact mode при старте
+- Settings: select провайдера с persist (tv_provider)
+- CSS: .settings-page, .settings-section, .settings-row
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.71.0 - 2026-05-05 - FEAT - TVIDEO-186
+### Round 5 Итерация 9: Compact mode для сегментов (С4)
+
+**Фронтенд:**
+- Settings: toggle compact mode + localStorage tv_compact_mode
+- CSS: .compact-mode — padding 6px 8px, margin-top 4px для сегментов
+- applyFontLevel(level, compact) — unified применение настроек
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.70.0 - 2026-05-05 - FEAT - TVIDEO-185
+### Round 5 Итерация 8: Тёмная тема в Settings (системная)
+
+**Фронтенд:**
+- Settings: toggle тёмной темы + localStorage tv_theme
+- applyTheme() устанавливает data-theme attr на documentElement
+- Синхронизация с системной темой через matchMedia
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.69.0 - 2026-05-05 - FEAT - TVIDEO-184
+### Round 5 Итерация 7: Font size 3-level (С1)
+
+**Фронтенд:**
+- Workspace/Settings: 3 размера шрифта — small (0.82rem) / medium / large (1.05rem)
+- CSS: [data-font-level='small/large'] .seg-translated, .seg-source
+- Settings: select размера + localStorage tv_font_level
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.68.0 - 2026-05-05 - FEAT - TVIDEO-183
+### Round 5 Итерация 6: Адаптивный поллинг статуса (В7)
+
+**Фронтенд:**
+- Workspace: адаптивный polling вместо setInterval
+- Стратегия: 0-2мин → 2с / 2-5мин → 3с / 5+ мин → 5с / cancelling → 500ms
+- Использует setTimeout вместо setInterval для точного управления
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.67.0 - 2026-05-05 - FEAT - TVIDEO-182
+### Round 5 Итерация 5: Subtitle export panel (А6)
+
+**Фронтенд:**
+- Workspace: вкладка Artifacts — 4 кнопки SRT / VTT / ASS / SBV
+- Workspace: кнопка «📦 ZIP (все форматы)»
+- Показывается только при наличии сегментов
+- API: subtitleExportUrl() + subtitleExportZipUrl() в client.ts
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.66.0 - 2026-05-05 - FEAT - TVIDEO-181
+### Round 5 Итерация 4: Rate limiting /run + request_id логирование (В3, В9)
+
+**Бэкенд:**
+- _PipelineRateLimiter: макс 5 запусков / 60с на IP (in-memory)
+- Настраивается: PIPELINE_RATE_LIMIT_MAX, PIPELINE_RATE_LIMIT_WINDOW
+- Возвращает 429 с детальным сообщением
+- Исключения: 127.0.0.1, ::1, testclient (localhost и тесты)
+- TraceIDMiddleware: request_id в логах (X-Request-ID / X-Trace-ID)
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.65.0 - 2026-05-05 - FEAT - TVIDEO-180
+### Round 5 Итерация 3: ETA в title браузера, счётчик символов, Error Guide (О2, Л4, С3)
+
+**Фронтенд:**
+- Workspace: ETA в title браузера — «🔄 45% ~3мин | AI Video Translator» (О2)
+- Workspace: счётчик символов под textarea — ≤60 зелёный / 61-84 жёлтый / >84 красный (Л4)
+- Workspace: Error Recovery Guide — «💡 Что делать?» с конкретными советами (С3)
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.64.0 - 2026-05-05 - FEAT - TVIDEO-179
+### Round 5 Итерация 2: Coverage hotfix +5 тестов, download labels, store.root fix
+
+**Тесты:**
+- +5 новых тестов: test_rename_and_version.py (827 → 832 тестов)
+- test_version_returns_ok, test_version_matches_package
+- test_rename_sets_display_name, test_rename_empty_name_rejected, test_rename_unknown_project_404
+
+**Бэкенд:**
+- Bugfix: store.work_root → store.root в rename endpoint (AttributeError)
+
+**Фронтенд:**
+- Подписи кнопок скачивания с title-tooltip (О10)
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.63.0 - 2026-05-05 - FEAT - TVIDEO-178
+### Round 5 Итерация 1: Переименование проекта, /api/version, фильтр пустых, сортировка
+
+**Бэкенд:**
+- PATCH /api/v1/projects/{id}/rename — display_name в VideoProject (О1)
+- GET /api/version — лёгкий аналог /health для CI/CD мониторинга (В10)
+- display_name сохраняется в project.json без переименования директории
+
+**Фронтенд:**
+- Dashboard: inline rename в mini-card через Pencil иконку (О1)
+- Dashboard: фильтр «⚠️ Пустые» для сегментов без перевода (А5)
+- Dashboard: сортировка с persist через localStorage (А9)
+- Dashboard: tooltip на кнопке Run — объяснение что делает кнопка
+
+**Тесты:** 832 ✅ / Build ✅ (через 827→832 в iter 2)
+
+---
+
 ## 1.62.0 - 2026-05-05 - FEAT - TVIDEO-176
+
 ### Round 4 Итерация 5: MP3 export, Progress bar, Status tooltips, Provider hints
 
 **Фронтенд:**
