@@ -94,3 +94,17 @@
 | 🟢 P3 | BATCH-MULTI-DND | Множественный DnD (несколько файлов одновременно) |
 
 *Обновлено: 2026-05-06 | v1.82.0 | Tech Writer Agent*
+
+---
+
+## ✅ АПРУV — Round R9 / Итерация 4 (2026-05-06 15:20)
+
+**Ветка:** TVIDEO-213-coverage-boost  
+**Статус:** APPROVED
+
+### Документация проверена:
+- [x] Тесты покрывают бизнес-сценарии (webhook при completed/failed, HMAC security)
+- [x] Changelog — нет изменений API, только тесты (N/A для changelog)
+- [x] Backlog R9 обновлён: DYNAMIC-IMPORT coverage task — ✅ закрыт
+
+**Подпись:** Tech Writer | 2026-05-06T15:20

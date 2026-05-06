@@ -163,3 +163,21 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 обязательный шаг **перед каждым** `make deploy`.
 
 *Добавлено: 2026-05-06T07:59 | QA Monitor Agent*
+
+---
+
+## ✅ АПРУV — Round R9 / Итерация 4 (2026-05-06 15:20)
+
+**Ветка:** TVIDEO-213-coverage-boost  
+**Статус:** APPROVED
+
+### QA проверки:
+- [x] Python unit-тесты (tests/unit) — ✅ 638 OK (+22 новых)
+- [x] Frontend vitest — ✅ 182 OK
+- [x] Coverage Python — ✅ 80% (было 79%)
+  - webhook.py: 41% → 100%
+  - notifications/__init__.py: 79% → 90%+
+- [x] pre-push hook порог: 79% → 80% ✅
+- [x] Новые тесты: test_webhook.py (19 тестов), test_notifications.py (11 тестов)
+
+**Подпись:** QA Monitor | 2026-05-06T15:20
