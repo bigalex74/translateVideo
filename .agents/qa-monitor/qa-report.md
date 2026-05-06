@@ -131,3 +131,35 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 | QA-001 | 🟡 WARN | `[INEFFECTIVE_DYNAMIC_IMPORT]` — запланировано на R9 (refactor) |
 
 *Обновлено: 2026-05-06T04:46 | v1.82.0 | QA Monitor Agent*
+
+---
+
+## Changelog Validation — 2026-05-06
+
+### Результат первой проверки (до исправления)
+
+```
+📋 Записей: 161
+🚨 ОШИБКИ: 43 записи с невалидными типами (MINOR/PATCH/MAJOR/SEMVER)
+   Причина: Устаревшие типы из эпохи до введения Conventional Commits (< v1.24.0)
+```
+
+### Решение
+
+- Введено понятие **legacy-типов** для версий `< 1.24.0` (легализованы в скрипте)
+- Создан `scripts/validate_changelog.py` — официальный валидатор
+- Правила добавлены в `AGENT.md` раздел 3 (MANDATORY + BLOCKER)
+- Деплой-чеклист обновлён (пункт 3б)
+
+### Результат после исправления
+
+```
+✅ OK | 161 версий | 0 ошибок | 0 предупреждений
+```
+
+### Правило
+
+Начиная с R8: `python3 scripts/validate_changelog.py --summary change.log` —
+обязательный шаг **перед каждым** `make deploy`.
+
+*Добавлено: 2026-05-06T07:59 | QA Monitor Agent*
