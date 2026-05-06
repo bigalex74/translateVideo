@@ -333,6 +333,72 @@
 .preset-label { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
 .preset-desc { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.3; }
 
+/* ── Mode cards (Что делать с видео?) ──────────────────────────────────── */
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .mode-cards { grid-template-columns: 1fr; }
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 14px;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top, rgba(139,92,246,0.08), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.mode-card:hover { border-color: rgba(139,92,246,0.5); transform: translateY(-2px); }
+.mode-card:hover::before { opacity: 1; }
+
+.mode-card--active {
+  border-color: var(--accent);
+  background: rgba(139,92,246,0.1);
+  box-shadow: 0 0 0 3px rgba(139,92,246,0.18);
+}
+
+.mode-card--active::before { opacity: 1; }
+
+.mode-card__icon {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(139,92,246,0.35));
+}
+
+.mode-card__label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.mode-card__desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 /* ── Скролл-обёртка для шага 2 (расширенные настройки) ─────────────────── */
 .adv-scroll-wrap {
   max-height: 58vh;
@@ -366,4 +432,68 @@
 .adv-scroll-wrap {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--accent) 45%, transparent) transparent;
+}
+
+/* ─── Upload progress bar (C-04) ──────────────────────────────────────────── */
+.upload-progress-wrap {
+  margin: 0.5rem 0 1rem;
+}
+.upload-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #94a3b8);
+  margin-bottom: 6px;
+}
+.upload-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--surface-raised, rgba(255,255,255,0.08));
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.upload-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent, #6366f1), var(--accent-secondary, #8b5cf6));
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+/* ─── Term Tooltips (C-03) ─────────────────────────────────────────────────── */
+.term-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.term-help-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.term-help-btn:hover,
+.term-help-btn:focus { opacity: 1; color: var(--accent, #6366f1); }
+.term-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 200;
+  background: var(--surface-overlay, #1e293b);
+  color: var(--text-primary, #e2e8f0);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 400;
+  max-width: 280px;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  pointer-events: none;
+  line-height: 1.5;
 }

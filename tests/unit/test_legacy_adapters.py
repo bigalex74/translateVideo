@@ -20,20 +20,33 @@ from translate_video.tts.legacy import EdgeTTSProvider
 class LegacyAdaptersTest(unittest.TestCase):
     """Проверяет адаптеры без запуска тяжелых внешних зависимостей."""
 
-    def test_media_provider_extracts_audio_and_closes_video(self):
-        """MoviePy-медиа адаптер должен записать аудио и закрыть видео."""
+    def test_media_provider_extracts_audio_via_ffmpeg(self):
+        """ffmpeg-медиа адаптер должен вызвать ffmpeg и вернуть путь к WAV."""
+        from unittest.mock import patch, MagicMock
 
         with tempfile.TemporaryDirectory() as temp_dir:
             project = _project(temp_dir)
-            audio = _FakeAudio()
-            video = _FakeVideo(audio=audio)
-            provider = LegacyMoviePyMediaProvider(video_clip_factory=lambda _path: video)
+            # Мокируем subprocess.run — ffmpeg не запускается реально
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            with patch(
+                "translate_video.media.legacy.subprocess.run",
+                return_value=mock_result,
+            ) as mock_run:
+                # Создаём output-файл вручную, как если бы ffmpeg его создал
+                output = project.work_dir / "source_audio.wav"
+                output.write_bytes(b"fake-wav")
 
-            output = provider.extract_audio(project)
+                provider = LegacyMoviePyMediaProvider()
+                result = provider.extract_audio(project)
 
-            self.assertEqual(output, project.work_dir / "source_audio.wav")
-            self.assertEqual(audio.written_to, str(output))
-            self.assertTrue(video.closed)
+            self.assertEqual(result, output)
+            # ffmpeg вызван один раз с нужными флагами
+            call_args = mock_run.call_args[0][0]
+            self.assertIn("-ar", call_args)
+            self.assertIn("16000", call_args)
+            self.assertIn("-ac", call_args)
+            self.assertIn("1", call_args)
 
     def test_whisper_transcriber_converts_segments(self):
         """Whisper-адаптер должен преобразовать сегменты в схему ядра."""
@@ -298,7 +311,7 @@ class LegacyAdaptersTest(unittest.TestCase):
 
         stages = _build_stages("legacy")
 
-        self.assertEqual(len(stages), 8)  # +RegroupStage + TimingFitStage + ExportSubtitlesStage
+        self.assertEqual(len(stages), 8)  # voiceover: без ExportSubtitlesStage (только EmbedSubtitlesStage)
 
 
 def _project(temp_dir: str, config: PipelineConfig | None = None) -> VideoProject:
@@ -378,7 +391,9 @@ class _FakeWhisperModel:
         self.segments = segments
 
     def transcribe(self, audio_path: str, beam_size: int):
-        return self.segments, SimpleNamespace(language="en")
+        from types import SimpleNamespace
+        info = SimpleNamespace(language="en", duration=2.0)
+        return iter(self.segments), info
 
 
 class _FakeTranslator:

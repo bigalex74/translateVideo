@@ -188,9 +188,42 @@ class EffectiveTtsSpeedTest(unittest.TestCase):
         """Edge TTS (пустой провайдер) → скорость 1.0."""
         self.assertAlmostEqual(self._speed(professional_tts_provider=""), 1.0)
 
-    def test_openai_provider_returns_1(self):
-        """OpenAI-совместимые провайдеры не поддерживают speed-хинт → 1.0."""
-        self.assertAlmostEqual(self._speed(professional_tts_provider="neuroapi"), 1.0)
+    def test_neuroapi_provider_returns_calibration_factor(self):
+        """neuroapi (OpenAI-совместимый) → коэффициент 0.82 (tts-1 default)."""
+        v = self._speed(
+            professional_tts_provider="neuroapi",
+            professional_tts_model="tts-1",
+        )
+        self.assertAlmostEqual(v, 0.82)
+
+    def test_polza_gpt4o_mini_tts_returns_calibrated_factor(self):
+        """polza + gpt-4o-mini-tts → коэффициент 0.78 (замерено)."""
+        v = self._speed(
+            professional_tts_provider="polza",
+            professional_tts_model="openai/gpt-4o-mini-tts",
+        )
+        self.assertAlmostEqual(v, 0.78)
+
+    def test_polza_elevenlabs_returns_calibrated_factor(self):
+        """polza + ElevenLabs → коэффициент 0.90."""
+        v = self._speed(
+            professional_tts_provider="polza",
+            professional_tts_model="elevenlabs/text-to-speech-turbo-2-5",
+        )
+        self.assertAlmostEqual(v, 0.90)
+
+    def test_unknown_provider_returns_1(self):
+        """Неизвестный провайдер → скорость 1.0 (Edge TTS дефолт)."""
+        self.assertAlmostEqual(self._speed(professional_tts_provider="some_other"), 1.0)
+
+    def test_polza_gpt4o_speed_13_multiplied(self):
+        """polza + gpt-4o-mini-tts + speed=1.3 → 0.78 × 1.3 ≈ 1.014."""
+        v = self._speed(
+            professional_tts_provider="polza",
+            professional_tts_model="openai/gpt-4o-mini-tts",
+            professional_tts_speed=1.3,
+        )
+        self.assertAlmostEqual(v, 0.78 * 1.3, places=4)
 
     def test_yandex_single_speed_15(self):
         """Yandex single voice, speed=1.5 → возвращает 1.5."""

@@ -33,7 +33,7 @@ class FakeMediaProvider:
 class FakeTranscriber:
     """Имитационный распознаватель, возвращающий один сегмент."""
 
-    def transcribe(self, audio_path, config):
+    def transcribe(self, audio_path, config, progress_callback=None):
         """Вернуть заранее известный исходный сегмент."""
 
         return [Segment(id="seg_1", start=0.0, end=1.0, source_text="Привет")]
@@ -134,9 +134,10 @@ class PipelineStagesIntegrationTest(unittest.TestCase):
                 Stage.TTS,
                 Stage.RENDER,
             ])
-            self.assertEqual(restored.artifacts["source_audio"], "source_audio.wav")
+            # source_audio.wav удаляется после транскрипции — артефакт тоже убирается
+            self.assertNotIn("source_audio", restored.artifacts)
+            self.assertFalse((project.work_dir / "source_audio.wav").exists())
             self.assertEqual(restored.artifacts["translated_transcript"], "transcript.translated.json")
-            self.assertEqual(restored.artifacts["tts_audio"], "tts")
             self.assertEqual(restored.artifacts["output_video"], "output/translated.mp4")
             self.assertEqual(restored.segments[0].translated_text, "ru: Привет")
             self.assertEqual(restored.segments[0].tts_path, "tts/seg_1.wav")

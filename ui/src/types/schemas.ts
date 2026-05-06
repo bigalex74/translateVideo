@@ -21,6 +21,7 @@ export interface PipelineConfig {
     original_audio_volume: number;
     background_ducking: boolean;
     subtitle_formats: string[];
+    subtitle_embed_mode?: string;  // 'none' | 'soft' | 'burn'
     glossary_path?: string;
     timing_policy: string;
     target_chars_per_second: number;
@@ -46,6 +47,10 @@ export interface PipelineConfig {
     professional_tts_pitch: number;
     professional_tts_pitch_2: number;
     professional_tts_emotion: number;
+    el_stability: number;
+    el_similarity_boost: number;
+    el_style: number;
+    el_speed: number;
     allow_tts_rate_adaptation: boolean;
     allow_render_audio_speedup: boolean;
     allow_timeline_shift: boolean;
@@ -58,6 +63,8 @@ export interface PipelineConfig {
     allow_render_audio_trim: boolean;
     regroup_max_slot: number;
     do_not_translate: string[];
+    /** Z2.9: Пары глоссария {source, target} */
+    glossary_terms: Array<{source: string; target: string}>;
     dev_mode: boolean;
 }
 
@@ -76,6 +83,10 @@ export interface Segment {
     tts_path?: string;
     tts_text?: string;
     qa_flags?: string[];
+    notes?: string;  // Z2.11: комментарий редактора
+    edit_count?: number;  // Z2.16: счётчик ручных правок
+    word_count_source?: number;  // Z3.19
+    word_count_translated?: number;  // Z3.19
 }
 
 export interface StageRun {
@@ -92,6 +103,8 @@ export interface StageRun {
     progress_total?: number | null;
     progress_message?: string | null;
     metadata?: Record<string, unknown>;
+    /** Z2.7: Время выполнения этапа в секундах */
+    elapsed?: number | null;
 }
 
 export interface ArtifactRecord {
@@ -114,6 +127,14 @@ export interface VideoProject {
     artifact_records?: ArtifactRecord[];
     stage_runs?: StageRun[];
     config?: PipelineConfig;
+    /** Прогресс выполнения 0–100 */
+    progress_percent?: number | null;
+    /** ETA до завершения в секундах */
+    eta_seconds?: number | null;
+    /** ISO-дата начала пайплайна */
+    started_at?: string | null;
+    /** Сообщение об ошибке (для failed статуса) */
+    error?: string | null;
 }
 
 export interface ProjectListResponse {
@@ -133,11 +154,23 @@ export interface PreflightCheck {
     details: Record<string, string>;
 }
 
+export interface CostEstimate {
+    translation_usd: number;
+    tts_usd: number;
+    total_usd: number;
+    currency: string;
+    note: string;
+}
+
 export interface PreflightReport {
     input_video: string;
     provider: string;
     ok: boolean;
     duration_seconds?: number | null;
+    /** Оценка стоимости обработки */
+    cost_estimate?: CostEstimate | null;
+    /** ETA всего пайплайна в секундах */
+    duration_estimate_seconds?: number | null;
     checks: PreflightCheck[];
 }
 

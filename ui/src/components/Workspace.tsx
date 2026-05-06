@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS } from '../api/client';
-import type { ArtifactRecord, VideoProject, Segment, PipelineConfig } from '../types/schemas';
+import { artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl, safariSafeDownload } from '../api/client';
+import type { ArtifactRecord, CostEstimate, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
 import { stageProgressInfo } from '../progress';
@@ -16,9 +16,10 @@ import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
   Loader2, AlertCircle, Undo2, Redo2, Settings, X,
-  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info,
+  Film, AlignLeft, Activity, Play, XCircle, AlertTriangle, Info, Share2, ExternalLink, Columns2,
 } from 'lucide-react';
 import './Workspace.css';
+import { useProjectStatus } from '../hooks/useProjectStatus';
 
 interface WorkspaceProps {
   projectId: string;
@@ -31,6 +32,16 @@ type RightTab = 'status' | 'qa' | 'artifacts' | 'stats' | 'devlog';
 
 const API_VIDEO = '/api/v1/video';
 
+/** R7-И2: Форматирует секунды в HH:MM:SS для темпоральных меток сегментов (Глеб Гчит. 3, Валентина) */
+function formatTimecode(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+
 export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale }) => {
   const [project, setProject] = useState<VideoProject | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -41,11 +52,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const prevStatusRef = useRef<string | null>(null);
   const [confirm, setConfirm] = useState<{ force: boolean } | null>(null);
   const [showConfig, setShowConfig] = useState(false);
   const [configPatch, setConfigPatch] = useState<Partial<PipelineConfig>>({});
   const [savingConfig, setSavingConfig] = useState(false);
   const [activeSegId, setActiveSegId] = useState<string | null>(null);
+  const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
+  // Модальное предупреждение: откат Яндекс-разметки при смене провайдера
+  const [yandexRevertModal, setYandexRevertModal] = useState<{
+    pendingPatch: Partial<PipelineConfig>;
+    affectedCount: number;
+  } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   // Ссылки на DOM-узлы карточек сегментов для авто-скролла
   const segRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -53,9 +71,36 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   // ВАЖНО: должен быть ДО любого раннего return (Rules of Hooks).
   const ssmlTextareaRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
 
-  // Undo/redo история
   const [history, setHistory] = useState<Segment[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  // Z2.12: Segment search/filter
+  const [segSearch, setSegSearch] = React.useState('');
+  const [segReplace, setSegReplace] = React.useState('');
+  const [showReplace, setShowReplace] = React.useState(false);
+  const [filterEmptyOnly, setFilterEmptyOnly] = React.useState(false);  // Л6: показывать только пустые
+  const [qaFlagFilter, setQaFlagFilter] = React.useState('');  // NC8-02
+  const [selectedSegIds, setSelectedSegIds] = React.useState<Set<string>>(new Set());  // Z2.15
+  // Z4.10: Keyboard shortcuts help modal
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  // R7-И3: Side-by-side режим (оригинал | перевод в две колонки) (Валентина Вт1, Глеб Гчит.10)
+  const [sideBySide, setSideBySide] = useState(false);
+  // Z3.11: Quality report state
+  const [qualityReport, setQualityReport] = useState<Record<string, unknown> | null>(null);
+  const [loadingQR, setLoadingQR] = useState(false);
+
+  const fetchQualityReport = async () => {
+    setLoadingQR(true);
+    try {
+      const resp = await fetch(`${window.location.pathname.includes('localhost') ? '' : ''}/api/v1/projects/${projectId}/quality-report`);
+      if (resp.ok) setQualityReport(await resp.json());
+    } catch {/* ignore */}
+    finally { setLoadingQR(false); }
+  };
+  // Оценка стоимости из последнего preflight (для ConfirmRunModal)
+  const [preflightCost, setPreflightCost] = useState<{
+    cost?: CostEstimate | null;
+    eta?: number | null;
+  }>({});
 
   // Авто-скролл к активному сегменту при воспроизведении
   useEffect(() => {
@@ -78,6 +123,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
         setHistory(loadedSegments.length > 0 ? [loadedSegments] : []);
         setHistoryIndex(loadedSegments.length > 0 ? 0 : -1);
         setDirty(false);
+
+        // Запрашиваем preflight для получения cost_estimate / ETA
+        // Ошибки — некритичны, просто не показываем оценку
+        if (data.input_video && data.config?.professional_translation_provider) {
+          import('../api/client').then(({ preflightVideo }) => {
+            preflightVideo(data.input_video, data.config!.professional_translation_provider || 'fake')
+              .then(report => {
+                if (!cancelled) {
+                  setPreflightCost({
+                    cost: report.cost_estimate,
+                    eta: report.duration_estimate_seconds,
+                  });
+                }
+              })
+              .catch(() => {/* silent */});
+          });
+        }
       })
       .catch(e => console.error(e));
     return () => {
@@ -85,28 +147,33 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     };
   }, [projectId]);
 
-  // Поллинг статуса во время работы пайплайна.
-  // При cancelling=true ускоряем до 500ms, чтобы overlay закрылся сразу после остановки.
+  // Designer R6-iter2: Toast "Перевод готов!" при переходе running→completed
   useEffect(() => {
-    if (project?.status !== 'running') return;
-    const interval = cancelling ? 500 : 2000;
-    const poll = setInterval(async () => {
-      try {
-        const data = await getProjectStatus(projectId);
-        // Во время поллинга не затираем локально отредактированные сегменты.
-        setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
-        // Когда перевод завершился — сбрасываем состояние отмены
-        if (data.status !== 'running') {
-          setCancelling(false);
-          setCancelConfirm(false);
-          setCancelTimedOut(false);
-        }
-      } catch (e) {
-        console.error('poll error', e);
+    if (!project) return;
+    const prev = prevStatusRef.current;
+    if (prev === 'running' && project.status === 'completed') {
+      setMessage('✅ Перевод завершён! Скачайте результат.');
+      setTimeout(() => setMessage(''), 5000);
+    }
+    prevStatusRef.current = project.status;
+  }, [project?.status]);
+
+  // R8-И1: WebSocket + adaptive HTTP fallback через useProjectStatus hook (Глеб Г7)
+  // Заменяет инлайн поллинг — больше нет дёргающего setInterval
+  useProjectStatus({
+    projectId,
+    isRunning: project?.status === 'running',
+    cancelling,
+    onUpdate: (data) => {
+      setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
+      if (data.status !== 'running') {
+        setCancelling(false);
+        setCancelConfirm(false);
+        setCancelTimedOut(false);
       }
-    }, interval);
-    return () => clearInterval(poll);
-  }, [cancelling, dirty, project?.status, projectId]);
+    },
+    onError: (e) => console.error('[status] error', e),
+  });
 
   // Zombie-timeout: если через 8с после отмены статус не изменился — показываем Force Stop.
   useEffect(() => {
@@ -114,6 +181,129 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     const t = setTimeout(() => setCancelTimedOut(true), 8000);
     return () => clearTimeout(t);
   }, [cancelling]);
+
+  // ─── Autosave субтитров каждые 30с (C-07) ───────────────────────────────────
+  // Автосохранение: если есть несохранённые правки и проект не запущен — сохраняем тихо.
+  const [autosaveAt, setAutosaveAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (!dirty || !project || project.status === 'running') return;
+    const timer = setInterval(async () => {
+      try {
+        const segs = Array.isArray(project.segments) ? project.segments : [];
+        if (segs.length === 0) return;
+        await saveProjectSegments(project.project_id, segs);
+        setDirty(false);
+        const now = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        setAutosaveAt(now);
+        setTimeout(() => setAutosaveAt(null), 3000);
+      } catch {
+        // silent — не мешаем пользователю ошибкой autosave
+      }
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [dirty, project]);
+
+  // ─── Ctrl+S keyboard shortcut (UX агент — предложение iter 1) ───────────────
+  // R7-И2: beforeunload — браузер предупреждает при закрытии с несохранёнными правками (Глеб Г4)
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Есть несохранённые изменения. Уйти?';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (dirty && project && project.status !== 'running') {
+          document.getElementById('btn-save-segments')?.click();
+        }
+      }
+      // Л5: Ctrl+H → открыть/закрыть панель замены
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        setShowReplace(r => !r);
+      }
+      // D9: Alt+N → следующий непереведённый сегмент
+      if (e.altKey && e.key === 'n' && project) {
+        e.preventDefault();
+        const segs = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
+        const firstUntranslated = segs.find(s => !s.translated_text?.trim());
+        if (firstUntranslated) {
+          const el = segRefs.current.get(firstUntranslated.id);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Фокус на textarea внутри сегмента
+            el.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+          }
+        }
+      }
+      // Л3: Alt+] → следующий сегмент, Alt+[ → предыдущий
+      if (e.altKey && (e.key === ']' || e.key === '[') && project) {
+        e.preventDefault();
+        const segs = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
+        const active = document.activeElement?.closest('[data-seg-id]') as HTMLElement | null;
+        const activeId = active?.dataset.segId;
+        const idx = activeId ? segs.findIndex(s => String(s.id) === activeId) : -1;
+        const nextIdx = e.key === ']' ? Math.min(idx + 1, segs.length - 1) : Math.max(idx - 1, 0);
+        if (nextIdx >= 0) {
+          const next = segs[nextIdx];
+          const el = segRefs.current.get(next.id);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [dirty, project]);
+
+  // D-012 + О2: Прогресс + ETA в title браузера — '🔄 45% ~3мин | AI Video Translator'
+  useEffect(() => {
+    if (!project) return;
+    const base = 'AI Video Translator';
+    if (project.status === 'running') {
+      const pct = project.progress_percent ?? 0;
+      const eta = project.eta_seconds;
+      const etaStr = eta != null && eta > 0
+        ? (eta >= 60 ? ` ~${Math.ceil(eta / 60)}мин` : ` ~${eta}с`)
+        : '';
+      document.title = `🔄 ${pct}%${etaStr} | ${base}`;
+    } else if (project.status === 'completed') {
+      document.title = `✅ Готово | ${base}`;
+    } else if (project.status === 'failed') {
+      document.title = `❌ Ошибка | ${base}`;
+    } else {
+      document.title = base;
+    }
+    return () => { document.title = base; };
+  }, [project?.status, project?.progress_percent, project?.eta_seconds]);
+
+  // ─── Z4.12: Alt+↑/↓ навигация по сегментам в редакторе ──────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.altKey || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+      const segs = (project?.segments ?? []) as Segment[];
+      if (!segs.length) return;
+      e.preventDefault();
+      setActiveSegId(prev => {
+        const idx = prev ? segs.findIndex(s => s.id === prev) : -1;
+        if (e.key === 'ArrowDown') {
+          return segs[Math.min(idx + 1, segs.length - 1)]?.id ?? prev;
+        } else {
+          return segs[Math.max(idx - 1, 0)]?.id ?? prev;
+        }
+      });
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [project]);
 
   // ─── Live QA feed ─── (ДОЛЖЕН быть ДО любого раннего return — Rules of Hooks)
   const FLAG_SEV: Record<string, 'critical' | 'error' | 'warning' | 'info'> = {
@@ -126,6 +316,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     rewrite_provider_failed: 'warning', render_speed_fallback: 'warning',
     tts_pretrim: 'warning', timeline_shifted: 'warning',
     rewrite_provider_quota_limited: 'warning', rewrite_provider_cooldown: 'warning',
+  };
+
+  // Z2.5: Подсказки "что делать" для каждого QA-флага
+  const QA_FLAG_ACTIONS: Record<string, string> = {
+    translation_empty: 'Откройте сегмент и введите перевод вручную.',
+    translation_fallback_source: 'Перевод совпал с оригиналом — проверьте язык перевода в настройках.',
+    timing_fit_failed: 'Озвучка не помещается в слот. Сократите перевод в редакторе или уменьшите скорость.',
+    render_audio_trimmed: 'Аудио обрезано — попробуйте уменьшить текст перевода или увеличить скорость речи.',
+    tts_overflow_after_rate: 'Даже на максимальной скорости не помещается. Сократите текст перевода.',
+    timeline_shift_limit_reached: 'Субтитр выходит за рамки. Скорректируйте тайминг вручную.',
+    timeline_audio_extends_video: 'Озвучка длиннее видео — сократите последний сегмент.',
+    tts_rate_adapted: 'TTS ускорен — при необходимости сократите текст перевода.',
+    tts_pretrim: 'Текст обрезан перед отправкой в TTS — проверьте перевод.',
+    translation_rewritten_for_timing: 'Перевод был автоматически сокращён — проверьте качество.',
   };
 
   // Какие флаги принадлежат каждой стадии пайплайна (импортировано из qa_stage_filter.ts).
@@ -170,6 +374,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   );
 
   const isRunning = project.status === 'running';
+  const isDone = project.status === 'completed';
   const segments = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
 
   // ─── Running overlay ──────────────────────────────────────────────────────
@@ -188,11 +393,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     setHistoryIndex(trimmed.length - 1);
   };
 
-  const handleTextChange = (segId: string, newText: string) => {
+  const handleTextChange = (segId: string, newText: string, field: 'translated_text' | 'notes' = 'translated_text') => {
     setProject(prev => {
       if (!prev) return prev;
       const newSegments = (prev.segments as Segment[]).map(s =>
-        s.id === segId ? { ...s, translated_text: newText } : s
+        s.id === segId ? {
+          ...s,
+          [field]: newText,
+          // Z2.16: Счётчик правок инкрементируется при изменении перевода
+          ...(field === 'translated_text' ? { edit_count: (s.edit_count ?? 0) + 1 } : {}),
+        } : s
       );
       pushHistory(newSegments);
       return { ...prev, segments: newSegments };
@@ -238,6 +448,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     const ni = historyIndex + 1;
     setHistoryIndex(ni);
     setProject(prev => prev ? { ...prev, segments: history[ni] } : prev);
+    setDirty(true);
+  };
+
+  // ─── Z2.14: Объединение двух соседних сегментов ──────────────────────────────
+  const handleMergeSegments = (segId: string) => {
+    setProject(prev => {
+      if (!prev) return prev;
+      const segs = prev.segments as Segment[];
+      const idx = segs.findIndex(s => s.id === segId);
+      if (idx < 0 || idx >= segs.length - 1) return prev;
+
+      const curr = segs[idx];
+      const next = segs[idx + 1];
+      const merged: Segment = {
+        ...curr,
+        end: next.end,
+        source_text: [curr.source_text, next.source_text].filter(Boolean).join(' '),
+        translated_text: [curr.translated_text, next.translated_text].filter(Boolean).join(' '),
+        notes: [curr.notes, next.notes].filter(Boolean).join(' | '),
+      };
+      const newSegs = [...segs.slice(0, idx), merged, ...segs.slice(idx + 2)];
+      return { ...prev, segments: newSegs };
+    });
     setDirty(true);
   };
 
@@ -314,11 +547,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const findArtifact = (kind: string): ArtifactRecord | undefined =>
     project.artifact_records?.find(r => r.kind === kind);
 
+  // Z1.6: Приоритетные артефакты — видео первым, затем аудио и субтитры
+  const primaryArtifacts = [
+    { kind: 'output_video',           label: '🎬 Готовое видео',           primary: true },
+    { kind: 'output_video_with_subs', label: '🎬💬 Видео с субтитрами',    primary: true },
+  ].filter(item => findArtifact(item.kind));
+
   const downloadableArtifacts = [
-    { kind: 'subtitles',            label: '📄 Субтитры' },
-    { kind: 'output_video',         label: '🎬 Готовое видео' },
-    { kind: 'qa_report',            label: '✅ QA-отчёт' },
-    { kind: 'translated_transcript', label: '📝 Перевод (JSON)' },
+    { kind: 'output_video',           label: '🎬 Готовое видео (MP4)',         title: 'Финальный MP4 — видео с переведённой озвучкой и/или субтитрами. Оригинальный файл заменён.' },
+    { kind: 'output_video_with_subs', label: '🎬💬 Видео + субтитры (MP4)',   title: 'MP4 с встроенными субтитрами поверх видео.' },
+    { kind: 'subtitles',              label: '📄 Субтитры (SRT)',              title: 'Файл субтитров формата SRT — совместим с большинством видеоплееров и YouTube.' },
+    { kind: 'subtitles_vtt',          label: '📄 Субтитры (VTT)',              title: 'WebVTT — для использования в браузере и HTML5-видео.' },
+    { kind: 'qa_report',              label: '✅ QA-отчёт (JSON)',             title: 'Машинная проверка качества перевода: пустые сегменты, превышения тайминга, несоответствия.' },
+    { kind: 'translated_transcript',  label: '📝 Перевод (JSON)',              title: 'Полный JSON с оригинальными и переведёнными сегментами — для дальнейшей обработки.' },
   ].filter(item => findArtifact(item.kind));
 
   const canUndo = historyIndex > 0;
@@ -334,14 +575,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           <div className="running-card">
             <Loader2 size={40} className="animate-spin running-spinner" />
             <h3>{cancelling ? 'Отмена перевода…' : t('workspace.running', locale)}</h3>
+            {/* ETA из бэкенда */}
+            {project?.eta_seconds != null && project.eta_seconds > 0 && (
+              <p className="running-eta">
+                ⏱ {project.eta_seconds >= 60
+                  ? `~${Math.ceil(project.eta_seconds / 60)} мин`
+                  : `~${project.eta_seconds} сек`}
+              </p>
+            )}
             {runningStage && (
               <p className="running-stage">
                 ⚙️ {stageLabel(runningStage.stage, locale)}
               </p>
             )}
-            {totalStages > 0 && (
+            {/* Основной прогресс-бар: используем project.progress_percent если есть */}
+            {(project?.progress_percent != null || totalStages > 0) && (
               <div className="running-progress-wrap">
-                <div className="running-progress-bar" style={{ width: `${progress}%` }} />
+                <div
+                  className="running-progress-bar"
+                  style={{ width: `${project?.progress_percent ?? progress}%` }}
+                />
               </div>
             )}
             {runningStageProgress && (
@@ -373,10 +626,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                                : sev === 'warning'  ? <AlertTriangle size={10} />
                                :                      <Info size={10} />;
                     const label = t(`qa.flag.${flag}`, locale);
+                    const action = QA_FLAG_ACTIONS[flag];
                     return (
-                      <li key={flag} className={`running-qa-item running-qa-item--${sev}`}>
+                      <li
+                        key={flag}
+                        className={`running-qa-item running-qa-item--${sev}`}
+                        title={action || label}
+                      >
                         {icon}
                         <span className="running-qa-label">{label}</span>
+                        {action && <span className="running-qa-hint" title={action}>💡</span>}
                         <span className="running-qa-count">{count}</span>
                       </li>
                     );
@@ -475,8 +734,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       <header className="workspace-header">
         {/* Строка 1: название + статус */}
         <div className="header-row header-row-title">
-          <button onClick={onBack} className="btn-icon" title={t('workspace.back', locale)}>
-            <ArrowLeft size={18} />
+          <button
+            onClick={onBack}
+            className="btn-back-projects"
+            aria-label={t('workspace.back', locale)}
+            title={t('workspace.back', locale)}
+          >
+            <ArrowLeft size={16} />
+            <span>{t('workspace.back', locale) || '← К проектам'}</span>
           </button>
           <h2 title={projectId}>{projectId}</h2>
           <span className={`badge ${project.status}`}>{statusLabel(project.status, locale)}</span>
@@ -509,28 +774,91 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             <button
               className="btn-secondary btn-sm"
               onClick={() => setConfirm({ force: true })}
-              title={project.status === 'completed' ? 'Запустить все этапы заново' : 'Перезапустить всё с начала'}
+              title={
+                project.status === 'completed'
+                  ? '🔄 Запустить перевод заново: все этапы будут выполнены повторно — извлечение аудио, распознавание речи, перевод текста, озвучка и монтаж. Старые файлы будут перезаписаны.'
+                  : '▶️ Запустить перевод с нуля: последовательно выполнятся все этапы. Это может занять несколько минут в зависимости от длины видео.'
+              }
             >
               <RefreshCw size={14} /> {project.status === 'completed' ? t('workspace.run', locale) : t('workspace.restart', locale)}
             </button>
           )}
+          {/* Z4.10: Keyboard shortcuts help */}
           <button
             className="btn-icon"
+            title="Горячие клавиши (Keyboard shortcuts)"
+            aria-label="Справка по горячим клавишам"
+            onClick={() => setShowShortcuts(true)}
+          >
+            ?
+          </button>
+          {/* Z1.8: Share link button */}
+          <button
+            className="btn-icon"
+            title={locale === 'ru' ? 'Скопировать ссылку на проект' : 'Copy project link'}
+            aria-label={locale === 'ru' ? 'Поделиться' : 'Share'}
+            onClick={() => {
+              const url = `${window.location.origin}${window.location.pathname}?project=${projectId}`;
+              navigator.clipboard.writeText(url).then(() => {
+                setMessage(locale === 'ru' ? '🔗 Ссылка скопирована!' : '🔗 Link copied!');
+                setTimeout(() => setMessage(''), 3000);
+              });
+            }}
+          >
+            <Share2 size={15} />
+          </button>
+          {/* Z1.13: Открыть исходное видео */}
+          {project?.input_video && (
+            <a
+              className="btn-icon btn-icon--labeled"
+              href={`/api/v1/projects/${projectId}/video`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={locale === 'ru' ? 'Открыть видео в новой вкладке' : 'Open video in new tab'}
+            >
+              <ExternalLink size={15} />
+            </a>
+          )}
+          <button
+            className="btn-icon btn-icon--labeled"
             title={t('workspace.translationSettings', locale)}
             aria-label={t('workspace.translationSettings', locale)}
             onClick={() => setShowConfig(prev => !prev)}
           >
             <Settings size={15} />
+            <span className="btn-icon-label">{locale === 'ru' ? 'Настройки' : 'Settings'}</span>
           </button>
           <button
+            id="btn-save-segments"
             className="btn-primary btn-sm"
             onClick={handleSave}
             disabled={!dirty || saving || isRunning}
-            title={dirty ? t('workspace.saveSegments', locale) : t('workspace.noChanges', locale)}
+            title={dirty ? `${t('workspace.saveSegments', locale)} (Ctrl+S)` : t('workspace.noChanges', locale)}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             {t('workspace.save', locale)}{dirty ? ' *' : ''}
           </button>
+          {/* Autosave indicator (C-07) */}
+          {autosaveAt && (
+            <span className="autosave-badge" title="Изменения автоматически сохранены">
+              <CheckCircle2 size={12} />
+              {locale === 'ru' ? `Сохранено ${autosaveAt}` : `Saved ${autosaveAt}`}
+            </span>
+          )}
+          {/* Z1.6: CTA кнопка скачивания готового видео */}
+          {primaryArtifacts.length > 0 && (
+            <button
+              className="btn-download-cta"
+              title="Скачать готовое видео"
+              onClick={() => safariSafeDownload(
+                artifactDownloadUrl(projectId, primaryArtifacts[0].kind),
+                `${projectId}_translated.mp4`
+              )}
+            >
+              <Download size={14} />
+              {locale === 'ru' ? 'Скачать' : 'Download'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -538,6 +866,38 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       {message && (
         <div className="workspace-message" role="status">{message}</div>
       )}
+
+      {/* С3: Error Recovery Guide — показывается при status=failed */}
+      {!isRunning && project.status === 'failed' && (() => {
+        const failedStage = project.stage_runs?.find((r: { status: string }) => r.status === 'failed');
+        const stageHints: Record<string, string> = {
+          extract_audio: '🔊 Проверьте формат видеофайла (MP4/MKV/AVI). Попробуйте перекодировать видео.',
+          transcribe: '🎙️ Возможно аудио слишком тихое или с шумом. Увеличьте громкость или используйте другой файл.',
+          translate: '🌐 Проверьте API-ключ провайдера перевода и баланс счёта в настройках.',
+          tts: '🔈 Проверьте API-ключ TTS-провайдера и баланс. Попробуйте другого провайдера.',
+          timing_fit: '⏱️ Слишком длинный перевод. Попробуйте скорость TTS 1.2× или уменьшить текст сегментов.',
+          render: '🎬 Ошибка монтажа. Проверьте что файл не удалён. Нажмите «Продолжить» для повтора.',
+          export: '📦 Ошибка экспорта. Убедитесь что есть свободное место на диске. Нажмите «Продолжить».',
+        };
+        const stageKey = failedStage ? String((failedStage as { stage?: string }).stage ?? '') : '';
+        const hint = stageHints[stageKey] || '❓ Нажмите «Продолжить» для повтора с проваленного этапа или «Перезапустить» для полного старта.';
+        return (
+          <div style={{
+            display: 'flex', gap: '10px', alignItems: 'flex-start',
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: '10px', padding: '10px 14px', marginBottom: '12px',
+            fontSize: '0.84rem', color: '#fca5a5',
+          }}>
+            <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>🆘</span>
+            <div>
+              <strong style={{ display: 'block', marginBottom: '2px', color: '#fca5a5' }}>
+                Что делать при ошибке{stageKey ? ` (этап: ${stageKey})` : ''}
+              </strong>
+              {hint}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ═══ Config Panel ═══ */}
       {showConfig && (
@@ -581,7 +941,31 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           <div className="adv-scroll-wrap">
             <AdvancedSettings
               config={{ ...(project.config ?? {}), ...configPatch }}
-              onChange={patch => setConfigPatch(prev => ({ ...prev, ...patch }))}
+              onChange={patch => {
+                // Обнаруживаем смену провайдера С Yandex НА что-то другое
+                const currentProvider = configPatch.professional_tts_provider
+                  ?? project?.config?.professional_tts_provider ?? '';
+                const nextProvider = patch.professional_tts_provider;
+
+                if (
+                  nextProvider !== undefined
+                  && nextProvider !== 'yandex'
+                  && currentProvider === 'yandex'
+                ) {
+                  // Считаем сегменты с Яндекс-разметкой в tts_ssml_override
+                  const YANDEX_MARKUP_RE = /\*\*|sil<\[|<\[(tiny|small|medium|large|huge)\]>|\[\[|\+[аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU]/i;
+                  const affectedSegs = segments.filter(s => {
+                    const ov = (s as Segment & { tts_ssml_override?: string }).tts_ssml_override || '';
+                    return ov && YANDEX_MARKUP_RE.test(ov);
+                  });
+                  if (affectedSegs.length > 0) {
+                    // Показываем модалку — не применяем patch сразу
+                    setYandexRevertModal({ pendingPatch: patch, affectedCount: affectedSegs.length });
+                    return;
+                  }
+                }
+                setConfigPatch(prev => ({ ...prev, ...patch }));
+              }}
               disabled={savingConfig}
             />
           </div>
@@ -612,7 +996,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 <Film size={14} /> {t('workspace.aiTranslation', locale)}
               </button>
             </div>
-            <div className="video-container">
+            <div className={`video-container${videoRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight && videoRef.current.videoWidth < videoRef.current.videoHeight ? ' is-portrait' : ''}`}>
               <video
                 ref={videoRef}
                 controls
@@ -624,16 +1008,28 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   setActiveSegId(active?.id ?? null);
                 }}
               >
-                {project.artifacts['subtitles'] && (
+                {/* WebVTT-субтитры — браузер понимает только VTT, не SRT */}
+                {project.artifacts['subtitles_vtt'] && (
                   <track
                     kind="subtitles"
-                    src={`${API_VIDEO}/${projectId}/${project.artifacts['subtitles']}`}
-                    srcLang="ru"
-                    label="Русский"
+                    src={`${API_VIDEO}/${projectId}/${project.artifacts['subtitles_vtt']}`}
+                    srcLang={project.config?.target_language ?? 'ru'}
+                    label="Субтитры"
                     default
                   />
                 )}
               </video>
+              {/* I5: Кастомный оверлей субтитров (если нет VTT или при редактировании)
+                  Показывает переведённый текст текущего активного сегмента поверх видео */}
+              {activeSegId && !project.artifacts['subtitles_vtt'] && (() => {
+                const activeSeg = segments.find(s => s.id === activeSegId);
+                const subText = activeSeg?.translated_text || activeSeg?.source_text;
+                return subText ? (
+                  <div className="subtitle-overlay" aria-live="polite">
+                    {subText}
+                  </div>
+                ) : null;
+              })()}
             </div>
           </div>
 
@@ -646,17 +1042,173 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 {dirty && <span className="dirty-indicator"> · {t('workspace.unsaved', locale)}</span>}
               </span>
             </div>
-            <div className="segments-list">
-              {segments.map((seg) => (
+            {/* Z2.12: Поиск по сегментам */}
+            <div className="seg-search-bar">
+              <input
+                id="seg-search-input"
+                className="seg-search-input"
+                type="text"
+                placeholder={locale === 'ru' ? '🔍 Поиск по тексту...' : '🔍 Search segments...'}
+                value={segSearch}
+                onChange={e => setSegSearch(e.target.value)}
+              />
+              {segSearch && (
+                <button className="seg-search-clear" onClick={() => setSegSearch('')} aria-label="Очистить">×</button>
+              )}
+              {/* Л5: Кнопка открытия замены */}
+              <button
+                className={`btn-secondary btn-xs${showReplace ? ' active' : ''}`}
+                onClick={() => setShowReplace(r => !r)}
+                title="Найти и заменить (Ctrl+H)"
+              >⇄</button>
+              {/* Л5: Панель замены */}
+              {showReplace && segSearch && (
+                <div className="seg-replace-row">
+                  <input
+                    type="text"
+                    className="seg-search-input"
+                    placeholder="Заменить на..."
+                    value={segReplace}
+                    onChange={e => setSegReplace(e.target.value)}
+                    style={{ width: 140 }}
+                  />
+                  <button
+                    className="btn-secondary btn-xs"
+                    onClick={() => {
+                      if (!segSearch || !project) return;
+                      setProject(prev => {
+                        if (!prev) return prev;
+                        const updatedSegs = (prev.segments as Segment[]).map(s => {
+                          if (!s.translated_text?.includes(segSearch)) return s;
+                          return { ...s, translated_text: s.translated_text.replaceAll(segSearch, segReplace) };
+                        });
+                        return { ...prev, segments: updatedSegs };
+                      });
+                      setDirty(true);
+                      setMessage(`Заменено: "${segSearch}" → "${segReplace}"`);
+                      setTimeout(() => setMessage(''), 3000);
+                    }}
+                  >Заменить всё</button>
+                </div>
+              )}
+              {/* NC8-02: Фильтр по QA-флагу */}
+              <select
+                className="seg-qa-filter"
+                value={qaFlagFilter}
+                onChange={e => setQaFlagFilter(e.target.value)}
+                title="Фильтр по QA-флагу"
+              >
+                <option value="">Все сегменты</option>
+                <option value="translation_empty">Пустой перевод</option>
+                <option value="timing_fit_failed">Не влезает в слот</option>
+                <option value="tts_overflow">Переполнение TTS</option>
+                <option value="render_audio_trimmed">Обрезка аудио</option>
+                <option value="translation_fallback_source">Оригинал в переводе</option>
+              </select>
+              {/* Л6: Фильтр пустых (непереведённых) сегментов */}
+              <button
+                id="btn-filter-empty"
+                className={`btn-secondary btn-xs${filterEmptyOnly ? ' active' : ''}`}
+                onClick={() => setFilterEmptyOnly(f => !f)}
+                title={filterEmptyOnly ? 'Показать все сегменты' : 'Показать только непереведённые (пустые)'}
+                style={{
+                  flexShrink: 0,
+                  background: filterEmptyOnly ? 'rgba(245,158,11,0.2)' : undefined,
+                  borderColor: filterEmptyOnly ? '#f59e0b' : undefined,
+                  color: filterEmptyOnly ? '#fde68a' : undefined,
+                }}
+              >
+                {filterEmptyOnly ? '⚠️ Пустые' : '⚠️ Пустые'}
+                <span style={{ marginLeft: '4px', fontSize: '0.72rem', opacity: 0.8 }}>
+                  {filterEmptyOnly ? '✓' : ''}
+                </span>
+              </button>
+              {/* R7-И3: Side-by-side переключатель (Валентина Вт1) */}
+              <button
+                id="btn-side-by-side"
+                className={`btn-secondary btn-xs${sideBySide ? ' active' : ''}`}
+                onClick={() => setSideBySide(s => !s)}
+                title={sideBySide ? 'Обычный режим' : 'Режим side-by-side: оригинал и перевод рядом'}
+                style={{
+                  flexShrink: 0,
+                  background: sideBySide ? 'rgba(99,102,241,0.2)' : undefined,
+                  borderColor: sideBySide ? '#6366f1' : undefined,
+                  color: sideBySide ? '#a5b4fc' : undefined,
+                }}
+              >
+                <Columns2 size={13} />
+                <span style={{ marginLeft: '4px' }}>‖</span>
+              </button>
+            </div>
+            {/* Z2.15: Bulk actions bar */}
+            {selectedSegIds.size > 0 && (
+              <div className="bulk-actions-bar">
+                <span className="bulk-count">✓ {selectedSegIds.size} выбрано</span>
+                <button
+                  className="btn-secondary btn-xs"
+                  onClick={() => setSelectedSegIds(new Set(segments.map(s => s.id)))}
+                >Выбрать все</button>
+                <button
+                  className="btn-secondary btn-xs"
+                  onClick={() => {
+                    const texts = segments
+                      .filter(s => selectedSegIds.has(s.id))
+                      .map(s => s.translated_text || '')
+                      .join('\n');
+                    navigator.clipboard.writeText(texts);
+                  }}
+                >📋 Копировать</button>
+                <button
+                  className="btn-secondary btn-xs"
+                  onClick={() => setSelectedSegIds(new Set())}
+                >✕ Снять выбор</button>
+              </div>
+            )}
+            <div className={`segments-list${sideBySide ? ' seg-side-by-side' : ''}`}>
+              {segments
+                .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
+                  seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))
+                .filter(seg => !qaFlagFilter || (seg.qa_flags ?? []).includes(qaFlagFilter))  // NC8-02
+                .filter(seg => !filterEmptyOnly || !seg.translated_text?.trim())  // Л6: только пустые
+                .map((seg, segIndex) => (
                 <div
                   key={seg.id}
+                  data-seg-id={String(seg.id)}
                   ref={(el) => {
                     if (el) segRefs.current.set(seg.id, el);
                     else segRefs.current.delete(seg.id);
                   }}
-                  className={`segment-item ${seg.status}${activeSegId === seg.id ? ' segment-active' : ''}`}
+                  className={`segment-item ${seg.status}${activeSegId === seg.id ? ' segment-active' : ''}${
+                    selectedSegIds.has(seg.id) ? ' seg-selected' : ''
+                  }${
+                    (seg.qa_flags ?? []).some((f: string) => ['translation_empty','tts_invalid_slot','timing_fit_invalid_slot'].includes(f)) ? ' seg-qa-critical' :
+                    (seg.qa_flags ?? []).some((f: string) => ['timing_fit_failed','render_audio_trimmed','tts_overflow_after_rate'].includes(f)) ? ' seg-qa-error' :
+                    (seg.qa_flags ?? []).length > 0 ? ' seg-qa-warning' : ''
+                  }`}
                 >
                   <div className="seg-header">
+                    {/* D6: Номер сегмента для ориентации в длинных текстах */}
+                    <span
+                      className="seg-number"
+                      title={`Сегмент №${segIndex + 1} из ${segments.length}`}
+                    >
+                      #{segIndex + 1}
+                    </span>
+                    {/* Z2.15: Checkbox для batch-выбора */}
+                    <input
+                      type="checkbox"
+                      className="seg-checkbox"
+                      checked={selectedSegIds.has(seg.id)}
+                      onChange={(e) => {
+                        setSelectedSegIds(prev => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(seg.id);
+                          else next.delete(seg.id);
+                          return next;
+                        });
+                      }}
+                      aria-label={`Выбрать сегмент №${segIndex + 1}`}
+                    />
                     <span
                       className="seg-timing seg-timing--clickable"
                       title="Перейти к этому моменту в видео"
@@ -667,12 +1219,42 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                         }
                       }}
                     >
-                      {seg.start.toFixed(1)}с — {seg.end.toFixed(1)}с
+                      {formatTimecode(seg.start)} — {formatTimecode(seg.end)}
                       <span className="seg-duration">({(seg.end - seg.start).toFixed(1)}с)</span>
                     </span>
                     <span className="seg-status">{statusLabel(seg.status ?? '', locale)}</span>
+                    {/* Z2.16: Badge счётчика правок */}
+                    {(seg.edit_count ?? 0) > 0 && (
+                      <span className="seg-edit-count" title="Количество ручных правок">
+                        ✏️ {seg.edit_count}
+                      </span>
+                    )}
+                    {/* Z2.10: copy translated text */}
+                    {seg.translated_text && (
+                      <button
+                        className="seg-copy-btn"
+                        title={locale === 'ru' ? 'Скопировать перевод' : 'Copy translation'}
+                        onClick={() => navigator.clipboard.writeText(seg.translated_text).catch(() => {})}
+                        aria-label="Скопировать перевод"
+                      >
+                        📋
+                      </button>
+                    )}
                   </div>
-                  <div className="seg-source">{seg.source_text}</div>
+                  <div className="seg-source-row">
+                    <div className="seg-source">{seg.source_text}</div>
+                    {/* Z4.11: diff — кол-во символов до/после */}
+                    {seg.translated_text && seg.source_text && (
+                      <span className={`seg-diff-badge ${
+                        seg.translated_text.length > seg.source_text.length * 1.3 ? 'seg-diff--long' :
+                        seg.translated_text.length < seg.source_text.length * 0.7 ? 'seg-diff--short' :
+                        'seg-diff--ok'}`}
+                        title={`Оригинал: ${seg.source_text.length} символов → Перевод: ${seg.translated_text.length} символов`}
+                      >
+                        {seg.source_text.length} → {seg.translated_text.length}
+                      </span>
+                    )}
+                  </div>
 
                   {/* TTS-тулбар — показывается только при Яндекс TTS */}
                   {project.config?.professional_tts_provider === 'yandex' && (() => {
@@ -699,6 +1281,69 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       />
                     );
                   })()}
+
+                  {/* Превью TTS — для OpenAI-совместимых провайдеров (Polza, NeuroAPI) */}
+                  {(() => {
+                    const prov = project.config?.professional_tts_provider ?? '';
+                    if (!prov || prov === 'yandex') return null;
+                    const segText = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
+                      || seg.translated_text || '';
+                    const isPreviewing = previewingSegId === seg.id;
+                    return (
+                      <div className="seg-preview-bar">
+                        <button
+                          className={`seg-preview-btn${isPreviewing ? ' seg-preview-btn--loading' : ''}`}
+                          title="Прослушать синтез голоса для этого сегмента"
+                          disabled={isPreviewing || !segText.trim()}
+                          onClick={async () => {
+                            if (isPreviewing) return;
+                            setPreviewingSegId(seg.id);
+                            try {
+                              const url = await previewTTS(projectId, segText, false);
+                              const audio = new Audio();
+                              (window as any).__ttsPreviewAudio = audio;
+                              audio.onended = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; setPreviewingSegId(null); };
+                              audio.onerror = () => { URL.revokeObjectURL(url); delete (window as any).__ttsPreviewAudio; setPreviewingSegId(null); };
+                              audio.src = url;
+                              audio.load();
+                              await audio.play();
+                            } catch {
+                              setPreviewingSegId(null);
+                            }
+                          }}
+                        >
+                          {isPreviewing
+                            ? <Loader2 size={13} className="seg-preview-spinner" />
+                            : <Play size={13} />}
+                          {isPreviewing ? 'Синтез…' : 'Превью'}
+                        </button>
+                      </div>
+                    );
+                  })()}
+                  {/* D8: Копировать перевод сегмента в буфер обмена */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
+                    <button
+                      className="seg-copy-btn"
+                      title="Копировать перевод в буфер (D8)"
+                      onClick={() => {
+                        const text = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override
+                          || seg.translated_text || seg.source_text || '';
+                        navigator.clipboard.writeText(text).then(() => {
+                          // Визуальный фидбек через атрибут
+                          const btn = document.activeElement as HTMLElement;
+                          if (btn) { btn.textContent = '✅'; setTimeout(() => { btn.textContent = '📋'; }, 1200); }
+                        });
+                      }}
+                      style={{
+                        background: 'none', border: '1px solid var(--border-color)',
+                        borderRadius: '4px', padding: '2px 6px', fontSize: '13px',
+                        cursor: 'pointer', color: 'var(--text-muted)',
+                      }}
+                    >📋</button>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      {seg.source_text?.split(' ').length ?? 0} слов
+                    </span>
+                  </div>
 
                   <textarea
                     ref={(el) => {
@@ -729,6 +1374,38 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     }
                     rows={2}
                   />
+                  {/* Л4: Счётчик символов — предупреждение при > 84 (стандарт субтитров) */}
+                  {(() => {
+                    const txt = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override || seg.translated_text || '';
+                    const len = txt.length;
+                    const maxLine = Math.max(...(txt.split('\n').map(l => l.length)));
+                    const isOverLimit = maxLine > 84;
+                    const isWarning = maxLine > 60;
+                    if (len === 0) return null;
+                    return (
+                      <div style={{
+                        display: 'flex', justifyContent: 'flex-end', gap: '8px',
+                        fontSize: '0.7rem', marginTop: '2px',
+                      }}
+                      >
+                        {/* R7-И2: Счётчик символов всего */}
+                        <span style={{ color: 'var(--text-muted, #94a3b8)' }} title={`Всего символов: ${len}`}>
+                          {len} симв.
+                        </span>
+                        {/* R7-И2: Длина максимальной строки (стандарт субтитров 42 симв./строка) */}
+                        <span
+                          style={{ color: isOverLimit ? '#ef4444' : isWarning ? '#f59e0b' : '#6ee7b7', fontWeight: isOverLimit ? 700 : 400 }}
+                          title={isOverLimit
+                            ? `⚠️ Строка ${maxLine} символов — превышает стандарт 84 знака. Субтитры могут обрезаться.`
+                            : maxLine > 42
+                            ? `Строка ${maxLine} симв. — превышает профессиональный стандарт 42 знака/строку`
+                            : `Длина строки OK (≤42 симв.)`}
+                        >
+                          {isOverLimit ? '⚠️ ' : maxLine > 42 ? '⚡ ' : '✓ '}строка: {maxLine}/42
+                        </span>
+                      </div>
+                    );
+                  })()}
                   {/* TTS Rich Preview — визуализация разметки */}
                   {(() => {
                     const ov = (seg as Segment & { tts_ssml_override?: string }).tts_ssml_override;
@@ -741,6 +1418,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       </div>
                     );
                   })()}
+                  {/* Z2.11: Notes — комментарий редактора */}
+                  <input
+                    type="text"
+                    className="seg-notes-input"
+                    placeholder={locale === 'ru' ? '💬 Заметка редактора...' : '💬 Note...'}
+                    value={seg.notes ?? ''}
+                    onChange={(e) => handleTextChange(seg.id, e.target.value, 'notes')}
+                  />
+                  {/* Z2.14: Объединить с следующим сегментом */}
+                  {segments.indexOf(seg) < segments.length - 1 && (
+                    <button
+                      className="seg-merge-btn"
+                      title={locale === 'ru' ? 'Объединить с следующим сегментом' : 'Merge with next segment'}
+                      onClick={() => handleMergeSegments(seg.id)}
+                    >
+                      ⤵ Объединить
+                    </button>
+                  )}
                 </div>
               ))}
               {segments.length === 0 && !isRunning && (
@@ -810,6 +1505,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           {/* Вкладка: Статус */}
           {rightTab === 'status' && (
             <div className="right-tab-content">
+              {/* Г7/В7: CTA "Скачать всё" после завершения */}
+              {isDone && (
+                <div className="download-all-cta">
+                  <span className="cta-label">✅ Перевод готов!</span>
+                  <a href={subtitleExportZipUrl(projectId)} target="_blank" rel="noreferrer"
+                    className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>
+                    📦 Скачать всё (ZIP)
+                  </a>
+                  <a href={subtitleExportUrl(projectId, 'srt')} target="_blank" rel="noreferrer"
+                    className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
+                    📄 SRT
+                  </a>
+                </div>
+              )}
               <ul className="timeline">
                 {project.stage_runs?.map(run => {
                   const progressInfo = stageProgressInfo(run);
@@ -819,6 +1528,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       <div className="timeline-content">
                         <strong>{stageLabel(run.stage, locale)}</strong>
                         <span className="status-text">{statusLabel(run.status, locale)}</span>
+                        {/* Z2.7: elapsed time */}
+                        {run.elapsed != null && run.elapsed > 0 && (
+                          <span className="stage-elapsed">
+                            {run.elapsed >= 60
+                              ? `${Math.floor(run.elapsed / 60)}м ${Math.round(run.elapsed % 60)}с`
+                              : `${Math.round(run.elapsed)}с`}
+                          </span>
+                        )}
                         {progressInfo && (
                           <div className="timeline-progress">
                             <div className="timeline-progress-head">
@@ -835,13 +1552,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                         )}
                         {run.error && (
                           <div className="stage-error-block">
-                            <span className="stage-error-label">{t('workspace.error', locale)}:</span>
-                            <code className="stage-error-msg">
+                            <span className="stage-error-label">⚠️ Произошла ошибка:</span>
+                            <span className="stage-error-msg">
                               {run.error
                                 .replace(/\/app\/runs\/[^/]+\//g, '')
                                 .replace(/runs\/[^/]+\//g, '')
-                                .slice(0, 200)}
-                            </code>
+                                .replace(/File "\/[^"]+", line \d+/g, '')
+                                .replace(/Traceback \(most recent call last\):/g, '')
+                                .replace(/^\s+/gm, '')
+                                .trim()
+                                .slice(0, 240)}
+                            </span>
+                            <details className="stage-error-hint">
+                              <summary>💡 Что делать?</summary>
+                              <ul>
+                                <li>Проверьте подключение к интернету</li>
+                                <li>Убедитесь что API-ключ настроен в <strong>Настройках</strong></li>
+                                <li>Попробуйте запустить перевод заново</li>
+                              </ul>
+                            </details>
                           </div>
                         )}
                       </div>
@@ -852,6 +1581,39 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   <p className="empty-text">{t('dashboard.notStarted', locale)}</p>
                 )}
               </ul>
+
+              {/* Z3.11: Quality Report */}
+              {project.status === 'completed' && (
+                <div className="quality-report-section">
+                  <button
+                    className="btn-secondary btn-sm"
+                    onClick={fetchQualityReport}
+                    disabled={loadingQR}
+                  >
+                    {loadingQR ? '...' : '📊 Оценить качество перевода'}
+                  </button>
+                  {qualityReport && (
+                    <div className="quality-report-card">
+                      <div className="qr-grade-row">
+                        <span className={`qr-grade qr-grade--${String(qualityReport.grade).toLowerCase()}`}>
+                          {String(qualityReport.grade)}
+                        </span>
+                        <span className="qr-grade-label">{String(qualityReport.grade_label)}</span>
+                        <span className="qr-issues">
+                          {Number(qualityReport.segments_with_issues)} / {Number(qualityReport.segments_total)} сегментов с проблемами
+                        </span>
+                      </div>
+                      {Array.isArray(qualityReport.recommendations) && (
+                        <ul className="qr-recommendations">
+                          {(qualityReport.recommendations as string[]).map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -875,12 +1637,56 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   .map(r => <ArtifactCard key={r.kind} record={r} projectId={projectId} locale={locale} />)
               ) : downloadableArtifacts.length > 0 ? (
                 downloadableArtifacts.map(item => (
-                  <a key={item.kind} className="artifact-link" href={artifactDownloadUrl(projectId, item.kind)} target="_blank" rel="noreferrer">
+                  <a key={item.kind} className="artifact-link"
+                    href={artifactDownloadUrl(projectId, item.kind)}
+                    target="_blank" rel="noreferrer"
+                    title={(item as { kind: string; label: string; title?: string }).title}
+                  >
                     <Download size={14} /> {item.label}
                   </a>
                 ))
               ) : (
                 <p className="empty-text">{t('workspace.noResults', locale)}</p>
+              )}
+
+              {/* А6: Экспорт субтитров в разных форматах */}
+              {segments.length > 0 && (
+                <div style={{
+                  marginTop: '16px', borderTop: '1px solid var(--border)',
+                  paddingTop: '12px',
+                }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
+                    📄 Экспорт субтитров
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {(['srt', 'vtt', 'ass', 'sbv'] as const).map(fmt => (
+                      <a
+                        key={fmt}
+                        href={subtitleExportUrl(projectId, fmt)}
+                        target="_blank" rel="noreferrer"
+                        className="btn-secondary btn-xs"
+                        title={{
+                          srt: 'SubRip — универсальный, VLC/DaVinci/Premiere/YouTube',
+                          vtt: 'WebVTT — HTML5 браузерный плеер',
+                          ass: 'Advanced SubStation Alpha — Aegisub, профессиональные редакторы',
+                          sbv: 'YouTube SBV — для загрузки в YouTube Studio/Udemy',
+                        }[fmt]}
+                        style={{ textDecoration: 'none', fontFamily: 'monospace', fontSize: '0.8rem' }}
+                      >
+                        {fmt.toUpperCase()}
+                      </a>
+                    ))}
+                    <a
+                      href={subtitleExportZipUrl(projectId)}
+                      target="_blank" rel="noreferrer"
+                      className="btn-secondary btn-xs"
+                      title="Скачать все форматы (SRT+VTT+ASS+SBV) в одном ZIP-архиве"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      📦 ZIP (все форматы)
+                    </a>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -912,6 +1718,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           segments={segments}
           locale={locale}
           stageRuns={project.stage_runs ?? []}
+          costEstimate={preflightCost.cost}
+          durationEstimateSec={preflightCost.eta}
           speedChanged={(() => {
             // Находим последний успешный timing_fit с metadata скорости
             const timingRun = [...(project.stage_runs ?? [])]
@@ -937,6 +1745,80 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           onCancel={() => setConfirm(null)}
         />
       )}
+
+      {/* Модалка: Яндекс-разметка несовместима с выбранным провайдером */}
+      {yandexRevertModal && (
+        <div className="workspace-overlay" role="dialog" aria-modal="true">
+          <div className="yandex-revert-card glass-panel">
+            <div className="yandex-revert-icon">⚠️</div>
+            <h3 className="yandex-revert-title">Несовместимые правки</h3>
+            <p className="yandex-revert-body">
+              У <strong>{yandexRevertModal.affectedCount}</strong> сегм.{' '}
+              есть Яндекс-разметка (ударения <code>+</code>, паузы{' '}
+              <code>{'sil<[…]>'}</code>, логическое ударение <code>{'**…**'}</code>).
+            </p>
+            <p className="yandex-revert-body">
+              Провайдер <strong>{yandexRevertModal.pendingPatch.professional_tts_provider}</strong>{' '}
+              её не поддерживает. Сбросить эти правки до оригинального перевода?
+            </p>
+            <div className="yandex-revert-actions">
+              <button
+                className="btn-secondary yandex-revert-btn-keep"
+                onClick={() => {
+                  // Применяем patch без сброса — разметка стриппируется при синтезе автоматически
+                  setConfigPatch(prev => ({ ...prev, ...yandexRevertModal.pendingPatch }));
+                  setYandexRevertModal(null);
+                }}
+              >
+                Оставить как есть
+              </button>
+              <button
+                className="btn-danger yandex-revert-btn-reset"
+                onClick={() => {
+                  const YANDEX_MARKUP_RE = /\*\*|sil<\[|<\[(tiny|small|medium|large|huge)\]>|\[\[|\+[аеёиоуыэюяАЕЁИОУЫЭЮЯaeiouAEIOU]/i;
+                  const nextSegs = segments.map(s => {
+                    const ov = (s as Segment & { tts_ssml_override?: string }).tts_ssml_override || '';
+                    if (ov && YANDEX_MARKUP_RE.test(ov)) {
+                      return { ...s, tts_ssml_override: '' };
+                    }
+                    return s;
+                  });
+                  pushHistory(nextSegs);
+                  setProject(prev => prev ? { ...prev, segments: nextSegs } : prev);
+                  setDirty(true);
+                  setConfigPatch(prev => ({ ...prev, ...yandexRevertModal.pendingPatch }));
+                  setYandexRevertModal(null);
+                }}
+              >
+                Сбросить правки
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Z4.10: Keyboard shortcuts modal */}
+      {showShortcuts && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setShowShortcuts(false)}>
+          <div className="modal-box shortcuts-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>⌨️ Горячие клавиши</h3>
+              <button className="btn-icon" onClick={() => setShowShortcuts(false)} aria-label="Закрыть"><X size={18} /></button>
+            </div>
+            <div className="shortcuts-grid">
+              <div className="shortcut-row"><kbd>Ctrl+S</kbd><span>Сохранить изменения</span></div>
+              <div className="shortcut-row"><kbd>Ctrl+Z</kbd><span>Отменить последнее изменение</span></div>
+              <div className="shortcut-row"><kbd>Ctrl+Y</kbd><span>Повторить</span></div>
+              <div className="shortcut-row"><kbd>Ctrl+Enter</kbd><span>Запустить / продолжить перевод</span></div>
+              <div className="shortcut-row"><kbd>Esc</kbd><span>Закрыть панель настроек</span></div>
+              <div className="shortcut-row"><kbd>Space</kbd><span>Пауза / воспроизведение видео</span></div>
+              <div className="shortcut-row"><kbd>←</kbd> / <kbd>→</kbd><span>Перемотка ±5 сек</span></div>
+              <div className="shortcut-row"><kbd>Tab</kbd><span>Следующий сегмент</span></div>
+              <div className="shortcut-row"><kbd>Alt+↑</kbd> / <kbd>Alt+↓</kbd><span>Навигация по сегментам (Z4.12)</span></div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -1,0 +1,61 @@
+# .dockerignore — исключаем всё лишнее из build context
+# Это ускоряет сборку и уменьшает размер образа
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Тесты и документация
+tests/
+docs/
+*.md
+*.rst
+!README.md
+
+# Python кэш
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Node modules (frontend собирается отдельно в builder-этапе)
+ui/node_modules/
+ui/.vite/
+ui/dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Локальные данные
+runs/
+*.env
+.env.*
+!.env.example
+
+# Логи
+*.log
+*.jsonl
+
+# Makefile и скрипты для разработки
+Makefile
+
+# Gemini/AI
+.gemini/

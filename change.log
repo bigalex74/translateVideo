@@ -1,4 +1,1245 @@
-# Журнал Изменений
+## 1.86.0 - 2026-05-06 - FIX - TVIDEO-206
+### Hotfix: Modal overlay — createPortal (истинная причина прозрачности)
+
+**Фронтенд:**
+- ConfirmRunModal.tsx: return теперь createPortal(..., document.body)
+- Dashboard.tsx: delete-modal обёрнут в createPortal(..., document.body)
+- Причина бага: .dashboard.fade-in использует animation с transform: translateY() — 
+  это создаёт новый CSS stacking context, в котором position:fixed фиксируется
+  относительно родителя, а не viewport. Модалка рендерилась поверх Dashboard,
+  но не поверх всей страницы — overflow/transform родителя «обрезал» overlay.
+- Решение: createPortal выносит модалки в document.body, вне stacking context.
+
+---
+
+## 1.85.0 - 2026-05-06 - FIX - TVIDEO-205
+### Hotfix: SW не перехватывает Range-запросы (видео)
+
+**Фронтенд:**
+- ui/public/sw.js: Range-запросы (video streaming) полностью пропускаются через SW
+  без event.respondWith. SW не умеет обрабатывать Range requests — браузер делает это сам.
+- /api/v1/video/* и /runs/* также пропускаются напрямую (видео не кэшируется).
+- Паттерн *.mp4, *.mp3, *.wav, *.webm etc также в обходе.
+
+---
+
+## 1.84.0 - 2026-05-06 - FIX - TVIDEO-204
+### Hotfix: SW авто-перезагрузка после деплоя
+
+**Фронтенд:**
+- ui/public/sw.js: activate handler теперь отправляет {type: SW_UPDATED} всем вкладкам
+  после self.clients.claim() — браузер автоматически перезагружает страницу
+- ui/index.html: добавлен обработчик 'message' от SW — при SW_UPDATED вызывает
+  window.location.reload(), пользователь сразу видит новую версию
+
+**Тесты:** 832 ✅
+
+---
+
+## 1.83.0 - 2026-05-06 - FIX - TVIDEO-203
+### Hotfix: Cache-Control для статических файлов (SW + index.html)
+
+**Бэкенд:**
+- main.py: добавлен CacheControlMiddleware — правильная стратегия кэширования:
+  - sw.js, index.html → no-store, no-cache (браузер НИКОГДА не кэширует)
+  - /assets/*.js, *.css → public, max-age=31536000, immutable (Vite хэши — безопасно)
+  - /api/* → no-store (всегда свежие данные)
+  - manifest.webmanifest → no-cache
+- Причина: без Cache-Control браузер эвристически кэшировал sw.js на часы
+  после деплоя — пользователь видел старую версию сайта
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.82.0 - 2026-05-06 - FEAT - TVIDEO-199-202
+### Round 8 Итерации 2-5: Анимации, Skeleton, Один клик, Batch API
+
+**Итерация 2 — Анимации модалов + Mobile touch (Designer):**
+- CSS: @keyframes modal-slide-in — modal-box появляется с scale+translateY анимацией
+- CSS: @keyframes modal-overlay-in — backdrop fade-in
+- CSS: @media (pointer: coarse) — min 44px тач-зоны для btn-sm/xs/icon (WCAG 2.5.5)
+- CSS: seg-translated min-height 80px и font-size 1rem на тач-устройствах
+
+**Итерация 3 — Skeleton loader (Нина Н2):**
+- Dashboard: initialLoading state — 3 skeleton карточки с shimmer анимацией
+- CSS: .skeleton-card, .skeleton-line, @keyframes skeleton-shimmer
+
+**Итерация 4 — Batch API UX (Тимур Т1):**
+- API client: batchCreateProjects() — POST /projects/batch
+- Типы: BatchItem, BatchResult
+
+**Итерация 5 — «Один клик» режим (В1-R6):**
+- DnD overlay: две кнопки «📁 Создать» и «⚡ Создать и перевести»
+- onDrop: при autoRun=true сразу вызывает runPipeline после uploadProject
+- CSS: .dnd-option-btn, .dnd-option-run — стилизованные кнопки в оверлее
+
+**Тесты:** 832 ✅ / Build ✅ 228ms
+
+---
+
+## 1.81.0 - 2026-05-06 - FEAT - TVIDEO-198
+### Round 8 Итерация 1: WebSocket frontend hook (Глеб Г7)
+
+**Фронтенд:**
+- Новый хук ui/src/hooks/useProjectStatus.ts — WS primary + HTTP adaptive fallback
+- Workspace: поллинг заменён на useProjectStatus hook (−21 строка inline кода)
+- При WS недоступен — автоматический fallback на 2с/3с/5с поллинг
+
+**Тесты:** 832 ✅ / Build ✅ 339ms
+
+---
+
+## 1.80.0 - 2026-05-06 - FEAT - TVIDEO-195-197
+### Round 7 Итерации 3-5: Side-by-side, Safari download fix, WebSocket backend
+
+**Итерация 3 — Side-by-side режим (Валентина В1, Глеб Г10):**
+- Workspace: кнопка ⊞ в тулбаре — переключает сегменты в 2 колонки (оригинал | перевод)
+- CSS: .seg-side-by-side — grid 2 колонки, граница между колонками, адаптив для мобильных
+
+**Итерация 4 — Safari download fix (Светлана С4):**
+- API: safariSafeDownload() — fetch+blob скачивание вместо <a download>
+- Workspace: CTA кнопка «Скачать» теперь работает на Safari/iPhone
+- API клиент: deleteProject() — импортирован и использован в Dashboard
+
+**Итерация 5 — WebSocket backend (Глеб Г7):**
+- Backend: @router.websocket("/{project_id}/ws") — R7-И5
+- Шлёт {status, progress_percent, eta_seconds} каждые 2с пока running
+- Frontend hook будет реализован в R8 (декомпозиция)
+
+**Тесты:** 832 ✅ / Build ✅ 220ms / Coverage 80% ✅
+
+---
+
+## 1.79.0 - 2026-05-06 - FEAT - TVIDEO-194
+### Round 7 Итерация 2: Timecode HH:MM:SS, Счётчик символов/строки, beforeunload
+
+**Фронтенд:**
+- Workspace: formatTimecode() — сегменты показывают 00:01:23 вместо 1.0с (Глеб Г3, Валентина В3)
+- Workspace: Счётчик символов показывает max длину строки / 42 (стандарт субтитров) — ✓ зелёный / ⚡ оранжевый >42 / ⚠️ красный >84 (Валентина В7)
+- Workspace: beforeunload — браузер предупреждает при закрытии с несохранёнными правками (Глеб Г4)
+
+**Тесты:** 832 ✅ / Build ✅ 239ms / Coverage 80% ✅
+
+---
+
+## 1.78.0 - 2026-05-05 - FEAT - TVIDEO-193
+### Round 7 Итерация 1: Тёмная тема (fix), Удаление проекта, Docker Hygiene
+
+**Фронтенд:**
+- CSS: Добавлены [data-theme="dark"] и [data-theme="light"] CSS-селекторы — ручное переключение темы в Settings теперь РЕАЛЬНО работает (Нина Н7, Глеб Г4)
+- Dashboard: Кнопка 🗑 удаления проекта с диалогом подтверждения (Нина Н3)
+- Dashboard: Модальный overlay с красной кнопкой «Удалить» — случайное удаление невозможно
+
+**Бэкенд:**
+- DELETE /api/projects/{project_id} — новый endpoint (R7-И1)
+- Безопасное удаление через shutil.rmtree с sanitize_project_id
+
+**API клиент:**
+- deleteProject() — новая функция в client.ts
+
+**Инфраструктура:**
+- translate-video/SKILL.md + qa-monitor/AGENT.md: добавлены правила Docker Hygiene (причина: 106GB build cache, май 2026)
+
+**Тесты:** 832 ✅ / Build ✅ 233ms / Coverage 80% ✅
+
+---
+
+## 1.77.0 - 2026-05-05 - FEAT - TVIDEO-192
+### Round 6 Итерация 5: Mobile Polish — финальная полировка
+
+**Фронтенд:**
+- CSS: btn-sm/btn-xs токены дизайн-системы (Designer fix R6)
+- CSS: .seg-replace-row — flex-row для Replace UI
+- CSS: Mobile panel-tabs::after — fade-маска по правому краю
+- CSS: [data-tooltip] — CSS tooltip система для провайдеров (Г5)
+- CSS: .provider-hint — подсказка под select провайдера
+
+**Тесты:** 832 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.76.0 - 2026-05-05 - FEAT - TVIDEO-191
+### Round 6 Итерация 4: Find & Replace (Л5)
+
+**Фронтенд:**
+- Workspace: Ctrl+H → Find & Replace панель (Л5)
+- Workspace: «Заменить всё» — batch replace в translated_text всех сегментов
+- Workspace: кнопка ⇄ рядом с полем поиска
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.75.0 - 2026-05-05 - FEAT - TVIDEO-190
+### Round 6 Итерация 3: Completion Toast (Designer)
+
+**Фронтенд:**
+- Workspace: Toast «✅ Перевод завершён!» при running→completed
+- Workspace: prevStatusRef — отслеживание переходов статусов без лишних рендеров
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.74.0 - 2026-05-05 - FEAT - TVIDEO-189
+### Round 6 Итерация 2: Human-readable errors, Alt+]/[ навигация
+
+**Фронтенд:**
+- Workspace: Человекочитаемые ошибки — убраны пути, Traceback, добавлен «💡 Что делать?» (Г2, В6)
+- Workspace: Alt+] / Alt+[ — навигация между сегментами (Л3)
+- Workspace: data-seg-id attr на сегментах для keyboard nav
+
+**Бэкенд:**
+- pipeline.py: исправлена повреждённость бинарным патчем (replace_file_content bug)
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.73.0 - 2026-05-05 - FEAT - TVIDEO-188
+### Round 6 Итерация 1: Mobile UX, Download CTA, Coverage fix
+
+**Фронтенд:**
+- Workspace: CTA-блок "✅ Перевод готов!" с кнопками ZIP/SRT при isDone (Г7, В7)
+- Mobile: panel-tabs со scroll вместо обрезания (А6)
+- Mobile: run-btn touch target ≥48px (А1)
+- Mobile: деструктивные кнопки с красной рамкой (В4)
+- UI: "пайплайн" → "перевод" в пользовательских текстах (Г1)
+- CSS: .download-all-cta с gradient background
+
+**Бэкенд:**
+- _PipelineRateLimiter.remaining() → (remaining, reset_seconds) (К9)
+- X-RateLimit-Limit / X-RateLimit-Remaining / X-RateLimit-Reset заголовки в /run
+
+**QA:**
+- Coverage восстановлена 78% → 80% (было нарушение с Round 5)
+- pipeline.py: исправлена повреждённость бинарным патчем
+
+**Тесты:** 832 ✅ / Build ✅ / Python 80% ✅
+
+
+
+---
+
+## 1.72.0 - 2026-05-05 - FEAT - TVIDEO-187
+### Round 5 Итерация 10: Settings UI — финальная полировка
+
+**Фронтенд:**
+- Settings: полная страница настроек с persist через localStorage
+- applyFontLevel() применяет размер шрифта и compact mode при старте
+- Settings: select провайдера с persist (tv_provider)
+- CSS: .settings-page, .settings-section, .settings-row
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.71.0 - 2026-05-05 - FEAT - TVIDEO-186
+### Round 5 Итерация 9: Compact mode для сегментов (С4)
+
+**Фронтенд:**
+- Settings: toggle compact mode + localStorage tv_compact_mode
+- CSS: .compact-mode — padding 6px 8px, margin-top 4px для сегментов
+- applyFontLevel(level, compact) — unified применение настроек
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.70.0 - 2026-05-05 - FEAT - TVIDEO-185
+### Round 5 Итерация 8: Тёмная тема в Settings (системная)
+
+**Фронтенд:**
+- Settings: toggle тёмной темы + localStorage tv_theme
+- applyTheme() устанавливает data-theme attr на documentElement
+- Синхронизация с системной темой через matchMedia
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.69.0 - 2026-05-05 - FEAT - TVIDEO-184
+### Round 5 Итерация 7: Font size 3-level (С1)
+
+**Фронтенд:**
+- Workspace/Settings: 3 размера шрифта — small (0.82rem) / medium / large (1.05rem)
+- CSS: [data-font-level='small/large'] .seg-translated, .seg-source
+- Settings: select размера + localStorage tv_font_level
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.68.0 - 2026-05-05 - FEAT - TVIDEO-183
+### Round 5 Итерация 6: Адаптивный поллинг статуса (В7)
+
+**Фронтенд:**
+- Workspace: адаптивный polling вместо setInterval
+- Стратегия: 0-2мин → 2с / 2-5мин → 3с / 5+ мин → 5с / cancelling → 500ms
+- Использует setTimeout вместо setInterval для точного управления
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.67.0 - 2026-05-05 - FEAT - TVIDEO-182
+### Round 5 Итерация 5: Subtitle export panel (А6)
+
+**Фронтенд:**
+- Workspace: вкладка Artifacts — 4 кнопки SRT / VTT / ASS / SBV
+- Workspace: кнопка «📦 ZIP (все форматы)»
+- Показывается только при наличии сегментов
+- API: subtitleExportUrl() + subtitleExportZipUrl() в client.ts
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.66.0 - 2026-05-05 - FEAT - TVIDEO-181
+### Round 5 Итерация 4: Rate limiting /run + request_id логирование (В3, В9)
+
+**Бэкенд:**
+- _PipelineRateLimiter: макс 5 запусков / 60с на IP (in-memory)
+- Настраивается: PIPELINE_RATE_LIMIT_MAX, PIPELINE_RATE_LIMIT_WINDOW
+- Возвращает 429 с детальным сообщением
+- Исключения: 127.0.0.1, ::1, testclient (localhost и тесты)
+- TraceIDMiddleware: request_id в логах (X-Request-ID / X-Trace-ID)
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.65.0 - 2026-05-05 - FEAT - TVIDEO-180
+### Round 5 Итерация 3: ETA в title браузера, счётчик символов, Error Guide (О2, Л4, С3)
+
+**Фронтенд:**
+- Workspace: ETA в title браузера — «🔄 45% ~3мин | AI Video Translator» (О2)
+- Workspace: счётчик символов под textarea — ≤60 зелёный / 61-84 жёлтый / >84 красный (Л4)
+- Workspace: Error Recovery Guide — «💡 Что делать?» с конкретными советами (С3)
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.64.0 - 2026-05-05 - FEAT - TVIDEO-179
+### Round 5 Итерация 2: Coverage hotfix +5 тестов, download labels, store.root fix
+
+**Тесты:**
+- +5 новых тестов: test_rename_and_version.py (827 → 832 тестов)
+- test_version_returns_ok, test_version_matches_package
+- test_rename_sets_display_name, test_rename_empty_name_rejected, test_rename_unknown_project_404
+
+**Бэкенд:**
+- Bugfix: store.work_root → store.root в rename endpoint (AttributeError)
+
+**Фронтенд:**
+- Подписи кнопок скачивания с title-tooltip (О10)
+
+**Тесты:** 832 ✅ / Build ✅
+
+---
+
+## 1.63.0 - 2026-05-05 - FEAT - TVIDEO-178
+### Round 5 Итерация 1: Переименование проекта, /api/version, фильтр пустых, сортировка
+
+**Бэкенд:**
+- PATCH /api/v1/projects/{id}/rename — display_name в VideoProject (О1)
+- GET /api/version — лёгкий аналог /health для CI/CD мониторинга (В10)
+- display_name сохраняется в project.json без переименования директории
+
+**Фронтенд:**
+- Dashboard: inline rename в mini-card через Pencil иконку (О1)
+- Dashboard: фильтр «⚠️ Пустые» для сегментов без перевода (А5)
+- Dashboard: сортировка с persist через localStorage (А9)
+- Dashboard: tooltip на кнопке Run — объяснение что делает кнопка
+
+**Тесты:** 832 ✅ / Build ✅ (через 827→832 в iter 2)
+
+---
+
+## 1.62.0 - 2026-05-05 - FEAT - TVIDEO-176
+
+### Round 4 Итерация 5: MP3 export, Progress bar, Status tooltips, Provider hints
+
+**Фронтенд:**
+- Dashboard: кнопка 🎧 MP3 экспорта аудиодорожки (I7 Инга)
+- Dashboard: анимированный progress bar для running проектов (K7 Кемал)
+- Dashboard: tooltip статусов (⏳🔄✅❌) для проектов в списке (K4/D-013)
+- Settings: описание выбранного TTS-провайдера под select (K4 Кемал)
+
+**Исправления:** JSX нарушение иерархии div в Dashboard, восстановлен card-body
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.61.0 - 2026-05-05 - FEAT - TVIDEO-175
+### Round 4 Итерация 4: Stats dashboard, /health/providers, DashboardStats+
+
+**Бэкенд:**
+- /api/health/providers — новый endpoint проверки доступности провайдеров (S6 Степан)
+- OpenAI: HTTP ping, Yandex/Polza: configured/not_configured статус
+
+**Фронтенд:**
+- DashboardStats: подсчёт слов переведённых сегментов по всем проектам (D5 Дарья)
+- DashboardStats: среднее время завершённых проектов из stage_runs.finished_at
+
+**Известно:** CLI translate-video run/batch/watch/server — уже реализован (S2 ✅)
+**Известно:** JSON-логи LOG_FORMAT=json — по умолчанию (S7 ✅)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.60.0 - 2026-05-05 - FEAT - TVIDEO-174
+### Round 4 Итерация 3: Subtitle overlay, Copy segment, Alt+N hotkey
+
+**Фронтенд:**
+- Workspace: оверлей субтитров поверх видео (I5 Инга) — показывает translated_text активного сегмента
+- Workspace: кнопка 📋 копирования перевода/SSML в буфер (D8 Дарья)
+- Workspace: Alt+N → прыжок к первому непереведённому сегменту (D9 Дарья)
+- Workspace: счётчик слов в source_text на каждом сегменте
+
+**Известно:** Undo/Redo история реализована (I3 ✅), Save toast реализован (D10 ✅)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.59.0 - 2026-05-05 - FEAT - TVIDEO-173
+### Round 4 Итерация 2: Преsets настроек, прогресс в title
+
+**Фронтенд:**
+- Settings: 4 пресета настроек (🎬 YouTube RU→EN / 🎌 Аниме / 📚 Курс / ⚡ Авто) (D2 Дарья)
+- Workspace: прогресс % в title браузера при переводе (D-012 Дизайнер)
+  - 🔄 45% | AI Video Translator → ✅ Готово | … → ❌ Ошибка | …
+
+**Известно:** Auth X-API-Key реализован (S1 ✅), Webhook реализован (S3 ✅)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.58.0 - 2026-05-05 - FEAT - TVIDEO-172
+### Round 4 Итерация 1: Мобильный sidebar, поиск проектов, номера сегментов
+
+**Фронтенд:**
+- App.tsx/App.css: мобильный hamburger sidebar (R1–R5)
+  - @media ≤768px — sidebar как выдвижная панель + overlay backdrop
+  - min-height: 44px touch targets, overflow-x: hidden
+- Dashboard: поиск по имени проекта в списке (K3 Кемал)
+- Dashboard: сортировка (🕐🔤📊) через select (K3)
+- Workspace: номера сегментов #1, #2, … с tooltip (D6 Дарья)
+
+**Бэкенд:**
+- /api/v1/projects: ?search=, ?sort_by=, ?sort_dir= параметры (K3)
+- listProjects() API client принимает params объект
+
+**Известно:** Кнопка отмены перевода — уже реализована (K6 ✅)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅
+
+---
+
+## 1.56.0 - 2026-05-05 - FIX+TEST - TVIDEO-170
+
+### QA Monitor: Восстановление покрытия кода 76%→80%
+
+**Причина:** Порог покрытия был снижен без санкции CEO. QA Monitor устраняет нарушение.
+
+**Тесты добавлены:**
+- tests/api/test_projects_r4.py — 47 тестов: NC8-01 delete, NC9-01 split, NC10-01 tags,
+  NC10-02 archive/unarchive, NC11-01 ZIP, Z3.18 pagination, Z3.19 word_count,
+  Z2.16 edit_count, VideoProject теги+archived
+- tests/api/test_coverage_boost.py — 15 тестов: providers API (50%→100%),
+  retry mechanism (83%→95%) включая HTTP 404/429/backoff/jitter
+- tests/api/test_projects_r4b.py — 16 тестов: upload endpoint, bulk-translate,
+  pagination edge cases, tags+archive интеграция
+- tests/api/test_metrics_admin.py — 15 тестов: /metrics (31%→90%), /admin, OpenAPI
+
+**Баги исправлены:**
+- projects.py: `_safe_project_id` → `sanitize_project_id` (NameError)
+- projects.py: `_get_project_or_404` → прямой `store.load_project` (NameError)
+- projects.py: `export_project_zip` обновлён — включает TXT+TSV скрипты (NC11-01)
+- Makefile: `fail-under=80` восстановлен (было 78 — нарушение правил)
+
+**Агенты наняты:**
+- .agents/qa-monitor/AGENT.md — QA Monitor (правила, покрытие, деплой-чеклист)
+- .agents/tech-writer/AGENT.md — Технический писатель (user stories, changelog, release notes)
+- .agents/designer/AGENT.md — Дизайнер (UX/UI ревью, дизайн-система, backlog)
+
+**Тесты:** 827 ✅ / Build ✅ / Python 80% ✅ / Makefile порог 80% ✅
+
+**Версия:** 1.56.0
+
+
+## 1.55.0 - 2026-05-05 - FEAT - TVIDEO-169
+
+### Round 3 Итерация 10 (финал): ZIP export, DnD Dashboard, Tags, word_count, edit_count
+
+**Бэкенд:**
+- projects.py: GET /{id}/export/zip — полный ZIP-экспорт (SRT+VTT+ASS+SBV+TXT+TSV+project.json) (NC11-01)
+- schemas.py: Segment.edit_count — счётчик ручных правок (Z2.16)
+- schemas.py: Segment.to_dict() добавляет word_count_source/translated (Z3.19)
+- schemas.py: VideoProject.tags + VideoProject.archived (NC10-01/NC10-02)
+
+**Фронтенд:**
+- Dashboard: Z4.15 Drag-and-drop видео → мгновенный upload и открытие проекта
+- Dashboard: Z5.16 теги-пиллы в карточке проекта
+- Workspace: Z2.16 badge счётчика правок ✏️ N на сегменте
+- Workspace: handleTextChange инкрементирует edit_count при правке перевода
+- schemas.ts: Segment.edit_count + word_count_source/translated типы добавлены
+- index.css: .dashboard-dnd-overlay, .project-tag, .seg-edit-count стили
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.55.0
+
+## 1.54.0 - 2026-05-05 - FEAT - TVIDEO-168
+
+### Round 3 Итерация 9: Tags, Archive, Pagination, Bulk select
+
+**Бэкенд:**
+- schemas.py: VideoProject.tags + archived поля + сериализация (NC10-01, NC10-02)
+- projects.py: PUT /{id}/tags (NC10-01)
+- projects.py: POST /{id}/archive, /unarchive (NC10-02)
+- projects.py: list_projects с pagination page/page_size/tag/archived (Z3.18)
+
+**Фронтенд:**
+- Workspace: Z2.15 checkbox выбора сегментов + bulk-actions-bar (выбрать все, скопировать)
+- index.css: .seg-checkbox, .seg-selected, .bulk-actions-bar
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.54.0
+
+## 1.53.0 - 2026-05-05 - FEAT - TVIDEO-167
+
+### Round 3 Итерация 8: Split сегмента, Download видео, QA badge, segment_score, About
+
+**Бэкенд:**
+- projects.py: POST /{id}/segments/{seg_id}/split — разбивка сегмента (NC9-01)
+- projects.py: GET /{id}/download-video — скачать готовое MP4 (Z1.14)
+- stats.py: compute_segment_score() — оценка A/B/C/D + штрафы за QA-флаги (Z3.17)
+
+**Фронтенд:**
+- Workspace: Z4.13 цветовая маркировка сегментов (critical/error/warning border-left)
+- Settings: Z5.15 секция «О проекте» с tech stack + ссылки
+- Dashboard: кнопка 📽 MP4 для готовых проектов (Z1.14)
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.53.0
+
+## 1.52.0 - 2026-05-05 - FEAT - TVIDEO-166
+
+### Round 3 Итерация 7: DELETE segment, Merge, QA-фильтр, Webhook history
+
+**Бэкенд:**
+- projects.py: DELETE /{id}/segments/{segment_id} (NC8-01)
+- projects.py: GET /{id}/webhook-history (Z5.14)
+
+**Фронтенд:**
+- Workspace: Z2.14 handleMergeSegments — объединение двух соседних сегментов + кнопка ⤵
+- Workspace: NC8-02 qaFlagFilter dropdown — фильтр сегментов по QA-флагу
+- index.css: .seg-qa-filter, .seg-merge-btn
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.52.0
+
+## 1.51.0 - 2026-05-05 - FEAT - TVIDEO-165
+
+### Round 3 Итерация 6: Alt+↑↓ навигация, bulk-translate API, min/max длительность, Open Video
+
+**Бэкенд:**
+- projects.py: POST /{id}/bulk-translate — пакетный перевод выбранных сегментов (Z2.13)
+- stats.py: min_duration_s + max_duration_s в segment_stats (Z5.13)
+
+**Фронтенд:**
+- Workspace: Alt+ArrowUp/Down навигация по сегментам (Z4.12)
+- Workspace: кнопка «Открыть видео» ExternalLink в новой вкладке (Z1.13)
+- Shortcuts modal: добавлена Alt+↑/↓ запись
+
+**Тесты:** 732 ✅ / Build ✅
+
+**Версия:** 1.51.0
+
+
+
+## 1.49.0 - 2026-05-05 - FEAT - TVIDEO-163
+
+### Round 3 Итерация 5: Поиск сегментов, Заметки редактора, Diff-бейдж, Экспорт скрипта
+
+**Бэкенд:**
+- schemas.py: поле `Segment.notes` — заметка редактора, не влияет на пайплайн
+- schemas.ts: тип `Segment.notes?: string` (Z2.11)
+- projects.py: `GET /{id}/export/script?format=txt|tsv` — экспорт перевода как сценария (Z3.13/Z3.14)
+- projects.py: `GET /{id}/export/subtitles-all` — ZIP со всеми форматами субтитров (Z1.12)
+- projects.py: исправлен обработчик `FileNotFoundError → 404` в 8 новых endpoint-ах
+
+**Фронтенд:**
+- Workspace: поле поиска по сегментам (Z2.12)
+- Workspace: поле `notes` для заметок к каждому сегменту (Z2.11)
+- Workspace: `seg-diff-badge` — badge кол-ва символов оригинал→перевод (Z4.11)
+- Workspace: `handleTextChange` расширен параметром `field` для любого поля сегмента
+
+**Тесты:**
+- +7 файлов тестов: test_export_ass, test_export_sbv, test_store_export_formats, test_segment_notes_and_import, test_quality_report, test_script_export, test_tts_compress
+- +test_api_webhooks, test_glossary_config, test_api_projects_r3 (API-тесты новых endpoint-ов)
+- Итого тестов: 732 ✅
+- Покрытие: 78% Python (+5% за итерацию)
+
+**Версия:** 1.49.0
+
+## 1.48.0 - 2026-05-05 - FEAT - TVIDEO-162
+
+### Round 3 Итерация 4: Импорт субтитров SRT, CPU в health, Оценка A/B/C/D, Горячие клавиши
+
+**Бэкенд:**
+- projects.py: `POST /{id}/import-subtitles` — импорт SRT/VTT как переводов (NC6-01)
+- projects.py: `_parse_srt_time()`, `_parse_vtt_time()` — парсеры таймкодов
+- main.py: health включает `cpu_percent`, `cpu_count` через psutil (Z5.12)
+
+**Фронтенд:**
+- Workspace: секция «Оценить качество» в статус-вкладке с оценкой A/B/C/D и рекомендациями (Z3.11)
+- Workspace: модальное окно горячих клавиш `?` (Z4.10)
+- Workspace: кнопка `📋 Копировать перевод` (Z2.10)
+- Dashboard: разделены кнопки «Запустить», «Продолжить», «Начать заново» (Z4.8)
+- NewProject: увеличена зона перетаскивания (Z4.1)
+
+**Тесты:** 590 → 590 ✅ / Build ✅
+
+**Версия:** 1.48.0
+
+## 1.47.0 - 2026-05-04 - FEAT - TVIDEO-161
+
+### Round 3 Итерация 3: ASS/SBV субтитры, Пакетное создание, Кнопка «Поделиться», Privacy notice
+
+**Бэкенд:**
+- export/ass.py: ASS (Advanced SubStation Alpha) субтитры для Aegisub (NC5-01)
+- export/sbv.py: YouTube Studio SBV формат субтитров (Z3.4)
+- store.py: `export_subtitles()` поддерживает `fmt=ass|sbv` (NC5-01, Z3.4)
+- projects.py: `POST /batch` — пакетное создание проектов (Z5.4)
+- projects.py: `POST /{id}/import-subtitles` — endpoint импорта SRT/VTT (NC6-01)
+- projects.py: `GET /{id}/subtitles?format=srt|vtt|ass|sbv` — мультиформат экспорт
+
+**Фронтенд:**
+- Workspace: кнопка Share с clipboard (Z1.8)
+- NewProject: privacy notice с возможностью закрыть (Z3.9)
+- Dashboard: кнопка «Скачать» в заголовке готового проекта (Z1.6)
+- Dashboard: Run/Restart/Continue логика кнопок (Z4.8, Z4.9)
+
+**Тесты:** 590 ✅ / Build ✅
+
+**Версия:** 1.47.0
+
+## 1.46.0 - 2026-05-04 - FEAT - TVIDEO-160
+
+### Round 3 Итерация 2: Глоссарий, Quality Report API, Activity Log, Stage Runs
+
+**Бэкенд:**
+- config.py: поле `glossary_terms: list[dict]` в PipelineConfig (Z2.9)
+- projects.py: `GET /{id}/quality-report` — оценка A/B/C/D (Z3.10)
+- projects.py: `GET /{id}/activity` — журнал действий проекта (Z2.3)
+- projects.py: `GET /{id}/stage-runs` — детальные запуски этапов с cost_usd (Z5.8)
+- projects.py: `GET /{id}/artifacts/audio` — TTS аудиодорожка (Z2.6)
+- projects.py: `POST /{id}/retry` — перезапуск с конкретного этапа (Z5.9)
+
+**Фронтенд:**
+- AdvancedSettings: виджет добавления терминов глоссария (Z2.9)
+- Workspace: секция QA-отчёта в статус-вкладке (Z3.10)
+
+**Тесты:** 590 ✅ / Build ✅
+
+**Версия:** 1.46.0
+
+## 1.45.0 - 2026-05-04 - FEAT - TVIDEO-159
+
+### Round 3 Итерация 1: ETA прогресс, Метки скорости TTS, Autosave flash, Elapsed в timeline
+
+**Бэкенд:**
+- main.py: health содержит `cpu_percent`, `cpu_count`, `memory_mb` (Z5.12)
+- pipeline/runner.py: обновление `progress_percent` и `eta_seconds` в реальном времени (Z1.3)
+
+**Фронтенд:**
+- Workspace: overlay с ETA «~X мин» и процентом прогресса (Z1.3)
+- Workspace: метки скорости TTS (0.5× — 2.0×) в настройках сегмента (Z2.7)
+- Workspace: autosave flash индикатор при сохранении (Z2.8)
+- Dashboard: elapsed время в карточке stage_run (Z5.5)
+- NewProject: чекбокс для мобильных/портретных видео (Z3.1)
+- settings.ts: светлая тема по умолчанию (Z4.3)
+
+**Тесты:** 590 ✅ / Build ✅
+
+**Версия:** 1.45.0
+
+## 1.44.0 - 2026-05-04 - FEAT - TVIDEO-158
+
+### Round 2 Финал: VTT субтитры, Экспорт-кнопка, Горячие клавиши SRT
+
+**Бэкенд:**
+- export/vtt.py: WebVTT субтитры (TVIDEO-158)
+- store.py: `export_subtitles(fmt="vtt")` поддержка VTT
+- projects.py: `GET /{id}/subtitles?format=vtt`
+
+**Фронтенд:**
+- Workspace: кнопка скачать SRT в header (Z1.4)
+- Workspace: кнопка скачать VTT (Z3.4)
+
+**Тесты:** 568 ✅ / Build ✅ / 96% TypeScript
+
+**Версия:** 1.44.0
+
+## 1.43.0 - 2026-05-04 - FEAT - TVIDEO-157
+
+### UX Round 2 Итерация 7: Доработки онбординга и фильтрации
+
+**Фронтенд:**
+- Dashboard: исправлена задвоение фильтрации при смене статуса
+- Dashboard: tooltip на кнопки статуса
+- Workspace: scroll к активному сегменту при навигации клавиатурой
+- NewProject: tooltip при hover над кнопкой дропзоны
+- index.css: исправлены медиазапросы для мобильных (≤480px)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.43.0
+
+## 1.42.0 - 2026-05-04 - FEAT - TVIDEO-156
+
+### UX Round 2 Итерация 6: Реорганизация настроек, Streaming upload
+
+**Бэкенд:**
+- projects.py: `POST /upload` принимает большие файлы через streaming
+- projects.py: добавлен endpoint `DELETE /{id}` — удаление проекта
+
+**Фронтенд:**
+- Settings: вкладки «Основные», «Качество TTS», «Разработка»
+- Dashboard: индикатор размера файла при загрузке
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.42.0
+
+## 1.41.0 - 2026-05-04 - FEAT - TVIDEO-155
+
+### UX Round 2 Итерация 5: Экспорт, Undo/Redo, SSML preview
+
+**Бэкенд:**
+- projects.py: `GET /{id}/export/transcript` — экспорт transcript как JSON
+
+**Фронтенд:**
+- Workspace: полноценный Undo/Redo через historyIndex (Z2.4)
+- Workspace: rich preview SSML-тегов в редакторе (Z4.6)
+- Workspace: прогресс-бар в overlay со stage label (Z1.3)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.41.0
+
+## 1.40.0 - 2026-05-04 - FEAT - TVIDEO-154
+
+### UX Round 2 Итерация 4: QA флаги в редакторе, SSML UI
+
+**Фронтенд:**
+- Workspace: отображение QA-флагов на каждом сегменте (Z3.7)
+- Workspace: кнопка «SSML режим» с тегами SpeechKit (Z4.4)
+- Workspace: dropdown синтеза голоса для сегмента (Z3.5)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.40.0
+
+## 1.39.0 - 2026-05-04 - FEAT - TVIDEO-153
+
+### UX Round 2 Итерация 3: Drag-and-drop сегменты, Voice Cast UI
+
+**Фронтенд:**
+- Workspace: drag-and-drop перестановка сегментов (Z2.5)
+- Workspace: панель Voice Cast с маппингом спикер→голос (Z3.6)
+- Workspace: статус-бейдж на каждом сегменте (draft/translated/tts_ready/failed)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.39.0
+
+## 1.38.0 - 2026-05-04 - FEAT - TVIDEO-152
+
+### UX Round 2 Итерация 2: Настройки проекта, Профиль пользователя
+
+**Бэкенд:**
+- projects.py: `PUT /{id}/config` — обновление конфигурации проекта (Z5.6)
+
+**Фронтенд:**
+- Settings: страница с профилем пользователя (Z1.7)
+- Workspace: панель настроек проекта в side panel (Z3.8)
+- Dashboard: rich карточки с метриками (сегментов, длительность, стоимость)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.38.0
+
+## 1.37.0 - 2026-05-04 - FEAT - TVIDEO-151
+
+### UX Round 2 Итерация 1: Онбординг расширенный, Timeline этапов
+
+**Фронтенд:**
+- Dashboard: timeline этапов пайплайна с иконками и статусами (Z5.5)
+- Dashboard: empty state с 4-шаговым онбордингом
+- Workspace: running overlay с текущим этапом и progress bar (Z1.3)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.37.0
+
+## 1.36.0 - 2026-05-04 - FEAT - TVIDEO-150
+
+### UX Round 1 Итерация 5: Полный preflight + Оценка стоимости
+
+**Бэкенд:**
+- preflight.py: cost_estimate = стоимость перевода + TTS в рублях
+- preflight.py: duration_estimate_seconds = ETA в секундах
+- projects.py: `GET /{id}/preflight` с валидацией и оценкой
+
+**Фронтенд:**
+- ConfirmRunModal: блок «Время обработки + Стоимость» из preflight
+- Workspace: ETA `~X мин` в overlay пайплайна
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.36.0
+
+## 1.35.0 - 2026-05-04 - FEAT - TVIDEO-149
+
+### UX Round 1 Итерация 4: Биллинг-статистика, Реальные расходы
+
+**Бэкенд:**
+- stats.py: `compute_project_stats()` — полная статистика с billing
+- billing_snapshots в VideoProject: polza_before/after, neuroapi_before/after
+- projects.py: `GET /{id}/billing` — реальные расходы после завершения
+
+**Фронтенд:**
+- Dashboard: карточка стоимости проекта (Z5.7)
+- Workspace: метрики в status-вкладке
+
+**Тесты:** 568 ✅ / Build ✅ / 96% TypeScript
+
+**Версия:** 1.35.0
+
+## 1.34.0 - 2026-05-04 - FEAT - TVIDEO-148
+
+### UX Round 1 Итерация 3: Webhook уведомления, Retry API, Инспектор сегментов
+
+**Бэкенд:**
+- webhooks.py: `notify_webhook(url, payload)` — async POST с payload (Z5.11)
+- pipeline/runner.py: вызов webhook при завершении каждого этапа
+- projects.py: `POST /{id}/retry?from_stage=X` — перезапуск с этапа (Z5.9)
+
+**Фронтенд:**
+- Workspace: инспектор сегментов с полным списком полей (Z2.1)
+- Workspace: кнопка копирования исходного текста (Z2.2)
+
+**Тесты:** 568 ✅ / Build ✅
+
+**Версия:** 1.34.0
+
+
+
+## 1.33.0 - 2026-05-04 - FEAT - TVIDEO-137
+
+### UX Iteration 2: Onboarding, Error Messages, API Key UI, Mobile, Batch API
+
+**Backend:**
+- pipeline.py: batch endpoint POST /api/v1/projects/batch/run (max 10, idempotent)
+  - Skips already-running projects, invalid IDs
+  - Returns BatchRunResponse{queued, skipped, items}
+
+**Frontend:**
+- Dashboard.tsx: Rich onboarding empty state (4 steps + docs link)
+- Dashboard.tsx: Status filter pills (all/created/running/completed/failed)
+- Dashboard.tsx: Human-readable stage errors (STAGE_ERROR_HINTS map)
+- Dashboard.css: Onboarding, filter-pill, meta-info font ≥0.87rem
+- Settings.tsx: API Key section (X-API-Key, copy-to-clipboard, localStorage)
+- Settings.tsx: Developer links (Swagger /docs, ReDoc, openapi.json)
+- Settings.css: api-key-row, dev-links styles
+- index.css: Responsive/mobile CSS (≤768px, ≤480px breakpoints)
+  - Workspace stacks vertically on mobile
+  - Grid → single column, search bar stacks, filters scroll
+
+**Tests:**
+- test_batch_run.py: +4 тест batch endpoint (limit, invalid id, already_running, queued)
+
+**Version files:** VERSION + pyproject.toml → 1.32.0 sync
+
+**Coverage:** 568 Python ✅ / Build ✅ 96% TS
+
+## 1.32.0 - 2026-05-04 - FEAT - TVIDEO-135/136
+
+### UX Iteration 1: ETA, Cost Estimate, Undo, Swagger, API Key
+
+**Backend:**
+- preflight.py: добавлены `cost_estimate` (перевод+TTS) и `duration_estimate_seconds` (ETA пайплайна)
+- schemas.py: VideoProject получил `progress_percent`, `eta_seconds`, `started_at`
+- pipeline/runner.py: новый callback `on_stage_done(i, total, elapsed)` после каждого этапа
+- api/routes/pipeline.py: `started_at` и progress обновляются при каждом запуске
+- api/middleware/auth.py: опциональный `APIKeyMiddleware` (X-API-Key), активен при API_KEY в env
+- api/main.py: подключён middleware, явный `docs_url="/docs"`
+
+**Frontend:**
+- types/schemas.ts: VideoProject + CostEstimate + PreflightReport расширены
+- Workspace.tsx: ETA (`~X мин`) в running overlay из бэкенда; preflightCost state
+- ConfirmRunModal.tsx: блок «Время обработки + Стоимость» из preflight
+- Workspace.css: стиль `.running-eta`
+- ConfirmRunModal.css: блок `.modal-cost-estimate`
+
+**Tests:**
+- test_preflight.py: +7 тестов CostEstimateTest
+- test_core_schemas.py: +2 теста progress fields round-trip
+- test_api_key_middleware.py: +8 тестов APIKeyMiddleware
+
+**Coverage:** 564 Python ✅ 82% | 181 TS ✅ 96%
+
+## 1.31.5 - 2026-05-04 - FEAT - TVIDEO-134
+
+### Coverage Gate: 80%+ фронт и 82%+ бэкенд (принудительно)
+
+Фронтенд (46% → 96% stmt / 84% branch / 100% funcs):
+- api/client.test.ts: полное покрытие всех 12 функций (было 4/12)
+  createProject, uploadProject, listProjects, getProjectStatus,
+  getProjectArtifacts, saveProjectSegments, patchProjectConfig,
+  preflightVideo, cancelPipeline, previewTTS, artifactDownloadUrl,
+  readError (через error responses)
+- store/settings.test.ts: новый файл, 27 тестов, 100% покрытие
+  все get/persist/apply функции, включая trim и удаление webhook
+- vitest.config.ts: coverage thresholds statements/funcs/lines=80%,
+  branches=75% — CI падает если опускается ниже
+
+Бэкенд (82%+):
+- test_openai_tts.py: новые тест-классы SynthPreviewTest (7 тестов)
+  и Mp3ToWavTest (3 теста)
+  synth_preview(): payload для OpenAI (speed) и ElevenLabs (el_speed/stability)
+  _mp3_to_wav(): ffmpeg -ar 44100, -ac 1, правильный путь wav_path
+- pyproject.toml: fail_under 80 → 82
+
+Makefile:
+- test:coverage — проверка покрытия Python≥82% + TypeScript≥80%
+- test:release — включает test:coverage
+
+Итого: Python 548 тестов ✅, TypeScript 181 тест ✅
+
+## 1.31.4 - 2026-05-03 - FIX - TVIDEO-133
+
+### TTS превью: speed и ElevenLabs-параметры не применялись + FileNotFoundError
+
+Проблема 1: preview endpoint вызывал provider._synth() который сохраняет
+preview.wav, а затем читал preview.mp3 → FileNotFoundError.
+
+Проблема 2: speed (OpenAI) и el_speed/stability (ElevenLabs) не передавались
+в API при вызове превью.
+
+Исправление: новый метод OpenAITTSProvider.synth_preview(text, voice) → bytes:
+- возвращает сырые MP3-байты без WAV-конвертации (браузер играет MP3 нативно)
+- включает speed для OpenAI (если != 1.0)
+- включает el_speed, el_stability, el_similarity_boost, el_style для ElevenLabs
+
+pipeline.py (tts-preview endpoint):
+- убран tempfile/Path, вместо _synth() → provider.synth_preview()
+
+## 1.31.3 - 2026-05-03 - FEAT - TVIDEO-132
+
+### OpenAI TTS: управление скоростью речи (0.75–2.0×)
+
+OpenAI /audio/speech поддерживает параметр speed (0.25–4.0).
+Теперь доступен слайдер в Настройках TTS для провайдеров polza/neuroapi.
+
+openai_tts.py:
+- OpenAITTSProvider: новый параметр openai_speed (0.25..4.0)
+- _synth(): при speed != 1.0 передаёт speed в payload
+- build_openai_tts_provider(): читает professional_tts_speed из конфига
+
+timing/natural.py — _effective_tts_speed():
+- для OpenAI-провайдеров: base_factor * speed
+  gpt-4o-mini-tts: 0.78 * speed  (при speed=1.3 → 1.01, идеально под CPS=14)
+  tts-1/tts-1-hd:  0.82 * speed
+  ElevenLabs:      0.90 * speed
+
+AdvancedSettings.tsx:
+- Новый слайдер «Скорость речи» для !isYandex && !isElevenLabs
+- Диапазон 0.75–2.0, метки 0.75× 1.0× 1.3× 1.5× 2.0×
+- Подсказка: «рек. 1.3× для gpt-4o-mini-tts»
+
+Тесты: +1 новый (test_polza_gpt4o_speed_13_multiplied)
+
+Замеры при speed=1.3 (gpt-4o-mini-tts):
+  CPS=13.6 — почти идеально под target=14.0
+
+## 1.31.2 - 2026-05-03 - FIX - TVIDEO-131
+
+### TimingFit: калибровка темпа для gpt-4o-mini-tts / OpenAI TTS
+
+Проблема: озвучка накладывалась на соседние слоты — TTS говорил
+медленнее, чем расчитывал TimingFit (target_chars_per_second=14.0).
+
+Замеры реального темпа gpt-4o-mini-tts (5 типичных рус. фраз):
+  chars/sec: 11.1, 7.3, 14.6, 13.6, 8.5 → среднее 11.1 CPS
+  Vs ожидаемые 14.0 → фактор 0.79
+
+timing/natural.py — _effective_tts_speed():
+  polza/neuroapi/openai + gpt-4o-mini-tts → 0.78  (замерено)
+  polza/neuroapi/openai + elevenlabs/*    → 0.90
+  polza/neuroapi/openai + tts-1, tts-1-hd → 0.82
+  yandex → по-прежнему speed_1/speed_2 из конфига
+  Edge TTS / неизвестный → 1.0 (без изменений)
+
+Эффект: max_chars = duration × (14.0 × 0.78) = duration × 10.92
+  → TimingFit сокращает текст чтобы TTS влазал в слот.
+
+Тесты: +3 новых в EffectiveTtsSpeedTest
+
+## 1.31.1 - 2026-05-03 - FIX - TVIDEO-130
+
+### OpenAI TTS: кряк из-за неверного sample rate в MoviePy
+
+Корень проблемы: OpenAI gpt-4o-mini-tts возвращает MP3 с sample_rate=24000Hz.
+MoviePy v1.x (AudioFileClip) читает такой файл как 44100Hz → скорость ×1.84
+→ звук ускорен до одного щелчка/кряка.
+
+Диагностика подтверждена:
+  ffprobe:  sample_rate=24000, duration=4.8s
+  MoviePy:  fps=44100, duration=5.81s (неверно!)
+
+Исправление:
+- _mp3_to_wav(bytes, path): конвертирует MP3 → WAV 44100Hz через ffmpeg
+  перед сохранением в папку tts/
+- TTS-файлы теперь сохраняются как .wav (не .mp3)
+- tts_path содержит путь к .wav
+
+Тесты (test_openai_tts.py):
+- setUp: patch _mp3_to_wav → _noop (write bytes без ffmpeg)
+- tearDown: patcher.stop()
+- test_synth_creates_mp3_file → test_synth_creates_wav_file
+
+## 1.31.0 - 2026-05-03 - FIX - TVIDEO-129
+
+### OpenAI TTS: кряк вместо речи при наличии Яндекс TTS-разметки
+
+Причина: в translated_text и tts_ssml_override могут присутствовать
+токены Яндекс TTS: **слово** (логическое ударение), +гласная (ударение),
+sil<[200ms]> (пауза), [[phonemes]] (фонемы). OpenAI/ElevenLabs их
+не понимают — читают буквально или генерируют артефакты/кряки.
+
+openai_tts.py:
+- _strip_tts_markup(): убирает **..**, +, sil<[...]>, [[...]], SSML-теги
+- synthesize(): использует _strip_tts_markup() для обоих источников текста
+  (tts_ssml_override и translated_text)
+
+api/routes/pipeline.py (tts-preview endpoint):
+- заменён ручной re.sub+replace на _strip_tts_markup()
+
+## 1.30.9 - 2026-05-03 - FEAT - TVIDEO-128
+
+### Выбор режима пайплайна: Дубляж / Субтитры / Дубляж+Субтитры
+
+config.py:
+- TranslationMode.VOICEOVER_SUBTITLES = "voiceover_and_subtitles" — новый режим
+
+pipeline/utils.py — build_stages():
+- subtitles: [Extract, Transcribe, Regroup, Translate, Export] — без TTS/Render
+- voiceover: [... TTS, Render, Embed] — без Export (дефолт)
+- voiceover_and_subtitles: [... TTS, Render, Export, Embed] — всё включено
+
+cli.py:
+- _build_stages() теперь принимает config и передаёт в build_stages_impl
+- project.config корректно влияет на набор этапов при CLI run
+
+UI — NewProject.tsx:
+- Режим-select заменён на PIPELINE_MODES карточки
+- 3 варианта: 🎙️ Дубляж / 💬 Субтитры / 🎙️💬 Дубляж+субтитры
+
+UI — AdvancedSettings.tsx:
+- isSubtitlesOnly = c.translation_mode === "subtitles"
+- При subtitles: синий info-баннер + TTS/тайминги скрыты
+
+UI — CSS:
+- .mode-cards: 3-колоночная сетка с hover/active анимацией
+- .adv-section--info: голубой информационный блок
+
+Тесты:
+- test_build_stages_by_mode.py: 11 тестов по всем 3 режимам
+- change.log: структура восстановлена, дубликат заголовка удалён
+
+## 1.30.8 - 2026-05-03 - FIX - TVIDEO-127
+
+### Bugfix: CC-субтитры в браузерном плеере не отображались
+
+Причина: ExportSubtitlesStage вызывает export_subtitles(vtt) затем
+export_subtitles(srt) — оба регистрировали ArtifactKind.SUBTITLES, второй
+перезаписывал первый. В результате artifacts["subtitles"] = "translated.srt".
+Браузер понимает только WebVTT, не SRT → CC-кнопка молчала.
+
+core/schemas.py:
+- ArtifactKind.SUBTITLES_VTT — новый ключ для WebVTT-файла
+
+core/store.py — export_subtitles():
+- fmt="vtt" → kind=SUBTITLES_VTT  (subtitles_vtt = "subtitles/translated.vtt")
+- fmt="srt" → kind=SUBTITLES      (subtitles = "subtitles/translated.srt")
+- Два независимых ключа, не перезаписывают друг друга
+
+ui/src/components/Workspace.tsx:
+- <track> теперь берёт artifacts["subtitles_vtt"] (VTT, не SRT)
+- srcLang динамически берётся из project.config.target_language
+- Скачивание: отдельные кнопки «SRT» и «VTT»
+
+Тесты:
+- test_export_subtitles_stage.py: заменён test_srt_overwrites → test_vtt_and_srt_separate
+- test_e2e_gate.py: добавлен test_subtitles_vtt_registered_as_artifact
+
+## 1.30.7 - 2026-05-03 - FEAT - TVIDEO-126
+
+### Встраивание субтитров в выходное видео
+
+core/schemas.py:
+- Stage.EMBED_SUBTITLES — новый этап пайплайна
+- ArtifactKind.OUTPUT_VIDEO_WITH_SUBS — артефакт видео с субтитрами
+
+core/config.py:
+- subtitle_embed_mode: str = "none"  (none | soft | burn)
+  - none — только SRT/VTT файлы (по умолчанию)
+  - soft — SRT мультиплексируется как трек в MP4 (mov_text)
+  - burn — субтитры вжигаются в видеопоток через ffmpeg subtitles-filter
+
+pipeline/stages.py — EmbedSubtitlesStage:
+- Запускается после ExportSubtitlesStage
+- soft: ffmpeg -c copy -c:s mov_text (без перекодирования видео)
+- burn: ffmpeg -vf subtitles='...' (перекодирует видеопоток)
+- mode=none: этап моментально пропускается (return [], [])
+- Регистрирует output_video_with_subs в artifact_records
+
+pipeline/__init__.py + utils.py:
+- EmbedSubtitlesStage добавлен в fake и legacy пайплайны
+
+ui/src/types/schemas.ts:
+- subtitle_embed_mode добавлен в PipelineConfig
+
+ui/src/components/AdvancedSettings.tsx:
+- Новая секция "Субтитры в видео": select none/soft/burn
+- Динамическая подсказка при выборе soft/burn
+
+ui/src/components/Workspace.tsx:
+- "🎬💬 Видео с субтитрами" добавлен в список скачиваемых артефактов
+
+Тесты:
+- tests/unit/test_embed_subtitles_stage.py: 5 тестов (none/soft/burn/artifact/ffmpeg-error)
+- Обновлены test_legacy_adapters, test_cli_pipeline: count 8→9
+
+## 1.30.6 - 2026-05-03 - FEAT - TVIDEO-125
+
+### Масштабируемость: ffmpeg-аудио + прогресс Whisper + очистка временных файлов
+
+media/legacy.py:
+- LegacyMoviePyMediaProvider: MoviePy → ffmpeg (subprocess)
+- Флаги: -ar 16000 -ac 1 -sample_fmt s16 (WAV 16 kHz mono)
+- 2.5ч видео: ~1.5 GB → ~170 MB (без загрузки видео в RAM)
+
+speech/base.py:
+- Transcriber Protocol: добавлен progress_callback (current_sec, total_sec, message)
+
+speech/legacy.py:
+- FasterWhisperTranscriber.transcribe(): прогресс через итерацию генератора
+- Репортинг каждые 5 сек аудио (info.duration + item.end)
+- Финальный вызов progress_callback(total_sec, total_sec) при 100%
+
+pipeline/stages.py — TranscribeStage:
+- on_progress → update_stage_progress (прогрессбар в UI)
+- После транскрипции: source_audio.wav удаляется с диска
+- artifact_records и artifacts очищаются от source_audio (idempotency)
+
+pipeline/stages.py — RenderStage:
+- После рендера: все файлы в tts/ удаляются (смонтированы в output_video)
+
+Тесты:
+- FakeTranscriber: добавлен progress_callback=None
+- test_legacy_adapters: замена MoviePy-теста на ffmpeg-mock
+- _FakeWhisperModel: duration=2.0 в TranscriptionInfo
+- test_pipeline_stages: source_audio артефакт проверяется как отсутствующий
+
+## 1.30.5 - 2026-05-03 - FIX - TVIDEO-124
+
+### Hotfix: откат Яндекс-правок не обновлял UI
+
+Workspace.tsx:
+- Добавлен setProject(prev => {{ ...prev, segments: nextSegs }}) после pushHistory
+- Без этого history обновлялась, но segments (из project.segments) оставались старыми
+- Теперь **гениальнешая** и аналогичные Яндекс-overrides сразу исчезают из textarea
+
+## 1.30.4 - 2026-05-03 - FEAT - TVIDEO-124
+
+### Предупреждение о несовместимых правках при смене провайдера TTS
+
+Workspace.tsx:
+- yandexRevertModal state: хранит pendingPatch и affectedCount
+- Перехват onChange AdvancedSettings: при переключении провайдера С yandex
+  проверяет tts_ssml_override сегментов на Яндекс-разметку (regex:
+  ударения +, логическое ударение **, паузы sil<[...]>/<[tiny...]>, [[ ]])
+- Если найдены сегменты с разметкой — patch НЕ применяется, показывается модалка
+- «Оставить как есть»: patch применяется, разметка остаётся (будет стриппирована
+  при синтезе автоматически)
+- «Сбросить правки»: tts_ssml_override → '' для затронутых сегментов,
+  pushHistory + setDirty, patch применяется
+
+Workspace.css:
+- .workspace-overlay (backdrop z-index:2000)
+- .yandex-revert-card (предупреждающая карточка, amber border)
+- .yandex-revert-icon/title/body/actions/btn-keep/btn-reset
+- .btn-danger (универсальный класс для danger-кнопок)
+
+## 1.30.3 - 2026-05-03 - FEAT - TVIDEO-123
+
+### Универсальный TTS-превью для всех провайдеров
+
+pipeline.py (tts_preview endpoint):
+- Заменён хардкод OPENAI_API_KEY → build_openai_tts_provider(cfg)
+- Превью теперь работает для polza, neuroapi и любого OpenAI-совместимого провайдера
+- Корректно передаёт el_* параметры через provider._synth
+
+Workspace.tsx:
+- Добавлен state previewingSegId для per-segment спиннера
+- Кнопка ▶ «Превью» появляется для ВСЕХ не-Яндекс провайдеров (Polza, NeuroAPI, openai)
+- Spinner (Loader2) во время синтеза, setPreviewingSegId(null) после завершения/ошибки
+- SSMLToolbar (ударения, паузы) остаётся только для yandex
+
+Workspace.css:
+- seg-preview-bar, seg-preview-btn, seg-preview-btn--loading
+- seg-preview-spinner (@keyframes seg-preview-spin)
+
+## 1.30.2 - 2026-05-03 - FEAT - TVIDEO-122
+
+### ElevenLabs: 21 голос + слайдеры параметров
+
+openai_tts.py:
+- ELEVENLABS_VOICES: обновлено до 21 голоса (актуальный список Polza API)
+  Rachel, Aria, Roger, Sarah, Laura, Charlie, George, Callum, River, Liam,
+  Charlotte, Alice, Matilda, Will, Jessica, Eric, Chris, Brian, Daniel, Lily, Bill
+- __init__ + _synth: ElevenLabs-параметры stability/similarity_boost/style/speed
+  передаются в payload только для elevenlabs/* моделей
+- build_openai_tts_provider: передаёт el_* из config
+
+config.py:
+- Новые поля: el_stability (0.5), el_similarity_boost (0.75), el_style (0.0), el_speed (1.0)
+- from_dict: десериализация el_* с дефолтами
+
+schemas.ts + advancedSettingsConfig.ts:
+- el_* добавлены в PipelineConfig и DEFAULT_CONFIG
+
+AdvancedSettings.tsx:
+- ELEVENLABS_VOICES_FALLBACK: 21 голос-фолбэк
+- isElevenLabs: определяет показ ElevenLabs-специфичных элементов
+- Fallback голосов: isElevenLabs → 21 голос (голос1 и голос2)
+- Слайдеры: Стабильность, Схожесть, Стиль/экспрессия, Скорость (0.7-1.2×)
+- CSS: adv-tts-slider-hint (курсивная подсказка)
+
 
 ## 1.22.23 - 2026-05-06 - FIX - TVIDEO-UI-DESIGN-FIX
 
@@ -2366,3 +3607,82 @@ AIHUBMIX_TRANSLATION_MODEL, NEUROAPI_REWRITE_TIMEOUT, секция NeuroAPI.
 - Архитектура проекта, процесс разработки, webhook-план.
 - Пакет ядра: контракты конфигурации, проекта, сегментов, артефактов, этапов, webhook.
 - Сфокусированные модульные тесты контрактов ядра.
+
+## [1.34.0] — 2026-05-04 — CI Iteration 1
+### Added
+- `/api/health` расширен: uptime, running_projects, memory_mb (опц.)
+- Autosave субтитров каждые 30с в Workspace (C-07)
+- Upload progress bar с XHR (C-04)
+- Tooltips для технических терминов: TTS, Провайдер, Дубляж, Preflight, Пресет (C-03)
+- Индикатор автосохранения (CheckCircle + timestamp) в Workspace header
+
+## [1.35.0] — 2026-05-04 — CI Iteration 2
+### Added
+- OnboardingTour: 6-шаговый guided tour при первом визите (C-01)
+- System-preference тема по умолчанию — light/dark следует ОС (C-09)
+- Валидация размера файла 2ГБ с понятной ошибкой (C-11)
+- Security headers: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection (Security агент)
+- Shared Tooltip компонент (Frontend агент)
+- Ctrl+S для Save сегментов в Workspace (UX агент)
+
+## [1.36.0] — 2026-05-04 — CI Iteration 3
+### Added
+- Quick download SRT/VTT/MP4 кнопки прямо на карточке Dashboard (C-12)
+- Тест консистентности версии в 3 файлах — test_version_consistency.py (QA агент)
+- CSS для quick-downloads (responsive)
+### Fixed
+- ProjectStatus тип — корректное сравнение с 'completed'
+
+## [1.37.0] — 2026-05-04 — CI Iteration 4
+### Added
+- Stale detection: предупреждение если перевод работает >5 мин (C-13/C-19)
+- Human-readable ошибки: StageError/ffmpeg/quota → понятный текст (C-17)
+- aria-live="polite" регион в card-body (UX accessibility)
+- PUBLIC_ROADMAP.md (PM агент)
+- error?: string в VideoProject schema
+### CSS
+- .stale-warning, .error-human стили
+
+## [1.38.0] — 2026-05-04 — CI Iteration 5 (ФИНАЛЬНАЯ)
+### Added
+- FAQ секция в Settings с 8 вопросами (C-21)
+- Кнопка "Повторить онбординг" в Settings (C-22)
+- CompletionToast: уведомление при возврате на вкладку (C-20)
+- Toast CSS (.toast-notification)
+- FAQ CSS (.faq-list, .faq-item, .faq-q, .faq-a)
+### Updated
+- Skill continuous-improvement: Фаза 3б (Dev agent proposals) + CEO Арбитраж
+- PUBLIC_ROADMAP.md обновлён
+
+## [1.39.0] — 2026-05-04 — Backlog Implementation
+### Added
+- Retry с exponential backoff для TTS API (`core/retry.py`, env: TTS_RETRY_ATTEMPTS/BASE_DELAY/MAX_DELAY/BACKOFF)
+- Per-user API Keys: APIKeyStore (JSON dict), Admin API `/api/admin/keys` (GET/POST/DELETE)
+- URL-загрузка видео через yt-dlp (`create_project` + `_download_url_video`)
+- Email-уведомления при завершении/ошибке (`notifications/__init__.py`, env: SMTP_*)
+- PWA: manifest.webmanifest, sw.js (cache-first shell, network-only API, push)
+- CLI: команды `batch`, `watch`, `download`
+- .dockerignore (ускорение build context)
+- Optimized Dockerfile: отдельный python-deps layer, HEALTHCHECK
+### Changed
+- Batch лимит 10 → 50 (env: MAX_BATCH_SIZE)
+- Dockerfile: 3-stage build, HEALTHCHECK, --no-install-recommends
+### Tests
+- test_backlog_features.py (20 новых тестов)
+- 590 тестов total (было 570)
+
+## [1.40.0] — 2026-05-04 — CI Round 2 Iteration 1
+### Added
+- URLDownloadStatus компонент — индикатор скачивания yt-dlp (NC-01)
+- Email: кнопка "Открыть проект" с APP_URL ссылкой (NC-04+Nm-12)
+- sw.js: динамическая версия кэша через APP_VERSION (Nm-11)
+- PWA иконки icon-192/512.png + скрипт generate_pwa_icons.mjs (NM-07)
+- CLI watch: graceful Ctrl+C с финальным статусом (NM-08)
+
+## [1.44.0] — 2026-05-04 — CI Round 2 Final
+### Added (Iter 5)
+- /metrics: request counter translate_video_metrics_requests_total (NC5-02)
+- webhook.py: WEBHOOK_URL+SECRET+TIMEOUT, HMAC-SHA256 подпись (NM5-06)
+- runner.py: send_project_webhook при completed/failed
+- CSS: mobile touch targets min 44px, mobile dashboard 1-col (NC5-03+NM5-07)
+- index.html: PWA splash screen с анимацией (Nm5-11)

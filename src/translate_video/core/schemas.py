@@ -47,6 +47,7 @@ class Stage(StrEnum):
     RENDER = "render"
     QA = "qa"
     EXPORT = "export"
+    EMBED_SUBTITLES = "embed_subtitles"
 
 
 class ArtifactKind(StrEnum):
@@ -57,10 +58,12 @@ class ArtifactKind(StrEnum):
     SOURCE_TRANSCRIPT = "source_transcript"
     TRANSLATED_TRANSCRIPT = "translated_transcript"
     SPEAKERS = "speakers"
-    SUBTITLES = "subtitles"
+    SUBTITLES = "subtitles"          # SRT (для скачивания, embed в ffmpeg)
+    SUBTITLES_VTT = "subtitles_vtt"  # WebVTT (для браузерного <track>)
     TTS_AUDIO = "tts_audio"
     FINAL_AUDIO = "final_audio"
     OUTPUT_VIDEO = "output_video"
+    OUTPUT_VIDEO_WITH_SUBS = "output_video_with_subs"
     QA_REPORT = "qa_report"
 
 
@@ -185,6 +188,10 @@ class Segment:
     #   Формат: plain text с тегами Яндекс SpeechKit SSML или `+` для ударений.
     #   Пример: "во+да течёт <break time=\"350ms\"/> по трубам"
     qa_flags: list[str] = field(default_factory=list)
+    # Z2.11: Комментарий редактора к сегменту (не влияет на пайплайн)
+    notes: str = ""
+    # Z2.16: Счётчик ручных правок перевода (инкрементируется при каждом изменении)
+    edit_count: int = 0
 
     def __post_init__(self) -> None:
         if self.end < self.start:
@@ -198,9 +205,13 @@ class Segment:
         return self.end - self.start
 
     def to_dict(self) -> dict[str, Any]:
-        """Вернуть JSON-совместимое представление сегмента."""
-
-        return asdict(self)
+        """Вернуть JSON-совместимое представление сегмента (Z3.19: word_count)."""
+        import re as _re  # noqa: PLC0415
+        d = asdict(self)
+        # Вычисляемые поля — не сохраняются в JSON, добавляются на лету
+        d["word_count_source"] = len(_re.findall(r"\S+", self.source_text or ""))
+        d["word_count_translated"] = len(_re.findall(r"\S+", self.translated_text or ""))
+        return d
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Segment":
@@ -235,6 +246,16 @@ class VideoProject:
     # Снапшоты баланса до/после пайплайна — для вычисления реального расхода.
     # Ключи: "polza_before", "polza_after", "neuroapi_before", "neuroapi_after"
     billing_snapshots: dict[str, float] = field(default_factory=dict)
+    # Прогресс выполнения (0–100) и ETA для UI-оверлея
+    progress_percent: int | None = None
+    eta_seconds: int | None = None
+    started_at: str | None = None
+    # NC10-01: Теги/метки для организации проектов
+    tags: list[str] = field(default_factory=list)
+    # NC10-02: Архивирование (скрытие из основного списка)
+    archived: bool = False
+    # О1: Переименование проекта — человекочитаемое название вместо UUID
+    display_name: str | None = None
 
     def __post_init__(self) -> None:
         self.status = ProjectStatus(self.status)
@@ -253,6 +274,12 @@ class VideoProject:
             "stage_runs": [run.to_dict() for run in self.stage_runs],
             "status": self.status,
             "billing_snapshots": self.billing_snapshots,
+            "progress_percent": self.progress_percent,
+            "eta_seconds": self.eta_seconds,
+            "started_at": self.started_at,
+            "tags": self.tags,  # NC10-01
+            "archived": self.archived,  # NC10-02
+            "display_name": self.display_name,  # О1
         }
 
     @classmethod
@@ -278,4 +305,9 @@ class VideoProject:
 
             status=ProjectStatus(payload.get("status", "created")),
             billing_snapshots=dict(payload.get("billing_snapshots", {})),
+            progress_percent=payload.get("progress_percent"),
+            eta_seconds=payload.get("eta_seconds"),
+            started_at=payload.get("started_at"),
+            tags=list(payload.get("tags", [])),  # NC10-01
+            archived=bool(payload.get("archived", False)),  # NC10-02
         )

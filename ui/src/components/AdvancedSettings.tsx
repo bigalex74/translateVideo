@@ -23,6 +23,31 @@ const TTS_VOICES_FALLBACK = [
   { id: 'shimmer', name: 'Shimmer', gender: 'female',  tone: 'Мягкий' },
 ];
 
+// ElevenLabs голоса-фолбэк (21 голос, актуальный список из Polza API)
+const ELEVENLABS_VOICES_FALLBACK = [
+  { id: 'Rachel',    name: 'Rachel',    gender: 'female',  tone: 'Спокойный, профессиональный' },
+  { id: 'Aria',      name: 'Aria',      gender: 'female',  tone: 'Выразительный, живой' },
+  { id: 'Roger',     name: 'Roger',     gender: 'male',    tone: 'Уверенный, авторитетный' },
+  { id: 'Sarah',     name: 'Sarah',     gender: 'female',  tone: 'Мягкий, дружелюбный' },
+  { id: 'Laura',     name: 'Laura',     gender: 'female',  tone: 'Чёткий, информационный' },
+  { id: 'Charlie',   name: 'Charlie',   gender: 'male',    tone: 'Разговорный, непринуждённый' },
+  { id: 'George',    name: 'George',    gender: 'male',    tone: 'Зрелый, солидный' },
+  { id: 'Callum',    name: 'Callum',    gender: 'male',    tone: 'Молодой, динамичный' },
+  { id: 'River',     name: 'River',     gender: 'neutral', tone: 'Нейтральный, спокойный' },
+  { id: 'Liam',      name: 'Liam',      gender: 'male',    tone: 'Живой, энергичный' },
+  { id: 'Charlotte', name: 'Charlotte', gender: 'female',  tone: 'Тёплый, эмоциональный' },
+  { id: 'Alice',     name: 'Alice',     gender: 'female',  tone: 'Чёткий, профессиональный' },
+  { id: 'Matilda',   name: 'Matilda',   gender: 'female',  tone: 'Мягкий, дружелюбный' },
+  { id: 'Will',      name: 'Will',      gender: 'male',    tone: 'Непринуждённый, разговорный' },
+  { id: 'Jessica',   name: 'Jessica',   gender: 'female',  tone: 'Живой, выразительный' },
+  { id: 'Eric',      name: 'Eric',      gender: 'male',    tone: 'Глубокий, авторитетный' },
+  { id: 'Chris',     name: 'Chris',     gender: 'male',    tone: 'Разговорный, естественный' },
+  { id: 'Brian',     name: 'Brian',     gender: 'male',    tone: 'Уверенный, профессиональный' },
+  { id: 'Daniel',    name: 'Daniel',    gender: 'male',    tone: 'Чёткий, дикторский' },
+  { id: 'Lily',      name: 'Lily',      gender: 'female',  tone: 'Молодой, яркий' },
+  { id: 'Bill',      name: 'Bill',      gender: 'male',    tone: 'Зрелый, спокойный' },
+];
+
 // Yandex SpeechKit голоса-фолбэк
 const SPEECHKIT_VOICES_FALLBACK = [
   { id: 'alena',   name: 'Алёна',   gender: 'female', tone: 'Тёплая, дружелюбная',       roles: ['neutral', 'good'] },
@@ -44,6 +69,51 @@ interface AdvancedSettingsProps {
   disabled?: boolean;
 }
 
+// Z2.9: Вспомогательный компонент для добавления пары глоссария
+function GlossaryAddRow({
+  disabled,
+  onAdd,
+}: {
+  disabled: boolean;
+  onAdd: (src: string, tgt: string) => void;
+}) {
+  const [src, setSrc] = React.useState('');
+  const [tgt, setTgt] = React.useState('');
+  return (
+    <div className="adv-glossary-add-row">
+      <input
+        className="adv-glossary-input"
+        type="text"
+        placeholder="Оригинал (напр. AI)"
+        value={src}
+        onChange={e => setSrc(e.target.value)}
+        disabled={disabled}
+      />
+      <span className="adv-glossary-arrow">→</span>
+      <input
+        className="adv-glossary-input"
+        type="text"
+        placeholder="Перевод (напр. ИИ)"
+        value={tgt}
+        onChange={e => setTgt(e.target.value)}
+        disabled={disabled}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && src && tgt) {
+            onAdd(src.trim(), tgt.trim());
+            setSrc(''); setTgt('');
+          }
+        }}
+      />
+      <button
+        type="button"
+        className="adv-tag-add"
+        onClick={() => { if (src && tgt) { onAdd(src.trim(), tgt.trim()); setSrc(''); setTgt(''); } }}
+        disabled={disabled || !src.trim() || !tgt.trim()}
+      >+</button>
+    </div>
+  );
+}
+
 export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   config,
   onChange,
@@ -51,6 +121,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
 }) => {
   const c = { ...DEFAULT_CONFIG, ...config };
   const professional = c.translation_quality === 'professional';
+  const isSubtitlesOnly = c.translation_mode === 'subtitles';
 
   // Управление тегами do_not_translate
   const [tagInput, setTagInput] = React.useState('');
@@ -168,6 +239,11 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   const voiceStrategy = c.voice_strategy ?? 'single';
   const needVoice2    = voiceStrategy === 'two_voices' || voiceStrategy === 'per_speaker';
   const isYandex      = ttsProvider === 'yandex';
+  const isElevenLabs  = ttsProvider === 'polza' && ttsModel.startsWith('elevenlabs/');
+  const elStability   = c.el_stability      ?? 0.5;
+  const elSimilarity  = c.el_similarity_boost ?? 0.75;
+  const elStyle       = c.el_style           ?? 0.0;
+  const elSpeed       = c.el_speed           ?? 1.0;
 
   React.useEffect(() => {
     if (!professional || !ttsProvider) return;
@@ -336,8 +412,23 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
         )}
       </div>
 
+      {/* Режим «только субтитры» — TTS/Render недоступны */}
+      {isSubtitlesOnly && (
+        <div className="adv-section adv-section--info">
+          <span style={{ fontSize: '1.5rem' }}>💬</span>
+          <div>
+            <strong>Режим «Только субтитры»</strong><br />
+            <span className="adv-hint">
+              В этом режиме TTS, тайминги и рендер не запускаются —
+              перевод остановится после экспорта субтитров.
+              Настройки озвучки ниже неактивны.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Дополнительные настройки — только в профессиональном режиме */}
-      {professional && (
+      {professional && !isSubtitlesOnly && (
         <div className="adv-section">
           <div className="adv-section-title">Дополнительные настройки</div>
 
@@ -461,7 +552,9 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                   <div className="adv-tts-voices-grid">
                     {(ttsVoices.length
                       ? ttsVoices
-                      : isYandex ? SPEECHKIT_VOICES_FALLBACK : TTS_VOICES_FALLBACK
+                      : isYandex ? SPEECHKIT_VOICES_FALLBACK
+                      : isElevenLabs ? ELEVENLABS_VOICES_FALLBACK
+                      : TTS_VOICES_FALLBACK
                     ).map(v => (
                       <button
                         key={v.id}
@@ -500,7 +593,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                     </div>
                   )}
 
-                  {/* Скорость и высота голоса 1 (только Yandex) */}
+                  {/* Скорость голоса 1 (Yandex: 0.5–2.0) */}
                   {isYandex && (
                     <div className="adv-tts-sliders">
                       <div className="adv-tts-slider-row">
@@ -540,13 +633,122 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
                     </div>
                   )}
 
+                  {/* OpenAI TTS: скорость речи (0.75–2.0) */}
+                  {!isYandex && !isElevenLabs && (
+                    <div className="adv-tts-sliders">
+                      <div className="adv-tts-slider-row">
+                        <label className="adv-tts-slider-label">
+                          🎚 Скорость речи: <strong>{ttsSpeed1.toFixed(2)}×</strong>
+                          {' '}
+                          <span className="adv-tts-speed-badge">
+                            {ttsSpeed1 <= 0.85 ? '🐢 Медленная' :
+                             ttsSpeed1 <= 1.1  ? '😊 Нормальная' :
+                             ttsSpeed1 <= 1.4  ? '⚡ Чуть быстрее' :
+                             ttsSpeed1 <= 1.7  ? '🚀 Быстрая' :
+                                                 '💨 Очень быстрая'}
+                          </span>
+                          <span className="adv-tts-slider-hint">
+                            ~{Math.round(14.0 * 0.78 * ttsSpeed1)} симв/с · рек. 1.3× для gpt-4o-mini-tts
+                          </span>
+                        </label>
+                        <input
+                          id="adv-tts-speed-openai"
+                          type="range"
+                          className="adv-tts-slider"
+                          min={0.75} max={2.0} step={0.05}
+                          value={ttsSpeed1}
+                          onChange={e => onChange({ professional_tts_speed: parseFloat(e.target.value) })}
+                          disabled={disabled}
+                        />
+                        <div className="adv-tts-slider-ticks">
+                          <span>0.75×</span><span>1.0×</span><span>1.3×</span><span>1.5×</span><span>2.0×</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ElevenLabs: стабильность, схожесть, стиль, скорость */}
+                  {isElevenLabs && (
+                    <div className="adv-tts-sliders">
+                      <div className="adv-tts-slider-row">
+                        <label className="adv-tts-slider-label">
+                          🎭 Стабильность голоса: <strong>{elStability.toFixed(2)}</strong>
+                          <span className="adv-tts-slider-hint">0 = живой, 1 = стабильный</span>
+                        </label>
+                        <input
+                          id="adv-el-stability"
+                          type="range" className="adv-tts-slider"
+                          min={0} max={1} step={0.05}
+                          value={elStability}
+                          onChange={e => onChange({ el_stability: parseFloat(e.target.value) })}
+                          disabled={disabled}
+                        />
+                        <div className="adv-tts-slider-ticks">
+                          <span>Живой</span><span>0.5</span><span>Стабильный</span>
+                        </div>
+                      </div>
+                      <div className="adv-tts-slider-row">
+                        <label className="adv-tts-slider-label">
+                          🎤 Схожесть: <strong>{elSimilarity.toFixed(2)}</strong>
+                          <span className="adv-tts-slider-hint">насколько точно копируется тембр</span>
+                        </label>
+                        <input
+                          id="adv-el-similarity"
+                          type="range" className="adv-tts-slider"
+                          min={0} max={1} step={0.05}
+                          value={elSimilarity}
+                          onChange={e => onChange({ el_similarity_boost: parseFloat(e.target.value) })}
+                          disabled={disabled}
+                        />
+                        <div className="adv-tts-slider-ticks">
+                          <span>Низкая</span><span>0.5</span><span>Высокая</span>
+                        </div>
+                      </div>
+                      <div className="adv-tts-slider-row">
+                        <label className="adv-tts-slider-label">
+                          ✨ Стиль / экспрессия: <strong>{elStyle.toFixed(2)}</strong>
+                          <span className="adv-tts-slider-hint">0 = нейтрально, 1 = максимум</span>
+                        </label>
+                        <input
+                          id="adv-el-style"
+                          type="range" className="adv-tts-slider"
+                          min={0} max={1} step={0.05}
+                          value={elStyle}
+                          onChange={e => onChange({ el_style: parseFloat(e.target.value) })}
+                          disabled={disabled}
+                        />
+                        <div className="adv-tts-slider-ticks">
+                          <span>Нейтрально</span><span>0.5</span><span>Ярко</span>
+                        </div>
+                      </div>
+                      <div className="adv-tts-slider-row">
+                        <label className="adv-tts-slider-label">
+                          🎚 Скорость: <strong>{elSpeed.toFixed(2)}×</strong>
+                        </label>
+                        <input
+                          id="adv-el-speed"
+                          type="range" className="adv-tts-slider"
+                          min={0.7} max={1.2} step={0.05}
+                          value={elSpeed}
+                          onChange={e => onChange({ el_speed: parseFloat(e.target.value) })}
+                          disabled={disabled}
+                        />
+                        <div className="adv-tts-slider-ticks">
+                          <span>0.7×</span><span>1.0×</span><span>1.2×</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {needVoice2 && (
                     <>
                       <div className="adv-tts-voices-label">Голос 2 (нечётные / другие спикеры)</div>
                       <div className="adv-tts-voices-grid">
                         {(ttsVoices.length
                           ? ttsVoices
-                          : isYandex ? SPEECHKIT_VOICES_FALLBACK : TTS_VOICES_FALLBACK
+                          : isYandex ? SPEECHKIT_VOICES_FALLBACK
+                          : isElevenLabs ? ELEVENLABS_VOICES_FALLBACK
+                          : TTS_VOICES_FALLBACK
                         ).map(v => (
                           <button
                             key={v.id}
@@ -735,6 +937,43 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
             <span className="adv-hint">Нажмите Enter или «+» для добавления</span>
           </div>
 
+          {/* Z2.9: Глоссарий с переводами */}
+          <div className="adv-field">
+            <label className="adv-label">📖 Глоссарий (термин → перевод)</label>
+            <div className="adv-glossary">
+              {(c.glossary_terms ?? []).map((entry, idx) => (
+                <div key={idx} className="adv-glossary-row">
+                  <span className="adv-glossary-source">{entry.source}</span>
+                  <span className="adv-glossary-arrow">→</span>
+                  <span className="adv-glossary-target">{entry.target}</span>
+                  <button
+                    type="button"
+                    className="adv-tag-remove"
+                    onClick={() => {
+                      const terms = [...(c.glossary_terms ?? [])];
+                      terms.splice(idx, 1);
+                      onChange({ glossary_terms: terms });
+                    }}
+                    disabled={disabled}
+                    aria-label={`Удалить ${entry.source}`}
+                  >×</button>
+                </div>
+              ))}
+              <GlossaryAddRow
+                disabled={disabled}
+                onAdd={(src, tgt) => {
+                  if (!src || !tgt) return;
+                  const terms = [...(c.glossary_terms ?? [])];
+                  if (!terms.some(t => t.source === src)) {
+                    terms.push({ source: src, target: tgt });
+                    onChange({ glossary_terms: terms });
+                  }
+                }}
+              />
+            </div>
+            <span className="adv-hint">Термины, которые LLM обязан перевести именно так</span>
+          </div>
+
           {/* Режим разработчика */}
           <div className="adv-field adv-field--devmode">
             <div className="adv-devmode-row">
@@ -761,6 +1000,34 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* ══ Субтитры ══════════════════════════════════════════════════════════ */}
+      <div className="adv-section">
+        <div className="adv-section-title">Субтитры в видео</div>
+
+        <div className="adv-field">
+          <label className="adv-label" htmlFor="adv-subtitle-mode">Режим встраивания</label>
+          <select
+            id="adv-subtitle-mode"
+            className="adv-select"
+            value={c.subtitle_embed_mode ?? 'none'}
+            onChange={e => onChange({ subtitle_embed_mode: e.target.value })}
+            disabled={disabled}
+          >
+            <option value="none">Не встраивать (только SRT/VTT файлы)</option>
+            <option value="soft">Мягкие (трек в MP4, включается в плеере)</option>
+            <option value="burn">Жёсткие (вжечь в видео, всегда видны)</option>
+          </select>
+        </div>
+
+        {(c.subtitle_embed_mode ?? 'none') !== 'none' && (
+          <div className="adv-hint">
+            {c.subtitle_embed_mode === 'soft'
+              ? '💬 Субтитры будут встроены как отдельный трек. Их можно включить/выключить в VLC, браузере или медиаплеере.'
+              : '🔥 Субтитры будут вжжены в видеопоток (hardcode). Всегда видны, независимо от плеера.'}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -109,18 +109,20 @@ class ExportSubtitlesStageTest(unittest.TestCase):
         refreshed = self.store.load_project(self.project.work_dir)
         self.assertIn("subtitles", refreshed.artifacts)
 
-    def test_srt_overwrites_vtt_artifact_with_last_call(self):
-        """Оба формата регистрируются — subtitles artifact указывает на последний (srt)."""
+    def test_subtitles_vtt_and_srt_registered_separately(self):
+        """VTT регистрируется как subtitles_vtt, SRT — как subtitles (не перезаписывают друг друга)."""
         self.project.segments = [_make_segment(0, "Текст")]
         ExportSubtitlesStage().run(self._ctx())
 
         refreshed = self.store.load_project(self.project.work_dir)
-        artifact_path = refreshed.artifacts.get("subtitles", "")
-        # Должен указывать на один из двух форматов (vtt или srt)
-        self.assertTrue(
-            artifact_path.endswith(".vtt") or artifact_path.endswith(".srt"),
-            f"subtitles artifact должен быть vtt или srt, получено: {artifact_path!r}",
-        )
+        # SRT — ключ 'subtitles'
+        self.assertIn("subtitles", refreshed.artifacts)
+        self.assertTrue(refreshed.artifacts["subtitles"].endswith(".srt"),
+                        f"subtitles должен быть SRT, получено: {refreshed.artifacts['subtitles']!r}")
+        # VTT — отдельный ключ 'subtitles_vtt'
+        self.assertIn("subtitles_vtt", refreshed.artifacts)
+        self.assertTrue(refreshed.artifacts["subtitles_vtt"].endswith(".vtt"),
+                        f"subtitles_vtt должен быть VTT, получено: {refreshed.artifacts['subtitles_vtt']!r}")
 
     def test_stage_does_not_fail_with_empty_segments(self):
         """ExportSubtitlesStage не падает при пустом списке сегментов."""

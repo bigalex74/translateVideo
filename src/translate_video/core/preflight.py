@@ -58,6 +58,8 @@ class PreflightReport:
     ok: bool
     checks: list[PreflightCheck]
     duration_seconds: float | None = None
+    cost_estimate: dict | None = None           # {"translation_usd": float, "tts_usd": float, "total_usd": float}
+    duration_estimate_seconds: float | None = None  # ETA всего пайплайна
 
     def to_dict(self) -> dict:
         """Вернуть JSON-совместимый отчет."""
@@ -67,8 +69,77 @@ class PreflightReport:
             "provider": self.provider,
             "ok": self.ok,
             "duration_seconds": self.duration_seconds,
+            "cost_estimate": self.cost_estimate,
+            "duration_estimate_seconds": self.duration_estimate_seconds,
             "checks": [check.to_dict() for check in self.checks],
         }
+
+
+# ── Таблицы оценки стоимости и времени ───────────────────────────────────────
+
+# Приблизительная стоимость перевода: $ за 1000 символов
+_TRANSLATION_USD_PER_1K: dict[str, float] = {
+    "deepseek":  0.0007,
+    "neuroapi":  0.002,
+    "polza":     0.002,
+    "legacy":    0.0,   # локальный / бесплатный
+    "fake":      0.0,
+}
+
+# Приблизительная стоимость TTS: $ за минуту аудио
+_TTS_USD_PER_MIN: dict[str, float] = {
+    "polza":     0.012,   # OpenAI через Polza
+    "neuroapi":  0.010,
+    "yandex":    0.005,
+    "legacy":    0.0,     # Edge TTS — бесплатно
+    "fake":      0.0,
+}
+
+# Коэффициент длительности пайплайна (реальное время / длина видео)
+_PIPELINE_TIME_FACTOR: dict[str, float] = {
+    "deepseek":  0.45,
+    "neuroapi":  0.60,
+    "polza":     0.55,
+    "legacy":    1.20,
+    "fake":      0.05,
+}
+
+
+def _estimate_cost_and_duration(
+    duration_sec: float,
+    provider: str,
+) -> tuple[dict, float]:
+    """Оценить примерную стоимость и время обработки.
+
+    Расчёт очень грубый — используется только для UX-подсказки пользователю.
+    Точность ±50% в зависимости от плотности речи и длины предложений.
+
+    Возвращает:
+        (cost_dict, eta_seconds)
+    """
+    # ~125 слов/мин × ~6 символов = ~750 символов/мин речи
+    chars_per_sec = 12.5
+    total_chars = duration_sec * chars_per_sec
+
+    t_price = _TRANSLATION_USD_PER_1K.get(provider, 0.0)
+    tts_price = _TTS_USD_PER_MIN.get(provider, 0.0)
+
+    translation_usd = (total_chars / 1000.0) * t_price
+    tts_usd = (duration_sec / 60.0) * tts_price
+    total_usd = translation_usd + tts_usd
+
+    cost = {
+        "translation_usd": round(translation_usd, 4),
+        "tts_usd": round(tts_usd, 4),
+        "total_usd": round(total_usd, 4),
+        "currency": "USD",
+        "note": "Приблизительная оценка ±50%",
+    }
+
+    factor = _PIPELINE_TIME_FACTOR.get(provider, 0.8)
+    eta = duration_sec * factor + 30.0  # +30 сек накладные расходы
+    return cost, round(eta)
+
 
 
 def _probe_duration(
@@ -139,12 +210,18 @@ def run_preflight(
         )
     overall_ok = all(c.ok for c in checks)
     duration = _probe_duration(input_path, executable_finder)
+    cost_estimate = None
+    eta = None
+    if duration is not None:
+        cost_estimate, eta = _estimate_cost_and_duration(duration, provider)
     return PreflightReport(
         input_video=str(input_path),
         provider=provider,
         ok=overall_ok,
         checks=checks,
         duration_seconds=duration,
+        cost_estimate=cost_estimate,
+        duration_estimate_seconds=eta,
     )
 
 

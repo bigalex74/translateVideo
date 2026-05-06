@@ -48,8 +48,21 @@ export async function uploadProject(file: File, project_id?: string, config?: Pi
     return res.json();
 }
 
-export async function listProjects(): Promise<VideoProject[]> {
-    const res = await fetch(`${API_BASE}/projects`);
+export async function listProjects(params?: {
+    search?: string;
+    sort_by?: 'created_at' | 'name' | 'status';
+    sort_dir?: 'asc' | 'desc';
+    tag?: string;
+    page_size?: number;
+}): Promise<VideoProject[]> {
+    const q = new URLSearchParams();
+    if (params?.search)   q.set('search', params.search);
+    if (params?.sort_by)  q.set('sort_by', params.sort_by);
+    if (params?.sort_dir) q.set('sort_dir', params.sort_dir);
+    if (params?.tag)      q.set('tag', params.tag);
+    if (params?.page_size) q.set('page_size', String(params.page_size));
+    const url = q.toString() ? `${API_BASE}/projects?${q}` : `${API_BASE}/projects`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json() as { projects: VideoProject[] };
     return data.projects;
@@ -172,4 +185,80 @@ export async function previewTTS(
     if (!res.ok) throw new Error(await readError(res));
     const blob = await res.blob();
     return URL.createObjectURL(blob);
+}
+
+/** О1: Переименовать проект (задать display_name). */
+export async function renameProject(
+    project_id: string,
+    display_name: string,
+): Promise<{ project_id: string; display_name: string; status: string }> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/rename`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name }),
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+/** А6: URL для скачивания субтитров в конкретном формате (srt/vtt/ass/sbv). */
+export function subtitleExportUrl(project_id: string, format: 'srt' | 'vtt' | 'ass' | 'sbv'): string {
+    return `${API_BASE}/projects/${project_id}/subtitles?format=${format}`;
+}
+
+/** А6: URL для скачивания всех субтитров в ZIP (SRT+VTT+ASS+SBV). */
+export function subtitleExportZipUrl(project_id: string): string {
+    return `${API_BASE}/projects/${project_id}/subtitles/all`;
+}
+
+/** R7-И1: Удаление проекта целиком. */
+export async function deleteProject(project_id: string): Promise<{ deleted: string; ok: boolean }> {
+    const res = await fetch(`${API_BASE}/projects/${encodeURIComponent(project_id)}`, {
+        method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+/** R7-И4: Safari-совместимое скачивание через fetch+blob (обходит ограничения Safari на <a download>). */
+export async function safariSafeDownload(url: string, filename: string): Promise<void> {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(objUrl); document.body.removeChild(a); }, 1000);
+    } catch {
+        // Fallback: открыть в новой вкладке (Safari не поддерживает download через Blob)
+        window.open(url, '_blank');
+    }
+}
+
+/** R8-И4: Batch создание проектов (Z5.4 backend). Загружает несколько видео URL одним запросом. */
+export interface BatchItem {
+    input_video: string;
+    project_id?: string;
+    config?: Record<string, unknown>;
+}
+export interface BatchResult {
+    project_id: string;
+    status: string;
+    error?: string;
+}
+export async function batchCreateProjects(
+    items: BatchItem[],
+    auto_run = false
+): Promise<BatchResult[]> {
+    const res = await fetch(`${API_BASE}/projects/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, auto_run }),
+    });
+    if (!res.ok) throw new Error(`Batch error: HTTP ${res.status}`);
+    return (await res.json()).results ?? [];
 }

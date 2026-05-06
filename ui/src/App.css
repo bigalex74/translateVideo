@@ -372,82 +372,9 @@ button {
   border-color: var(--accent-primary);
 }
 
-/* ─── Mobile sidebar toggle button ──────────────────────────────────────── */
-.sidebar-toggle {
-  display: none; /* скрыто на desktop */
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  z-index: 200;
-  width: 40px;
-  height: 40px;
-  background: var(--accent-primary);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
-  transition: background 0.2s, transform 0.15s;
-}
-
-.sidebar-toggle:hover {
-  background: var(--accent-hover, #6d28d9);
-  transform: scale(1.06);
-}
-
-/* Overlay */
-.sidebar-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 99;
-  backdrop-filter: blur(2px);
-}
-
-.sidebar-overlay.open {
-  display: block;
-}
-
-/* ─── Mobile breakpoint: sidebar = drawer ──────────────────────────────── */
-@media (max-width: 768px) {
-  .sidebar-toggle {
-    display: flex; /* показываем на мобиле */
-  }
-
-  .sidebar {
-    position: fixed !important;
-    top: 0;
-    left: 0;
-    height: 100%;
-    z-index: 100;
-    transform: translateX(-100%);
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: none;
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.35);
-  }
-
-  .main-content {
-    margin-left: 0 !important;
-    width: 100%;
-  }
-
-  .app-container {
-    flex-direction: column;
-  }
-}
-
-/* ─── D-BUG-01: Light theme — полные адаптации ─────────────────────────── */
+/* Light theme overrides */
 [data-theme="light"] .glass-panel {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: var(--border-color);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 [data-theme="light"] body {
@@ -459,339 +386,128 @@ button {
   border-right-color: var(--border-color);
 }
 
-[data-theme="light"] .sidebar-header h1 {
-  background: linear-gradient(135deg, #6d28d9, #7c3aed);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+/* ═══════════════════════════════════════════════════════════════
+   📱 МОБИЛЬНАЯ АДАПТАЦИЯ — R1-R5 (Рустам, Итерация 1 Round 4)
+   ═══════════════════════════════════════════════════════════════ */
 
-[data-theme="light"] .sidebar nav li {
-  color: var(--text-secondary);
-}
-
-[data-theme="light"] .sidebar nav li:hover {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-
-[data-theme="light"] .sidebar nav li.active {
-  background: var(--accent-glow);
-  color: var(--accent-primary);
-}
-
-[data-theme="light"] .sidebar-toggle {
+/* Hamburger кнопка — видна только на мобиле */
+.sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
   background: var(--accent-primary);
-  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.3);
-}
-
-/* Workspace */
-[data-theme="light"] .workspace-header,
-[data-theme="light"] .panel {
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-}
-
-[data-theme="light"] .panel-header {
-  background: var(--bg-elevated);
-  border-bottom-color: var(--border-color);
-}
-
-[data-theme="light"] .panel-header-meta {
-  color: var(--text-muted);
-}
-
-[data-theme="light"] .panel-tabs {
-  background: var(--bg-elevated);
-  border-bottom-color: var(--border-color);
-}
-
-[data-theme="light"] .panel-tabs button {
-  color: var(--text-muted);
-}
-
-[data-theme="light"] .panel-tabs button:hover {
-  color: var(--text-primary);
-}
-
-[data-theme="light"] .segment-item {
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-}
-
-[data-theme="light"] .workspace-header {
-  background: var(--bg-surface);
-}
-
-/* Cards and surfaces */
-[data-theme="light"] .project-mini-card,
-[data-theme="light"] .stat-card {
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-}
-
-[data-theme="light"] .card-header {
-  background: var(--bg-elevated);
-  border-bottom-color: var(--border-color);
-}
-
-/* Кнопки */
-[data-theme="light"] .btn-secondary {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  border-color: var(--border-color);
-}
-
-[data-theme="light"] .btn-secondary:hover {
-  background: var(--border-color);
-}
-
-[data-theme="light"] .btn-icon {
-  border-color: var(--border-color);
-  color: var(--text-secondary);
-}
-
-[data-theme="light"] .btn-icon:hover {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-
-/* Theme toggle */
-[data-theme="light"] .theme-toggle {
-  border-color: var(--border-color);
-  color: var(--text-muted);
-}
-
-[data-theme="light"] .theme-toggle:hover {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-
-/* Inputs */
-[data-theme="light"] .text-input,
-[data-theme="light"] .select-input {
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  color: var(--text-primary);
-}
-
-[data-theme="light"] .text-input:focus,
-[data-theme="light"] .select-input:focus {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px var(--accent-glow);
-}
-
-/* Badges */
-[data-theme="light"] .badge.completed { background: rgba(5, 150, 105, 0.12); }
-[data-theme="light"] .badge.running   { background: rgba(217, 119, 6, 0.12); }
-[data-theme="light"] .badge.failed    { background: rgba(220, 38, 38, 0.12); }
-[data-theme="light"] .badge.created   { background: rgba(82, 82, 91, 0.1); }
-
-/* Running overlay */
-[data-theme="light"] .running-overlay {
-  background: rgba(0, 0, 0, 0.55);
-}
-
-[data-theme="light"] .running-card {
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15);
-}
-
-/* Системная тема — те же overrides через media query */
-@media (prefers-color-scheme: light) {
-  [data-theme="system"] .glass-panel { background: rgba(255, 255, 255, 0.92); }
-  [data-theme="system"] .sidebar { background: var(--bg-surface); }
-  [data-theme="system"] .panel-header { background: var(--bg-elevated); }
-  [data-theme="system"] .segment-item { background: var(--bg-surface); border-color: var(--border-color); }
-  [data-theme="system"] .text-input,
-  [data-theme="system"] .select-input { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
-}
-
-/* ─── D-BUG-07: Settings — API key input-group ──────────────────────── */
-.api-key-row {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--border-color);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.api-key-row:focus-within {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px var(--accent-glow);
-}
-
-.api-key-row .api-key-input {
-  flex: 1;
+  color: white;
   border: none;
-  border-radius: 0;
-  box-shadow: none !important;
-}
-
-.api-key-row .api-key-input:focus {
-  outline: none;
-  box-shadow: none !important;
-  border-color: transparent !important;
-}
-
-.api-key-copy-btn {
-  flex-shrink: 0;
-  border-radius: 0;
-  border: none;
-  border-left: 1px solid var(--border-color);
-  padding: 0 14px;
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-  transition: background 0.15s, color 0.15s;
+  border-radius: 8px;
+  padding: 8px 10px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
 }
 
-.api-key-copy-btn:hover:not(:disabled) {
-  background: var(--bg-base);
-  color: var(--accent-primary);
+/* Overlay backdrop на мобиле */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 999;
 }
 
-.api-key-copy-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+/* Touch-friendly min размеры */
+@media (max-width: 768px) {
+  /* Показываем hamburger */
+  .sidebar-toggle { display: flex; }
+
+  /* Sidebar как drawer поверх контента */
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 1001;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay.open {
+    display: block;
+  }
+
+  /* Main content занимает весь экран */
+  .main-content {
+    width: 100%;
+    padding-top: 52px; /* под hamburger */
+  }
+
+  /* Страницы — меньше padding */
+  .page-container {
+    padding: 16px;
+  }
+
+  /* Предотвращаем горизонтальный scroll */
+  body, html {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  .app-container {
+    overflow-x: hidden;
+  }
+
+  /* Touch targets — минимум 44px */
+  .sidebar nav li {
+    min-height: 44px;
+    padding: 12px 14px;
+    font-size: 1rem;
+  }
+
+  /* Кнопка закрыть в sidebar */
+  .sidebar-close {
+    display: flex !important;
+  }
 }
 
-/* ─── Settings dev-links ─────────────────────────────────────────────── */
-.dev-links {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.dev-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 0.85rem;
-  transition: all 0.15s;
-}
-
-.dev-link:hover {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-  background: var(--accent-glow);
-}
-
-/* ─── form-actions (Settings save button row) ─────────────────────────── */
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-color);
-}
-
-/* ─── D-BUG-02: PWA Install Banner — mobile responsive ──────────────── */
-.pwa-install-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1));
-  border: 1px solid rgba(99,102,241,0.25);
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
-  animation: slideDown 0.3s ease;
-  flex-wrap: nowrap;
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.pwa-install-icon {
-  font-size: 1.4rem;
-  flex-shrink: 0;
-}
-
-.pwa-install-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pwa-install-text strong {
-  font-size: 0.88rem;
-  color: var(--text-primary, #e2e8f0);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pwa-install-text span {
-  font-size: 0.76rem;
-  color: var(--text-secondary, #94a3b8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pwa-install-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
-  background: #6366f1;
-  color: #fff;
-  border: none;
-  border-radius: 7px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: background 0.2s;
-}
-
-.pwa-install-btn:hover { background: #4f46e5; }
-
-.pwa-dismiss-btn {
+/* Кнопка закрыть sidebar — скрыта на десктопе */
+.sidebar-close {
+  display: none;
   background: none;
   border: none;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-muted);
+  font-size: 20px;
+  margin-left: auto;
+  padding: 4px 8px;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
+  border-radius: 6px;
 }
 
-.pwa-dismiss-btn:hover { color: var(--text-primary, #e2e8f0); }
+.sidebar-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
 
-/* Mobile: баннер компактный, текст одна строка */
-@media (max-width: 480px) {
-  .pwa-install-banner {
-    padding: 0.6rem 0.75rem;
-    gap: 8px;
-  }
-
-  .pwa-install-icon {
-    font-size: 1.2rem;
-  }
-
-  .pwa-install-text strong { font-size: 0.82rem; }
-  .pwa-install-text span { display: none; } /* скрываем subtitle на очень маленьком экране */
-
-  .pwa-install-btn {
-    font-size: 0.78rem;
-    padding: 5px 10px;
-  }
+/* Статус badges — tooltip стилизация (K4, I6, D-013) */
+[title]:not(button):hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
 }

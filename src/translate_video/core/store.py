@@ -232,7 +232,7 @@ class ProjectStore:
         fmt: str = "srt",
     ) -> Path:
         """
-        Сгенерировать и записать файл субтитров (SRT или VTT).
+        Сгенерировать и записать файл субтитров (SRT, VTT, ASS, SBV).
 
         Регистрирует артефакт ``ArtifactKind.SUBTITLES`` в проекте.
         Возвращает абсолютный путь к созданному файлу.
@@ -245,12 +245,28 @@ class ProjectStore:
             content = segments_to_srt(project.segments)
             relative = self.SRT_FILE
             content_type = "text/srt"
+            kind = ArtifactKind.SUBTITLES          # SRT → скачивание + ffmpeg embed
         elif fmt == "vtt":
             content = segments_to_vtt(project.segments)
             relative = self.VTT_FILE
             content_type = "text/vtt"
+            kind = ArtifactKind.SUBTITLES_VTT      # VTT → браузерный <track>
+        elif fmt == "ass":
+            # NC5-01: ASS (Advanced SubStation Alpha) — для профред. редакторов
+            from translate_video.export.ass import segments_to_ass  # noqa: PLC0415
+            content = segments_to_ass(project.segments)
+            relative = "subtitles/translated.ass"
+            content_type = "text/x-ass"
+            kind = ArtifactKind.SUBTITLES
+        elif fmt == "sbv":
+            # Z3.4: YouTube SBV формат
+            from translate_video.export.sbv import segments_to_sbv  # noqa: PLC0415
+            content = segments_to_sbv(project.segments)
+            relative = "subtitles/translated.sbv"
+            content_type = "text/plain"
+            kind = ArtifactKind.SUBTITLES
         else:
-            raise ValueError(f"неподдерживаемый формат субтитров: {fmt}")
+            raise ValueError(f"неподдерживаемый формат субтитров: {fmt} (допустимые: srt, vtt, ass, sbv)")
 
         output = project.work_dir / relative
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -259,7 +275,7 @@ class ProjectStore:
 
         self.add_artifact(
             project,
-            kind=ArtifactKind.SUBTITLES,
+            kind=kind,
             path=output,
             stage=Stage.EXPORT,
             content_type=content_type,

@@ -32,6 +32,62 @@ _cancel_tokens: dict[str, threading.Event] = {}
 _BLOCKED_HOSTNAMES = {"localhost", "localhost.localdomain"}
 
 
+# V3: Rate limiting
+import time as _time
+
+class _PipelineRateLimiter:
+    """В3: In-memory rate limiter для запуска пайплайна.
+
+    Ограничивает число запусков на IP: макс MAX_RUNS за WINDOW_S секунд.
+    По умолчанию: 5 запусков / 60 секунд.
+    Настраивается через PIPELINE_RATE_LIMIT_MAX и PIPELINE_RATE_LIMIT_WINDOW.
+    """
+    import os as _os
+    MAX_RUNS: int = int(__import__("os").getenv("PIPELINE_RATE_LIMIT_MAX", "5"))
+    WINDOW_S: float = float(__import__("os").getenv("PIPELINE_RATE_LIMIT_WINDOW", "60"))
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        # ip → deque of timestamps
+        self._hits: dict[str, list[float]] = {}
+
+    def check(self, client_ip: str) -> bool:
+        """Вернуть True если запрос допустим, False если rate limit превышен.
+
+        Исключения: localhost (127.0.0.1, ::1, testclient) всегда допустимы.
+        """
+        # Localhost всегда разрешён — тесты и локальная разработка
+        if client_ip in ("127.0.0.1", "::1", "testclient", ""):
+            return True
+        now = _time.monotonic()
+        with self._lock:
+            hits = self._hits.setdefault(client_ip, [])
+            # Убрать старые hits за пределами окна
+            cutoff = now - self.WINDOW_S
+            self._hits[client_ip] = [t for t in hits if t > cutoff]
+            if len(self._hits[client_ip]) >= self.MAX_RUNS:
+                return False
+            self._hits[client_ip].append(now)
+            return True
+
+    def remaining(self, client_ip: str) -> tuple[int, int]:
+        """К9: Вернуть (remaining, reset_seconds) для X-RateLimit-* заголовков."""
+        if client_ip in ("127.0.0.1", "::1", "testclient", ""):
+            return self.MAX_RUNS, 0
+        now = _time.monotonic()
+        with self._lock:
+            hits = self._hits.get(client_ip, [])
+            cutoff = now - self.WINDOW_S
+            active = [t for t in hits if t > cutoff]
+            remaining = max(0, self.MAX_RUNS - len(active))
+            reset = int(self.WINDOW_S - (now - active[0])) if active else 0
+            return remaining, max(0, reset)
+
+
+_pipeline_rate_limiter = _PipelineRateLimiter()
+
+
+
 def _is_forbidden_webhook_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Вернуть True для адресов, опасных для webhook-запросов наружу."""
 
@@ -96,6 +152,100 @@ def _validate_webhook_url(url: str | None) -> None:
 
 
 
+
+# ─── Batch Run Models + Route (MUST be before /{project_id}/* routes) ─────
+
+class BatchRunRequest(BaseModel):
+    """Запрос пакетного запуска нескольких проектов."""
+    project_ids: list[str]
+    provider: str = "legacy"
+    force: bool = False
+    from_stage: str | None = None
+    webhook_url: str | None = None
+
+
+class BatchRunItem(BaseModel):
+    """Результат постановки одного проекта в очередь."""
+    project_id: str
+    queued: bool
+    reason: str | None = None
+
+
+class BatchRunResponse(BaseModel):
+    """Ответ на пакетный запуск."""
+    queued: int
+    skipped: int
+    items: list[BatchRunItem]
+
+
+@router.post("/batch/run", summary="Пакетный запуск нескольких проектов")
+def batch_run_pipeline_early(
+    req: BatchRunRequest,
+    background_tasks: BackgroundTasks,
+    store: ProjectStore = Depends(get_store),
+) -> BatchRunResponse:
+    """Запустить перевод для нескольких проектов сразу.
+
+    Проекты, уже находящиеся в состоянии `running`, будут пропущены.
+    Допустимо не более 10 проектов за запрос.
+
+    Пример:
+    ```json
+    {
+      "project_ids": ["proj-1", "proj-2"],
+      "provider": "deepseek",
+      "force": false
+    }
+    ```
+    """
+    import os as _os
+    MAX_BATCH = int(_os.getenv("MAX_BATCH_SIZE", "50"))
+    if len(req.project_ids) > MAX_BATCH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Максимум {MAX_BATCH} проектов за один batch-запрос.",
+        )
+
+    items_result: list[BatchRunItem] = []
+    queued = 0
+    skipped = 0
+
+    for raw_id in req.project_ids:
+        try:
+            safe_id = sanitize_project_id(raw_id)
+        except ValueError:
+            items_result.append(BatchRunItem(project_id=raw_id, queued=False, reason="invalid_project_id"))
+            skipped += 1
+            continue
+
+        with _running_lock:
+            already_running = safe_id in _running_projects
+
+        if already_running:
+            items_result.append(BatchRunItem(project_id=safe_id, queued=False, reason="already_running"))
+            skipped += 1
+            continue
+
+        sub_req = RunPipelineRequest(
+            force=req.force,
+            provider=req.provider,
+            from_stage=req.from_stage,
+        )
+
+        background_tasks.add_task(
+            run_pipeline_task,
+            project_id=safe_id,
+            store=store,
+            req=sub_req,
+            webhook_url=req.webhook_url,
+        )
+        items_result.append(BatchRunItem(project_id=safe_id, queued=True))
+        queued += 1
+
+    _log.info("api.batch_run", queued=queued, skipped=skipped)
+    return BatchRunResponse(queued=queued, skipped=skipped, items=items_result)
+
+
 class RunPipelineRequest(BaseModel):
     """Схема запроса на запуск пайплайна."""
     force: bool = False
@@ -149,6 +299,14 @@ async def run_pipeline_task(
             dev_mode=getattr(loaded_project.config, "dev_mode", False),
         )
 
+        # Записываем started_at и сбрасываем прогресс
+        from translate_video.core.schemas import ProjectStatus
+        from datetime import UTC, datetime as _dt
+        loaded_project.started_at = _dt.now(UTC).isoformat()
+        loaded_project.progress_percent = 0
+        loaded_project.eta_seconds = None
+        store.save_project(loaded_project)
+
         # Запускаем блокирующий пайплайн в отдельном потоке,
         # чтобы не блокировать asyncio event loop
         ctx = StageContext(
@@ -156,10 +314,28 @@ async def run_pipeline_task(
             store=store,
             cancel_event=cancel_event,
         )
+
+        # Callback для обновления progress_percent после каждого этапа
+        def _on_stage_done(stage_index: int, total_stages: int, elapsed: float) -> None:
+            try:
+                p = store.load_project(loaded_project.work_dir)
+                p.progress_percent = min(100, int((stage_index / total_stages) * 100))
+                remaining = total_stages - stage_index
+                p.eta_seconds = max(0, int((elapsed / stage_index) * remaining)) if stage_index else None
+                store.save_project(p)
+            except Exception:  # noqa: BLE001
+                pass
+
+        runner.on_stage_done = _on_stage_done
+
         with Timer() as t:
             await asyncio.to_thread(runner.run, ctx)
 
         restored = store.load_project(loaded_project.work_dir)
+        restored.progress_percent = 100
+        restored.eta_seconds = 0
+        store.save_project(restored)
+
         _log.info(
             "api.pipeline_done",
             project=safe_project_id,
@@ -267,10 +443,22 @@ def run_pipeline(
     project_id: str,
     req: RunPipelineRequest,
     background_tasks: BackgroundTasks,
+    request: __import__("fastapi").Request,
     x_webhook_url: Annotated[str | None, Header()] = None,
     store: ProjectStore = Depends(get_store),
 ):
-    """Запустить пайплайн для проекта в фоновом режиме."""
+    """Запустить пайплайн для проекта в фоновом режиме.
+
+    В3: Защищён rate limiting — макс 5 запусков/мин на IP.
+    Настраивается через PIPELINE_RATE_LIMIT_MAX и PIPELINE_RATE_LIMIT_WINDOW.
+    """
+    # В3: Rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    if not _pipeline_rate_limiter.check(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Слишком много запросов. Максимум {_PipelineRateLimiter.MAX_RUNS} запусков за {int(_PipelineRateLimiter.WINDOW_S)}с. Повторите позже.",
+        )
     try:
         safe_project_id = sanitize_project_id(project_id)
         _validate_webhook_url(x_webhook_url)
@@ -366,8 +554,6 @@ def tts_preview(
     Используется кнопкой «▶» в редакторе сегментов для предпрослушивания
     без запуска полного пайплайна. Использует настройки TTS из проекта.
     """
-    import tempfile, os
-    from pathlib import Path
     from fastapi.responses import Response
 
     try:
@@ -475,29 +661,24 @@ def tts_preview(
                 )
 
         else:
-            # OpenAI TTS
-            import re as _re
-            from translate_video.tts.openai_tts import OpenAITTSProvider
+            from translate_video.tts.openai_tts import build_openai_tts_provider, _strip_tts_markup  # noqa: PLC2701
 
-            api_key = os.getenv("OPENAI_API_KEY", "")
-            if not api_key:
-                raise HTTPException(status_code=503, detail="OPENAI_API_KEY не настроен")
+            provider = build_openai_tts_provider(cfg)
+            if provider is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="TTS-провайдер не настроен (нет API-ключа или провайдера)",
+                )
 
-            voice = getattr(cfg, "professional_tts_voice", "alloy")
-            # Для OpenAI стриппируем SSML если есть
-            clean_text = _re.sub(r"<[^>]+>", "", text).replace("+", "").strip()
+            # Стриппируем Яндекс TTS-разметку и SSML — OpenAI/ElevenLabs их не поддерживают
+            clean_text = _strip_tts_markup(text)
             if not clean_text:
                 clean_text = text
 
-            provider = OpenAITTSProvider(
-                api_key=api_key,
-                voice_1=voice,
-                voice_2=getattr(cfg, "professional_tts_voice_2", "echo"),
-            )
-            with tempfile.TemporaryDirectory() as tmp:
-                tmp_path = Path(tmp) / "preview.mp3"
-                provider._synth(clean_text, voice, tmp_path)
-                audio_bytes = tmp_path.read_bytes()
+            voice = getattr(cfg, "professional_tts_voice", "nova")
+            # synth_preview() возвращает сырые MP3-байты (без WAV-конвертации):
+            # браузер играет MP3 напрямую; speed/el_speed/stability учитываются.
+            audio_bytes = provider.synth_preview(clean_text, voice)
 
         import logging as _logging
         _logging.getLogger("tts_preview").warning(
@@ -512,3 +693,4 @@ def tts_preview(
     except Exception as exc:
         _log.exception("tts.preview.error", project=project_id)
         raise HTTPException(status_code=500, detail=f"Ошибка синтеза: {exc}")
+

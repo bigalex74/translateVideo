@@ -35,17 +35,29 @@ TTS_VOICES: list[dict] = [
     {"id": "shimmer", "name": "Shimmer", "gender": "female",  "tone": "Мягкий, тёплый"},
 ]
 
-# ── ElevenLabs голоса ─────────────────────────────────────────────────────────
+# ── ElevenLabs голоса (21 голос, актуальный список из Polza API) ─────────────
 ELEVENLABS_VOICES: list[dict] = [
-    {"id": "Rachel",  "name": "Rachel",  "gender": "female",  "tone": "Спокойный, профессиональный"},
-    {"id": "Domi",    "name": "Domi",    "gender": "female",  "tone": "Живой, энергичный"},
-    {"id": "Bella",   "name": "Bella",   "gender": "female",  "tone": "Мягкий, дружелюбный"},
-    {"id": "Antoni",  "name": "Antoni",  "gender": "male",    "tone": "Хорошо поставленный, спокойный"},
-    {"id": "Elli",    "name": "Elli",    "gender": "female",  "tone": "Молодой, живой"},
-    {"id": "Josh",    "name": "Josh",    "gender": "male",    "tone": "Молодой, расслабленный"},
-    {"id": "Arnold",  "name": "Arnold",  "gender": "male",    "tone": "Уверенный, зрелый"},
-    {"id": "Adam",    "name": "Adam",    "gender": "male",    "tone": "Глубокий, авторитетный"},
-    {"id": "Sam",     "name": "Sam",     "gender": "male",    "tone": "Разговорный, дружелюбный"},
+    {"id": "Rachel",   "name": "Rachel",   "gender": "female",  "tone": "Спокойный, профессиональный"},
+    {"id": "Aria",     "name": "Aria",     "gender": "female",  "tone": "Выразительный, живой"},
+    {"id": "Roger",    "name": "Roger",    "gender": "male",    "tone": "Уверенный, авторитетный"},
+    {"id": "Sarah",    "name": "Sarah",    "gender": "female",  "tone": "Мягкий, дружелюбный"},
+    {"id": "Laura",    "name": "Laura",    "gender": "female",  "tone": "Чёткий, информационный"},
+    {"id": "Charlie",  "name": "Charlie",  "gender": "male",    "tone": "Разговорный, непринуждённый"},
+    {"id": "George",   "name": "George",   "gender": "male",    "tone": "Зрелый, солидный"},
+    {"id": "Callum",   "name": "Callum",   "gender": "male",    "tone": "Молодой, динамичный"},
+    {"id": "River",    "name": "River",    "gender": "neutral", "tone": "Нейтральный, спокойный"},
+    {"id": "Liam",     "name": "Liam",     "gender": "male",    "tone": "Живой, энергичный"},
+    {"id": "Charlotte","name": "Charlotte","gender": "female",  "tone": "Тёплый, эмоциональный"},
+    {"id": "Alice",    "name": "Alice",    "gender": "female",  "tone": "Чёткий, профессиональный"},
+    {"id": "Matilda",  "name": "Matilda",  "gender": "female",  "tone": "Мягкий, дружелюбный"},
+    {"id": "Will",     "name": "Will",     "gender": "male",    "tone": "Непринуждённый, разговорный"},
+    {"id": "Jessica",  "name": "Jessica",  "gender": "female",  "tone": "Живой, выразительный"},
+    {"id": "Eric",     "name": "Eric",     "gender": "male",    "tone": "Глубокий, авторитетный"},
+    {"id": "Chris",    "name": "Chris",    "gender": "male",    "tone": "Разговорный, естественный"},
+    {"id": "Brian",    "name": "Brian",    "gender": "male",    "tone": "Уверенный, профессиональный"},
+    {"id": "Daniel",   "name": "Daniel",   "gender": "male",    "tone": "Чёткий, дикторский"},
+    {"id": "Lily",     "name": "Lily",     "gender": "female",  "tone": "Молодой, яркий"},
+    {"id": "Bill",     "name": "Bill",     "gender": "male",    "tone": "Зрелый, спокойный"},
 ]
 
 # ── Модели с их голосами ──────────────────────────────────────────────────────
@@ -126,6 +138,13 @@ class OpenAITTSProvider:
         voice_2: str,
         timeout: float = 60.0,
         http_post=None,
+        # OpenAI: скорость речи (0.25–4.0)
+        openai_speed: float = 1.0,
+        # ElevenLabs-специфичные параметры
+        el_stability: float = 0.5,
+        el_similarity_boost: float = 0.75,
+        el_style: float = 0.0,
+        el_speed: float = 1.0,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
@@ -135,8 +154,15 @@ class OpenAITTSProvider:
         self.timeout = timeout or timeout_for_model(model)
         self._http_post = http_post or _post_audio
         # Выбираем пул голосов в зависимости от движка модели
-        is_eleven = model.startswith("elevenlabs/")
-        self._voice_pool = _ELEVEN_VOICE_POOL if is_eleven else _VOICE_POOL
+        self.is_elevenlabs = model.startswith("elevenlabs/")
+        self._voice_pool = _ELEVEN_VOICE_POOL if self.is_elevenlabs else _VOICE_POOL
+        # OpenAI: speed 0.25–4.0 (default 1.0)
+        self.openai_speed = max(0.25, min(4.0, openai_speed))
+        # ElevenLabs параметры
+        self.el_stability = max(0.0, min(1.0, el_stability))
+        self.el_similarity_boost = max(0.0, min(1.0, el_similarity_boost))
+        self.el_style = max(0.0, min(1.0, el_style))
+        self.el_speed = max(0.7, min(1.2, el_speed))
 
     def synthesize(self, project, segments: list[Segment]) -> list[Segment]:
         """Синтезировать каждый переведённый сегмент через /audio/speech."""
@@ -156,18 +182,15 @@ class OpenAITTSProvider:
         for index, segment in enumerate(segments):
             # Приоритет источника текста:
             # 1. tts_ssml_override — пользовательский текст из SSML-редактора
-            #    OpenAI не поддерживает SSML → стриппим теги, оставляем plain text
+            #    OpenAI не поддерживает SSML/Яндекс-разметку → стриппим всё
             # 2. translated_text — стандартный переведённый текст
             ssml_override = (segment.tts_ssml_override or "").strip()
             if ssml_override:
-                import re as _re
-                text = _re.sub(r"<[^>]+>", "", ssml_override).strip()
-                # Убираем SSML-ударения (+), оставляем только текст
-                text = text.replace("+", "")
+                text = _strip_tts_markup(ssml_override)
                 if not text:
-                    text = segment.translated_text.strip()
+                    text = _strip_tts_markup(segment.translated_text)
             else:
-                text = segment.translated_text.strip()
+                text = _strip_tts_markup(segment.translated_text)
 
             if not text:
                 continue
@@ -179,7 +202,7 @@ class OpenAITTSProvider:
                 speaker_voice_map=speaker_voice_map,
             )
 
-            output = output_dir / f"{segment.id or index}.mp3"
+            output = output_dir / f"{segment.id or index}.wav"  # WAV — MoviePy читает 24kHz MP3 неверно
             segment.tts_text = text
 
             with Timer() as t:
@@ -196,7 +219,7 @@ class OpenAITTSProvider:
                     _add_qa_flag(segment, "tts_openai_error")
                     continue
 
-            segment.tts_path = output.relative_to(project.work_dir).as_posix()
+            segment.tts_path = output.relative_to(project.work_dir).as_posix()  # .wav
             segment.voice = voice
             _add_qa_flag(segment, f"tts_voice_{voice}")
 
@@ -239,12 +262,23 @@ class OpenAITTSProvider:
 
     def _synth(self, text: str, voice: str, output: Path) -> None:
         """Вызвать /audio/speech и сохранить mp3."""
-        payload = {
+        payload: dict = {
             "model": self.model,
             "input": text,
             "voice": voice,
             "response_format": "mp3",
         }
+        # ElevenLabs-специфичные параметры (только для elevenlabs/* моделей)
+        if self.is_elevenlabs:
+            payload["speed"] = self.el_speed
+            payload["stability"] = self.el_stability
+            payload["similarity_boost"] = self.el_similarity_boost
+            payload["style"] = self.el_style
+        else:
+            # OpenAI /audio/speech поддерживает speed=0.25..4.0
+            # speed != 1.0 — передаём явно
+            if abs(self.openai_speed - 1.0) > 0.01:
+                payload["speed"] = self.openai_speed
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -255,7 +289,45 @@ class OpenAITTSProvider:
             headers=headers,
             timeout=self.timeout,
         )
-        output.write_bytes(audio_bytes)
+        # MoviePy (AudioFileClip) некорректно читает 24kHz MP3 от OpenAI TTS:
+        # определяет fps=44100 вместо 24000 → аудио воспроизводится в 1.84× ускорении → кряк.
+        # Решение: конвертируем через ffmpeg в WAV 44100Hz до сохранения.
+        # Выходной файл сохраняется с расширением .wav (меняем .mp3 на .wav).
+        wav_output = output.with_suffix(".wav")
+        _mp3_to_wav(audio_bytes, wav_output)
+
+
+    def synth_preview(self, text: str, voice: str) -> bytes:
+        """Синтезировать текст и вернуть сырые MP3-байты (для превью в браузере).
+
+        В отличие от _synth(), НЕ конвертирует в WAV — браузер воспроизводит
+        MP3 напрямую. Включает все параметры: speed (OpenAI), el_speed/stability
+        (ElevenLabs) — превью точно соответствует реальной озвучке.
+        """
+        payload: dict = {
+            "model": self.model,
+            "input": text,
+            "voice": voice,
+            "response_format": "mp3",
+        }
+        if self.is_elevenlabs:
+            payload["speed"] = self.el_speed
+            payload["stability"] = self.el_stability
+            payload["similarity_boost"] = self.el_similarity_boost
+            payload["style"] = self.el_style
+        else:
+            if abs(self.openai_speed - 1.0) > 0.01:
+                payload["speed"] = self.openai_speed
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        return self._http_post(
+            f"{self.base_url}/audio/speech",
+            payload,
+            headers=headers,
+            timeout=self.timeout,
+        )
 
 
 def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
@@ -294,7 +366,83 @@ def build_openai_tts_provider(config) -> OpenAITTSProvider | None:
         voice_1=getattr(config, "professional_tts_voice", "nova"),
         voice_2=getattr(config, "professional_tts_voice_2", "onyx"),
         timeout=timeout_for_model(model),
+        openai_speed=getattr(config, "professional_tts_speed", 1.0),
+        el_stability=getattr(config, "el_stability", 0.5),
+        el_similarity_boost=getattr(config, "el_similarity_boost", 0.75),
+        el_style=getattr(config, "el_style", 0.0),
+        el_speed=getattr(config, "el_speed", 1.0),
     )
+
+
+def _mp3_to_wav(mp3_bytes: bytes, wav_path: Path) -> None:
+    """Конвертировать MP3-байты в WAV 44100Hz через ffmpeg.
+
+    MoviePy v1.x некорректно определяет sample rate 24kHz MP3 от OpenAI TTS —
+    читает как 44100Hz → аудио воспроизводится в 1.84× ускорении (кряк).
+    WAV с явным sample_rate=44100 решает эту проблему раз и навсегда.
+    """
+    import subprocess  # noqa: PLC0415
+    import tempfile    # noqa: PLC0415
+    import os          # noqa: PLC0415
+
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+        f.write(mp3_bytes)
+        tmp_mp3 = f.name
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", tmp_mp3,
+                "-ar", "44100",   # resample → стандарт MoviePy
+                "-ac", "1",        # моно — TTS не нуждается в стерео
+                "-f", "wav",
+                str(wav_path),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"ffmpeg конвертация mp3→wav не удалась: {exc}") from exc
+    finally:
+        if os.path.exists(tmp_mp3):
+            os.unlink(tmp_mp3)
+
+
+def _strip_tts_markup(text: str) -> str:
+    """Очистить текст от разметки Яндекс TTS и SSML перед отправкой в OpenAI/ElevenLabs.
+
+    OpenAI и ElevenLabs не понимают:
+    - **слово** — логическое ударение (Яндекс TTS API v3)
+    - +гласная — ударение на гласную (Яндекс TTS)
+    - sil<[200ms]> — пауза (Яндекс TTS)
+    - [[phonemes]] — фонемы (Яндекс TTS)
+    - <speak>...</speak>, <break/> и другие SSML-теги
+
+    Эти символы либо произносятся буквально (звёздочки, плюс),
+    либо заставляют OpenAI TTS генерировать артефакты/кряки.
+    """
+    import re as _re
+
+    # 1. Убрать Яндекс sil<[ms]> паузы (должно быть до общего <...>)
+    text = _re.sub(r"\bsil\s*<\[[^\]]*\]>", "", text)      # sil<[200ms]>
+
+    # 2. Убрать SSML-теги
+    text = _re.sub(r"<[^>]+>", "", text)                    # <speak>, <break/>
+
+    # 3. Убрать Яндекс [[phonemes]]
+    text = _re.sub(r"\[\[[^\]]*\]\]", "", text)
+
+    # 4. Убрать Яндекс логическое ударение **слово** → слово
+    text = _re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+
+    # 5. Убрать ударение на гласную (+а → а)
+    text = text.replace("+", "")
+
+    # 6. Схлопнуть пробелы
+    text = _re.sub(r" {2,}", " ", text)
+
+    return text.strip()
 
 
 def _add_qa_flag(segment: Segment, flag: str) -> None:
@@ -309,39 +457,45 @@ def _post_audio(
     *,
     headers: dict,
     timeout: float,
+    max_attempts: int = 3,
 ) -> bytes:
-    """POST /audio/speech → bytes (mp3).
+    """POST /audio/speech → bytes (mp3) с retry exponential backoff.
 
     Обрабатывает два формата ответа:
     - binary mp3 (NeuroAPI, прямой OpenAI)
     - JSON {"audio": "<base64_mp3>"} (Polza)
     """
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read()
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"TTS API вернул HTTP {exc.code}: {exc.read()[:200]}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"TTS сетевая ошибка: {exc.reason}") from exc
-    except OSError as exc:
-        raise RuntimeError(f"TTS ошибка запроса: {exc}") from exc
+    from translate_video.core.retry import DEFAULT_TTS_RETRY  # noqa: PLC0415
 
-    # Определяем формат: JSON или бинарный
-    if raw[:1] == b"{":
+    def _single_attempt() -> bytes:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
         try:
-            obj = json.loads(raw)
-            b64 = obj.get("audio") or obj.get("data") or ""
-            if b64:
-                return base64.b64decode(b64 + "==")
-            raise RuntimeError(f"Polza вернул JSON без поля audio: {list(obj.keys())}")
-        except (json.JSONDecodeError, Exception) as exc:
-            if isinstance(exc, RuntimeError):
-                raise
-            raise RuntimeError(f"Не удалось разобрать JSON-ответ TTS: {exc}") from exc
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = response.read()
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(f"TTS API вернул HTTP {exc.code}: {exc.read()[:200]}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"TTS сетевая ошибка: {exc.reason}") from exc
+        except OSError as exc:
+            raise RuntimeError(f"TTS ошибка запроса: {exc}") from exc
 
-    return raw  # бинарный mp3
+        # Определяем формат: JSON или бинарный
+        if raw[:1] == b"{":
+            try:
+                obj = json.loads(raw)
+                b64 = obj.get("audio") or obj.get("data") or ""
+                if b64:
+                    return base64.b64decode(b64 + "==")
+                raise RuntimeError(f"Polza вернул JSON без поля audio: {list(obj.keys())}")
+            except (json.JSONDecodeError, Exception) as exc:
+                if isinstance(exc, RuntimeError):
+                    raise
+                raise RuntimeError(f"Не удалось разобрать JSON-ответ TTS: {exc}") from exc
+
+        return raw  # бинарный mp3
+
+    return DEFAULT_TTS_RETRY.call(_single_attempt, label="openai_tts")
 
 
 # Обратная совместимость

@@ -50,6 +50,41 @@
   }
 }
 
+/* ─── R7-И1: Явное переключение темы через data-theme (Settings) ─────────── */
+[data-theme="dark"] {
+  --text: #9ca3af;
+  --text-h: #f3f4f6;
+  --bg: #16171d;
+  --border: #2e303a;
+  --code-bg: #1f2028;
+  --accent: #c084fc;
+  --accent-bg: rgba(192, 132, 252, 0.15);
+  --accent-border: rgba(192, 132, 252, 0.5);
+  --social-bg: rgba(47, 48, 58, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  color-scheme: dark;
+}
+
+[data-theme="dark"] #social .button-icon {
+  filter: invert(1) brightness(2);
+}
+
+[data-theme="light"] {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #aa3bff;
+  --accent-bg: rgba(170, 59, 255, 0.1);
+  --accent-border: rgba(170, 59, 255, 0.5);
+  --social-bg: rgba(244, 243, 236, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  color-scheme: light;
+}
+
 #root {
   width: 1126px;
   max-width: 100%;
@@ -95,6 +130,17 @@ p {
   margin: 0;
 }
 
+/* С1: Уровни шрифта для сегментов (data-font-level на html) */
+[data-font-level="small"] .seg-translated,
+[data-font-level="small"] .seg-source { font-size: 0.82rem; }
+[data-font-level="large"] .seg-translated,
+[data-font-level="large"] .seg-source { font-size: 1.05rem; }
+
+/* С4: Compact mode — уменьшение отступов сегментов */
+.compact-mode .segment-item { padding: 6px 8px !important; }
+.compact-mode .segment-item + .segment-item { margin-top: 4px !important; }
+.compact-mode .seg-translated { rows: 1; min-height: 32px !important; }
+
 code,
 .counter {
   font-family: var(--mono);
@@ -109,3 +155,1258 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE / MOBILE — O8 (v1.33.0)
+   Breakpoints: ≤768px (mobile), ≤1024px (tablet)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Nav */
+  .nav-tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 12px;
+    gap: 4px;
+  }
+
+  .nav-tab {
+    white-space: nowrap;
+    font-size: 0.8rem;
+    padding: 10px 12px;
+  }
+
+  /* Page container */
+  .page-container {
+    padding: 12px !important;
+  }
+
+  /* Workspace: stack left/right panel vertically */
+  .workspace-body {
+    flex-direction: column !important;
+    overflow: auto !important;
+  }
+
+  .workspace-left,
+  .workspace-right {
+    width: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .workspace-right {
+    height: 40vh;
+    flex-shrink: 0;
+  }
+
+  /* Header actions: wrap */
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Buttons: smaller on mobile */
+  .btn-primary,
+  .btn-secondary {
+    padding: 7px 12px;
+    font-size: 0.82rem;
+  }
+
+  /* Segments list: less padding */
+  .segments-list {
+    padding: 8px !important;
+  }
+
+  /* Dashboard: single column grid */
+  .projects-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Dashboard: mini-card full width */
+  .project-mini-card {
+    width: 100%;
+  }
+
+  /* Search bar: stack */
+  .search-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .search-bar input {
+    width: 100%;
+  }
+
+  /* NewProject: wizard steps */
+  .wizard-steps {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .wizard-step-item {
+    min-width: 80px;
+    font-size: 0.75rem;
+  }
+
+  /* Status filter: scroll */
+  .status-filter {
+    overflow-x: auto;
+    padding-bottom: 4px;
+    flex-wrap: nowrap;
+  }
+
+  /* ConfirmRunModal: full width */
+  .modal-box {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 0 auto;
+    border-radius: 12px !important;
+  }
+
+  /* Running overlay card: compact */
+  .running-card {
+    padding: 24px 16px !important;
+    max-width: 90vw !important;
+  }
+
+  /* Video panel: smaller */
+  .video-container video {
+    max-height: 180px !important;
+  }
+
+  /* Stats panel: hide on mobile if too long */
+  .panel-tabs button {
+    padding: 10px 8px;
+    font-size: 0.8rem;
+  }
+
+  /* Settings: dev links stack */
+  .dev-links {
+    flex-direction: column;
+  }
+
+  /* Onboarding steps: compact */
+  .onboarding-steps {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-left h2 {
+    font-size: 0.9rem;
+    max-width: 55vw;
+  }
+
+  .running-card h3 {
+    font-size: 1.1rem !important;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    gap: 4px;
+    padding: 6px 10px;
+  }
+}
+
+/* ─── Toast notification (C-20) ─────────────────────────────────────────── */
+.toast-notification {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 2000;
+  background: var(--surface-card, #1e293b);
+  border: 1px solid var(--accent, #6366f1);
+  border-radius: 12px;
+  padding: 0.85rem 1.2rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--text-primary, #e2e8f0);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  animation: toast-in 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  max-width: 320px;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-notification button {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-secondary, #94a3b8); padding: 2px; line-height: 1;
+  flex-shrink: 0; margin-left: auto;
+}
+
+/* ─── URLDownloadStatus (NC-01) ─────────────────────────────────────────── */
+.url-download-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  animation: fadeIn 0.3s ease;
+}
+.url-download-icon {
+  flex-shrink: 0;
+  color: #6366f1;
+  padding-top: 2px;
+}
+.url-dl-spin {
+  animation: url-dl-pulse 1.5s ease-in-out infinite;
+}
+@keyframes url-dl-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
+}
+.url-download-text { flex: 1; }
+.url-download-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary, #e2e8f0);
+  margin-bottom: 2px;
+}
+.url-download-source {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #94a3b8);
+  margin-bottom: 6px;
+}
+.url-download-step {
+  font-size: 0.82rem;
+  color: #6366f1;
+  margin-bottom: 8px;
+}
+.url-download-bar {
+  height: 4px;
+  background: rgba(99,102,241,0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.url-download-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 2px;
+  width: 60%;
+}
+.url-download-bar-animated {
+  animation: url-bar-slide 2s linear infinite;
+}
+@keyframes url-bar-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.url-download-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+  opacity: 0.7;
+}
+
+/* ─── PWA Install Banner (NM2-07) ──────────────────────────────────────── */
+.pwa-install-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1));
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  animation: slideDown 0.3s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pwa-install-icon { font-size: 1.4rem; flex-shrink: 0; }
+.pwa-install-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pwa-install-text strong { font-size: 0.88rem; color: var(--text-primary, #e2e8f0); }
+.pwa-install-text span { font-size: 0.76rem; color: var(--text-secondary, #94a3b8); }
+.pwa-install-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.pwa-install-btn:hover { background: #4f46e5; }
+.pwa-dismiss-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.pwa-dismiss-btn:hover { color: var(--text-primary, #e2e8f0); }
+
+/* ─── Dashboard Stats (NM2-05) ─────────────────────────────────────────── */
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 640px) {
+  .dashboard-stats { grid-template-columns: repeat(2, 1fr); }
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  text-align: center;
+  transition: transform 0.15s;
+}
+.stat-card:hover { transform: translateY(-1px); }
+.stat-icon { opacity: 0.7; }
+.stat-value { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+.stat-label { font-size: 0.72rem; color: var(--text-secondary, #94a3b8); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-total .stat-value { color: #a5b4fc; }
+.stat-total .stat-icon { color: #6366f1; }
+.stat-ok .stat-value { color: #86efac; }
+.stat-ok .stat-icon { color: #22c55e; }
+.stat-running .stat-value { color: #fde68a; }
+.stat-running .stat-icon { color: #f59e0b; }
+.stat-fail .stat-value { color: #fca5a5; }
+.stat-fail .stat-icon { color: #ef4444; }
+
+/* ─── Back to projects button (NC3-01) ─────────────────────────────────── */
+.btn-back-projects {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.btn-back-projects:hover {
+  background: rgba(99,102,241,0.15);
+  color: #a5b4fc;
+  border-color: rgba(99,102,241,0.3);
+}
+.btn-back-projects span { white-space: nowrap; }
+
+/* ─── Nm3-11: Увеличенный font-size списка проектов ─────────────────────── */
+.project-card .project-title,
+.project-list-item .project-name {
+  font-size: 0.96rem !important;
+}
+.project-card .project-meta,
+.project-list-item .project-meta {
+  font-size: 0.82rem !important;
+}
+
+/* ─── DiskUsageWarning (NC4-03) ─────────────────────────────────────────── */
+.disk-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,68,68,0.08));
+  border: 1px solid rgba(245,158,11,0.35);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  animation: slideDown 0.3s ease;
+}
+.disk-warning-icon { color: #f59e0b; flex-shrink: 0; margin-top: 2px; }
+.disk-warning-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.disk-warning-text strong { font-size: 0.88rem; color: #fde68a; }
+.disk-warning-text span { font-size: 0.78rem; color: #94a3b8; }
+.disk-warning-dismiss {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.disk-warning-dismiss:hover { color: #e2e8f0; }
+
+/* ─── NC5-03: Mobile touch targets (min 44px) ──────────────────────────── */
+@media (max-width: 768px) {
+  button, .btn-primary, .btn-secondary, .btn-icon,
+  .btn-back-projects, .pwa-install-btn, .pwa-dismiss-btn,
+  .disk-warning-dismiss, input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* NM5-07: Mobile dashboard cards */
+  .project-grid, .projects-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .stat-card {
+    padding: 10px 6px;
+  }
+  .stat-value {
+    font-size: 1.3rem !important;
+  }
+  /* Workspace header responsive */
+  .header-row-title {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .workspace-header h2 {
+    font-size: 1rem;
+    word-break: break-all;
+  }
+}
+
+/* ─── Nm5-11: PWA Splash Screen ─────────────────────────────────────────── */
+#pwa-splash {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+#pwa-splash.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+#pwa-splash .splash-logo {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: splash-pulse 1.5s ease-in-out infinite;
+}
+@keyframes splash-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.8; }
+}
+#pwa-splash .splash-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.5rem;
+  font-family: 'Inter', sans-serif;
+}
+#pwa-splash .splash-subtitle {
+  font-size: 0.9rem;
+  color: #6366f1;
+}
+#pwa-splash .splash-bar {
+  width: 120px;
+  height: 3px;
+  background: rgba(99,102,241,0.2);
+  border-radius: 2px;
+  margin-top: 1.5rem;
+  overflow: hidden;
+}
+#pwa-splash .splash-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  animation: splash-load 1.5s ease-in-out infinite;
+  transform-origin: left;
+}
+@keyframes splash-load {
+  0% { transform: scaleX(0); }
+  50% { transform: scaleX(1); }
+  100% { transform: scaleX(0) translateX(100%); }
+}
+
+/* ─── Z4.7: Autosave badge — заметнее ───────────────────────────────────── */
+.autosave-badge {
+  animation: autosave-flash 0.5s ease;
+}
+@keyframes autosave-flash {
+  0% { background: rgba(16, 185, 129, 0.4); transform: scale(1.08); }
+  100% { background: transparent; transform: scale(1); }
+}
+
+/* ─── Z2.5: QA flag hint icon ────────────────────────────────────────────── */
+.running-qa-hint {
+  cursor: help;
+  font-size: 10px;
+  margin: 0 2px;
+  opacity: 0.7;
+}
+
+/* ─── Z3.7: TTS speed badge ──────────────────────────────────────────────── */
+.adv-tts-speed-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--color-accent, #6366f1);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* ─── Z2.9: Glossary UI ────────────────────────────────────────────────── */
+.adv-glossary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.adv-glossary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  background: rgba(99, 102, 241, 0.07);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.adv-glossary-source { font-weight: 600; color: var(--color-text, #e2e8f0); }
+.adv-glossary-target { color: var(--color-accent, #6366f1); font-weight: 600; }
+.adv-glossary-arrow { opacity: 0.5; font-size: 1rem; }
+.adv-glossary-add-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.adv-glossary-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: inherit;
+  font-size: 0.82rem;
+}
+
+/* ─── Z1.6: Download CTA button ────────────────────────────────────────── */
+.btn-download-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(16,185,129,0.35);
+  transition: box-shadow 0.2s, transform 0.15s;
+  animation: pulse-green 2s infinite;
+}
+.btn-download-cta:hover {
+  box-shadow: 0 4px 16px rgba(16,185,129,0.5);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: #fff;
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 2px 8px rgba(16,185,129,0.35); }
+  50%       { box-shadow: 0 2px 16px rgba(16,185,129,0.6); }
+}
+
+/* ─── Z4.1/Z4.2: Drop zone + Wizard accessibility ─────────────────────── */
+.drop-prompt-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-top: 8px;
+}
+.drop-prompt-formats {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  letter-spacing: 0.05em;
+}
+
+/* Stage elapsed time in timeline */
+.stage-elapsed {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: var(--color-muted, #94a3b8);
+  background: rgba(148,163,184,0.12);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Z4.9: Icon buttons with labels ───────────────────────────────────── */
+.btn-icon--labeled {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+.btn-icon-label {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .btn-icon-label { display: none; }
+}
+
+/* ─── Z3.9: Privacy Notice ─────────────────────────────────────────────── */
+.privacy-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  color: var(--color-muted, #94a3b8);
+  flex-wrap: wrap;
+}
+.privacy-notice-text { flex: 1; min-width: 200px; }
+.privacy-notice-ok {
+  padding: 3px 12px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--color-accent, #6366f1);
+  white-space: nowrap;
+}
+.privacy-notice-ok:hover { background: rgba(99,102,241,0.25); }
+
+/* ─── Z3.11: Quality Report Card ───────────────────────────────────────── */
+.quality-report-section {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quality-report-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.qr-grade-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qr-grade {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+.qr-grade--a { background: rgba(16,185,129,0.2); color: #10b981; }
+.qr-grade--b { background: rgba(59,130,246,0.2); color: #3b82f6; }
+.qr-grade--c { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.qr-grade--d { background: rgba(239,68,68,0.2);  color: #ef4444; }
+.qr-grade-label { font-weight: 600; font-size: 0.9rem; }
+.qr-issues { font-size: 0.78rem; color: var(--color-muted, #94a3b8); margin-left: auto; }
+.qr-recommendations {
+  margin: 0; padding: 0 0 0 18px;
+  font-size: 0.78rem;
+  color: var(--color-muted, #94a3b8);
+  line-height: 1.7;
+}
+
+/* ─── Z2.10: Segment copy button ────────────────────────────────────────── */
+.seg-copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 4px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  margin-left: auto;
+}
+.seg-copy-btn:hover { opacity: 0.9; }
+
+/* ─── Z4.10: Keyboard shortcuts modal ──────────────────────────────────── */
+.shortcuts-modal { max-width: 420px; width: 95%; }
+.shortcuts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.82rem;
+}
+.shortcut-row kbd {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  font-family: monospace;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
+}
+.shortcut-row span { color: var(--color-muted, #94a3b8); }
+
+/* ─── Z2.12: Segment search bar ────────────────────────────────────────── */
+.seg-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.seg-search-input {
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  color: inherit;
+  font-size: 0.82rem;
+}
+.seg-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--color-muted, #94a3b8);
+  padding: 0 4px;
+}
+
+/* ─── Z4.11: Segment diff badge ────────────────────────────────────────── */
+.seg-source-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.seg-source-row .seg-source { flex: 1; }
+.seg-diff-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-family: monospace;
+  border-radius: 4px;
+  padding: 2px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+  cursor: help;
+}
+.seg-diff--ok { background: rgba(16,185,129,0.12); color: #10b981; }
+.seg-diff--long { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.seg-diff--short { background: rgba(99,102,241,0.12); color: #6366f1; }
+
+/* ─── Z4.12: Minimap / scroll hint ─────────────────────────────────────── */
+.segments-list {
+  scroll-behavior: smooth;
+}
+
+/* ─── Z2.11: Segment notes input ────────────────────────────────────────── */
+.seg-notes-input {
+  width: 100%;
+  padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.03);
+  color: var(--color-muted, #94a3b8);
+  font-size: 0.76rem;
+  font-style: italic;
+  box-sizing: border-box;
+}
+.seg-notes-input::placeholder { color: rgba(148,163,184,0.4); }
+
+/* ─── NC8-02: QA Flag Filter ────────────────────────────────────────────── */
+.seg-qa-filter {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--border);
+  background: var(--surface-2, #f5f5f5);
+  color: var(--text-secondary);
+  cursor: pointer;
+  height: 28px;
+  margin-left: 0.25rem;
+}
+
+/* ─── Z2.14: Merge segment button ───────────────────────────────────────── */
+.seg-merge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-top: 0.25rem;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.seg-merge-btn:hover { opacity: 1; border-color: var(--accent); color: var(--accent); }
+
+/* ─── Z4.13: Цветовая маркировка сегментов по QA-статусу ────────────────── */
+.segment-item.seg-qa-critical {
+  border-left: 3px solid var(--color-error, #ef4444);
+  background: rgba(239, 68, 68, 0.04);
+}
+.segment-item.seg-qa-error {
+  border-left: 3px solid var(--color-warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.04);
+}
+.segment-item.seg-qa-warning {
+  border-left: 3px solid var(--color-info, #3b82f6);
+  background: rgba(59, 130, 246, 0.03);
+}
+
+/* ─── Z2.15: Bulk actions bar + checkbox ────────────────────────────────── */
+.seg-checkbox {
+  width: 14px; height: 14px;
+  margin-right: 6px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.segment-item.seg-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.bulk-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--surface-2, #f0f0f0);
+  border-radius: var(--radius-sm, 4px);
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+.bulk-count { font-weight: 600; color: var(--accent); flex: 1; }
+
+/* ─── Z4.15: Dashboard drag-and-drop upload ─────────────────────────────── */
+.dashboard-drag-over {
+  outline: 3px dashed var(--accent);
+  outline-offset: -4px;
+}
+.dashboard-dnd-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 999;
+  pointer-events: none;
+}
+.dashboard-dnd-overlay span {
+  font-size: 2rem;
+  color: #fff;
+  background: var(--accent);
+  padding: 1.5rem 3rem;
+  border-radius: 16px;
+  text-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+
+/* ─── Z5.16: Project tags ────────────────────────────────────────────────── */
+.project-tags { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 4px; }
+.project-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  opacity: 0.85;
+}
+
+/* ─── Z2.16: Edit count badge ────────────────────────────────────────────── */
+.seg-edit-count {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 9999px;
+  background: var(--surface-2, #f0f0f0);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════
+   R6-iter1: Mobile UX fixes (А1, А6, В2, В4)
+   ═══════════════════════════════════════════════════════ */
+
+/* А6: Мобильные вкладки — скролл вместо обрезания */
+@media (max-width: 768px) {
+  .panel-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .panel-tabs::-webkit-scrollbar { display: none; }
+  .panel-tabs button {
+    flex-shrink: 0;
+    min-width: 60px;
+    padding: 10px 10px;
+    font-size: 0.75rem;
+  }
+
+  /* А1: Кнопка запуска — крупный touch target на мобиле */
+  .run-btn, button[id*="run"], button[id*="pipeline"] {
+    min-height: 48px !important;
+    font-size: 1rem !important;
+    padding: 12px 20px !important;
+  }
+
+  /* В2: Крупнее шрифт в основном тексте на мобиле */
+  .seg-translated, .seg-source {
+    font-size: 1rem;
+  }
+
+  /* В4: Деструктивные кнопки — красная рамка для отличия */
+  button.btn-danger, button[id*="cancel"], button[id*="delete"] {
+    border: 2px solid var(--color-error, #e53e3e) !important;
+  }
+}
+
+/* Г7/В7: "Скачать всё" после завершения — заметная кнопка */
+.download-all-cta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(72,187,120,0.15), rgba(49,130,206,0.15));
+  border: 1px solid rgba(72,187,120,0.4);
+  border-radius: 10px;
+  margin: 12px 0;
+}
+.download-all-cta .cta-label {
+  font-weight: 600;
+  color: var(--color-success, #48bb78);
+  align-self: center;
+}
+
+/* ── Designer fix: btn-sm / btn-xs missing from design system ── */
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.btn-xs {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  border-radius: 5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ── R6-iter2: Error hint (Г2/В6), Stage error ── */
+.stage-error-hint summary {
+  cursor: pointer;
+  color: var(--color-accent, #63b3ed);
+  font-size: 0.82rem;
+  margin-top: 6px;
+  user-select: none;
+}
+.stage-error-hint ul {
+  margin: 4px 0 0 16px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #a0aec0);
+}
+.stage-error-msg {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--color-error, #fc8181);
+  word-break: break-word;
+  margin-top: 4px;
+}
+
+/* ── R6-iter3: Find & Replace row ── */
+.seg-replace-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 0 2px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+/* ── R6-iter4: Mobile panel-tabs fade mask (Designer) ── */
+@media (max-width: 768px) {
+  .panel-tabs {
+    position: relative;
+  }
+  .panel-tabs::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 24px;
+    background: linear-gradient(to right, transparent, var(--color-surface, #1a202c));
+    pointer-events: none;
+  }
+}
+
+/* ── R6-iter5: Provider tooltip hints (Г5) ── */
+.provider-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #a0aec0);
+  margin-top: 4px;
+  display: block;
+}
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface-2, #2d3748);
+  color: var(--color-text, #e2e8f0);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  max-width: 240px;
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
+/* ─── R7-И1: Кнопка удаления проекта + диалог подтверждения ─────────────── */
+.btn-delete-project {
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  padding: 6px 10px;
+}
+.btn-delete-project:hover {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.6) !important;
+}
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-danger:hover { background: #dc2626; }
+.delete-confirm-modal h3 { margin: 0 0 10px; color: #ef4444; }
+.delete-confirm-modal p  { margin: 0 0 20px; font-size: 0.9rem; }
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* ─── R7-И3: Side-by-side режим сегментов (Валентина В1, Глеб Г10) ──────── */
+.seg-side-by-side .segment-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 0 12px;
+  align-items: start;
+}
+.seg-side-by-side .seg-header {
+  grid-column: 1 / -1;
+}
+.seg-side-by-side .seg-source-row {
+  /* Левая колонка — оригинал */
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  padding-right: 12px;
+}
+.seg-side-by-side .seg-source {
+  font-size: 0.82rem;
+  color: var(--text);
+  opacity: 0.8;
+  padding: 6px 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  min-height: 40px;
+}
+.seg-side-by-side .seg-translated {
+  /* Правая колонка — перевод */
+  min-height: 60px !important;
+}
+/* Скрыть diff-badge в side-by-side — экономим место */
+.seg-side-by-side .seg-diff-badge { display: none; }
+@media (max-width: 768px) {
+  .seg-side-by-side .segment-item {
+    grid-template-columns: 1fr;
+  }
+  .seg-side-by-side .seg-source-row {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-right: 0;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+}
+
+/* ─── R8-И2: Анимации модалов (Designer) ───────────────────────────────── */
+@keyframes modal-slide-in {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── R8-И2 FIX: Базовые стили модалов — position+background ОБЯЗАТЕЛЬНЫ ─ */
+/* Без этого Dashboard delete-modal рендерится без overlay (только animation) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: modal-overlay-in 0.18s ease;
+}
+/* Применяем к .modal-box — slide up + scale */
+.modal-box {
+  background: var(--surface, #1e1f2e);
+  border: 1px solid var(--border, #2e303a);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: modal-slide-in 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ─── R8-И2: Mobile touch targets (min 44px — WCAG 2.5.5) ──────────────── */
+/* Нина Н4, Светлана — крупные кнопки на тач-устройствах */
+@media (pointer: coarse) {
+  .btn-sm, .btn-xs, .btn-icon {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+  /* Сегменты — делаем зону клика textarea больше */
+  .seg-translated {
+    min-height: 80px !important;
+    font-size: 1rem !important;
+    padding: 10px !important;
+  }
+  /* Card actions — больше gap между кнопками */
+  .card-actions {
+    gap: 10px;
+  }
+  /* Header row — кнопки не теснятся */
+  .header-row-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* ─── R8-И3: Skeleton loader для списка проектов (Нина Н2) ─────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton-card {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.skeleton-line {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--border, #2e303a) 25%,
+    color-mix(in srgb, var(--border, #2e303a) 50%, transparent) 50%,
+    var(--border, #2e303a) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.4s infinite ease-in-out;
+}
+.skeleton-title   { height: 18px; width: 70%; margin-bottom: 10px; }
+.skeleton-meta    { height: 12px; width: 50%; margin-bottom: 10px; }
+.skeleton-actions { height: 28px; width: 90%; }
+
+/* ─── R8-И5: DnD «Один клик» опции ───────────────────────────────────────── */
+.dnd-options {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.dnd-option-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  color: #fff;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.18s;
+  backdrop-filter: blur(4px);
+}
+.dnd-option-btn:hover { background: rgba(255,255,255,0.22); }
+.dnd-option-run {
+  background: rgba(99,102,241,0.4);
+  border-color: rgba(99,102,241,0.8);
+  font-weight: 600;
+}
+.dnd-option-run:hover { background: rgba(99,102,241,0.65); }

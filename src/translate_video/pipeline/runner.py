@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Callable, Protocol
 
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.schemas import JobStatus, ProjectStatus, Stage, StageRun
 from translate_video.pipeline.context import StageContext
+from translate_video.notifications import send_project_notification
+from translate_video.webhook import send_project_webhook
 
 _log = get_logger(__name__)
 
@@ -41,6 +43,9 @@ class PipelineRunner:
         self.stages = stages
         self.force = force
         self.from_stage = from_stage
+        # Опциональный callback: вызывается после каждого завершённого этапа
+        # Сигнатура: on_stage_done(stage_index: int, total_stages: int, elapsed: float) -> None
+        self.on_stage_done: "Callable[[int, int, float], None] | None" = None
 
     def run(self, context: StageContext) -> list[StageRun]:
         """Выполнить настроенные этапы по порядку.
@@ -134,6 +139,13 @@ class PipelineRunner:
                     continue
                 run = stage.run(context)
                 runs.append(run)
+                # Вызываем progress-callback после каждого выполненного этапа
+                if self.on_stage_done is not None:
+                    stages_done = sum(1 for r in runs if r.status != JobStatus.SKIPPED)
+                    try:
+                        self.on_stage_done(stages_done, len(self.stages), total.elapsed)
+                    except Exception:  # noqa: BLE001
+                        pass
                 if run.status == JobStatus.FAILED:
                     context.project.status = ProjectStatus.FAILED
                     context.store.save_project(context.project)
@@ -143,10 +155,36 @@ class PipelineRunner:
                         stage=stage.stage.value,
                         total_elapsed_s=total.elapsed,
                     )
+                    # Email-уведомление о сбое (non-blocking)
+                    send_project_notification(
+                        project_id=project_id,
+                        status="failed",
+                        error_msg=f"Stage '{stage.stage.value}' failed",
+                        elapsed_s=total.elapsed,
+                    )
+                    # Webhook-уведомление о сбое (NM5-06)
+                    send_project_webhook(
+                        project_id=project_id,
+                        status="failed",
+                        elapsed_seconds=total.elapsed,
+                        error_message=f"Stage '{stage.stage.value}' failed",
+                    )
                     break
             else:
                 context.project.status = ProjectStatus.COMPLETED
                 context.store.save_project(context.project)
+                # Email-уведомление о успехе (non-blocking)
+                send_project_notification(
+                    project_id=project_id,
+                    status="completed",
+                    elapsed_s=total.elapsed,
+                )
+                # Webhook-уведомление о успехе (NM5-06)
+                send_project_webhook(
+                    project_id=project_id,
+                    status="completed",
+                    elapsed_seconds=total.elapsed,
+                )
 
         # ── Снапшот баланса ПОСЛЕ завершения этапов ────────────────────────
         _snapshot_balances(context, suffix="after")

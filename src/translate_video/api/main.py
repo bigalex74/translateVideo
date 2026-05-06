@@ -1,15 +1,19 @@
 """Инициализация FastAPI приложения."""
 
 import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+_START_TIME = time.time()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from translate_video import __version__
-from translate_video.api.routes import pipeline, preflight, projects, providers, video
+from translate_video.api.middleware.auth import APIKeyMiddleware
+from translate_video.api.routes import admin, metrics, pipeline, preflight, projects, providers, video
 from translate_video.core.env import load_env_file
 from translate_video.core.log import configure_from_env, get_logger
 
@@ -66,10 +70,20 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="AI Video Translator API",
-    description="API для ИИ-перевода видео и управления проектами.",
+    description=(
+        "REST API для ИИ-перевода видео.\n\n"
+        "**Авторизация**: если переменная `API_KEY` задана, все запросы "
+        "к `/api/*` требуют заголовок `X-API-Key: <ключ>`.\n\n"
+        "Для локального использования `API_KEY` можно не задавать."
+    ),
     version=__version__,
     lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
+
+app.add_middleware(APIKeyMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,18 +93,229 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security headers (OWASP hardening — предложение Security агента)
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Добавить OWASP-рекомендованные security headers к каждому ответу."""
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Выставляет правильные Cache-Control заголовки для статики.
+
+    Стратегия:
+      sw.js, index.html         → no-store  (никогда не кэшировать — критично для обновлений!)
+      /assets/*.js, *.css       → immutable, 1 год (Vite генерирует уникальные хэши в имени)
+      /api/*                    → no-store  (всегда свежие данные)
+      manifest.webmanifest      → no-cache  (проверять при каждом запросе)
+      прочая статика            → no-cache  (проверять, но использовать кэш если 304)
+
+    Без этого middleware браузер эвристически кэширует sw.js на часы → старая версия сайта.
+    """
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+        path = request.url.path
+
+        if "Cache-Control" not in response.headers:
+            if path in ("/sw.js", "/", "/index.html") or path.endswith("/index.html"):
+                # SW и HTML — НИКОГДА не кэшировать (каждый деплой меняет содержимое)
+                response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+            elif path.startswith("/assets/"):
+                # Хэшированные ассеты — кэшировать навсегда (имя файла изменится при следующем билде)
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif path.startswith("/api/"):
+                # API — всегда свежие данные
+                response.headers["Cache-Control"] = "no-store"
+            elif path.endswith(".webmanifest") or path.endswith("manifest.json"):
+                # PWA manifest — проверять, но использовать кэш
+                response.headers["Cache-Control"] = "no-cache"
+            else:
+                # Favicon, иконки и т.д. — проверять при каждом запросе
+                response.headers["Cache-Control"] = "no-cache"
+
+        return response
+
+app.add_middleware(CacheControlMiddleware)
+
+
+
+class TraceIDMiddleware(BaseHTTPMiddleware):
+    """В9: Добавить X-Trace-ID к каждому ответу + request_id в логи (Z5.7).
+
+    Если клиент прислал X-Request-ID — отражаем его.
+    Иначе — генерируем новый UUID4.
+    Используется для корреляции логов с запросами.
+    trace_id логируется при каждом API-запросе.
+    """
+    async def dispatch(self, request: StarletteRequest, call_next):
+        import uuid as _uuid  # noqa: PLC0415
+        trace_id = (
+            request.headers.get("X-Request-ID")
+            or request.headers.get("X-Trace-ID")
+            or _uuid.uuid4().hex[:16]
+        )
+        # Логируем запрос с trace_id (только API запросы, не статика)
+        path = request.url.path
+        if path.startswith("/api"):
+            _log.debug(
+                "http.request",
+                trace_id=trace_id,
+                method=request.method,
+                path=path,
+            )
+        response = await call_next(request)
+        response.headers["X-Trace-ID"] = trace_id
+        # Логируем ответ с кодом
+        if path.startswith("/api"):
+            _log.debug(
+                "http.response",
+                trace_id=trace_id,
+                status_code=response.status_code,
+                path=path,
+            )
+        return response
+
+
+app.add_middleware(TraceIDMiddleware)
+
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(pipeline.tts_router)
 app.include_router(preflight.router)
 app.include_router(providers.router)
 app.include_router(video.router)
-
+app.include_router(admin.router)
+app.include_router(metrics.router)
 
 @app.get("/api/health")
 def health_check():
-    """Проверка доступности сервиса."""
-    return {"status": "ok", "version": __version__}
+    """Расширенный health-check: статус, версия, uptime, метрики."""
+    from translate_video.api.routes.pipeline import _running_projects
+
+    uptime_s = int(time.time() - _START_TIME)
+    uptime_human = f"{uptime_s // 3600}h {(uptime_s % 3600) // 60}m {uptime_s % 60}s"
+
+    # Память и CPU процесса (опционально — только если psutil доступен)
+    memory_mb: float | None = None
+    cpu_percent: float | None = None
+    cpu_count: int | None = None
+    try:
+        import psutil, os as _os  # noqa: E401
+        proc = psutil.Process(_os.getpid())
+        memory_mb = round(proc.memory_info().rss / 1024 / 1024, 1)
+        # Z5.12: CPU метрики
+        cpu_percent = round(psutil.cpu_percent(interval=0.1), 1)
+        cpu_count = psutil.cpu_count(logical=True)
+    except ImportError:
+        pass
+
+    payload: dict = {
+        "status": "ok",
+        "version": __version__,
+        "uptime_seconds": uptime_s,
+        "uptime": uptime_human,
+        "running_projects": len(_running_projects),
+        # Nm2-12: retry config параметры
+        "retry_config": {
+            "max_attempts": int(os.getenv("TTS_RETRY_ATTEMPTS", "3")),
+            "base_delay_s": float(os.getenv("TTS_RETRY_BASE_DELAY", "1.0")),
+            "max_delay_s": float(os.getenv("TTS_RETRY_MAX_DELAY", "30.0")),
+            "backoff_factor": float(os.getenv("TTS_RETRY_BACKOFF", "2.0")),
+        },
+        # auth статус (enabled/disabled)
+        "auth_enabled": bool(os.getenv("API_KEY") or os.getenv("API_KEYS")),
+        # Z5.1: ссылки на API документацию
+        "docs": {"swagger": "/docs", "redoc": "/redoc", "openapi_json": "/openapi.json"},
+    }
+    if memory_mb is not None:
+        payload["memory_mb"] = memory_mb
+    if cpu_percent is not None:
+        payload["cpu_percent"] = cpu_percent
+    if cpu_count is not None:
+        payload["cpu_count"] = cpu_count
+
+    # NM3-08: disk usage для runs/
+    try:
+        work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
+        if work_root.exists():
+            total_bytes = sum(
+                f.stat().st_size
+                for f in work_root.rglob("*")
+                if f.is_file()
+            )
+            payload["disk_usage_mb"] = round(total_bytes / 1024 / 1024, 1)
+            payload["disk_work_root"] = str(work_root)
+    except Exception:  # noqa: BLE001
+        pass
+
+    return payload
+
+
+@app.get("/api/version", summary="В10: Версия приложения (быстрый endpoint)")
+def api_version():
+    """В10: Возвращает только версию и статус.
+
+    Более лёгкий аналог /api/health — только версия.
+    Полезен для CI/CD и внешних мониторингов.
+    """
+    return {
+        "version": __version__,
+        "status": "ok",
+        "app": "AI Video Translator",
+    }
+
+
+@app.get("/api/health/providers")
+async def health_providers():
+    """S6: Проверить доступность внешних провайдеров (TTS, перевод).
+
+    Возвращает статус каждого провайдера: ok | unreachable | not_configured.
+    Не раскрывает API-ключи, только состояние доступности.
+    """
+    import asyncio  # noqa: PLC0415
+    import httpx     # noqa: PLC0415
+
+    providers_status: dict[str, str] = {}
+
+    # Проверка OpenAI TTS
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            async with httpx.AsyncClient(timeout=3) as client:
+                r = await client.get("https://api.openai.com/v1/models",
+                                     headers={"Authorization": f"Bearer {openai_key}"})
+                providers_status["openai"] = "ok" if r.status_code in (200, 401) else "unreachable"
+        except Exception:
+            providers_status["openai"] = "unreachable"
+    else:
+        providers_status["openai"] = "not_configured"
+
+    # Проверка Yandex SpeechKit
+    yandex_key = os.getenv("YANDEX_API_KEY") or os.getenv("YANDEX_SPEECHKIT_KEY")
+    providers_status["yandex"] = "not_configured" if not yandex_key else "configured"
+
+    # Проверка Polza / NeuroAPI (через переменную)
+    polza_key = os.getenv("POLZA_API_KEY") or os.getenv("NEUROAPI_KEY")
+    providers_status["polza"] = "not_configured" if not polza_key else "configured"
+
+    all_ok = all(v in ("ok", "configured", "not_configured") for v in providers_status.values())
+
+    return {
+        "status": "ok" if all_ok else "degraded",
+        "providers": providers_status,
+        "auth_enabled": bool(os.getenv("API_KEY") or os.getenv("API_KEYS")),
+    }
 
 
 # Задел для будущей интеграции фронтенда (Статика из React Vite)

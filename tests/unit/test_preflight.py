@@ -176,5 +176,84 @@ class PreflightTest(unittest.TestCase):
             self.assertFalse(provider_check.ok)
 
 
+class CostEstimateTest(unittest.TestCase):
+    """TVIDEO-135: _estimate_cost_and_duration() возвращает корректные оценки."""
+
+    def test_free_provider_returns_zero_cost(self):
+        """fake и legacy провайдеры возвращают нулевую стоимость."""
+        from translate_video.core.preflight import _estimate_cost_and_duration
+
+        cost, eta = _estimate_cost_and_duration(60.0, "fake")
+
+        self.assertEqual(cost["total_usd"], 0.0)
+        self.assertEqual(cost["translation_usd"], 0.0)
+        self.assertEqual(cost["tts_usd"], 0.0)
+        self.assertEqual(cost["currency"], "USD")
+        self.assertGreater(eta, 0)
+
+    def test_paid_provider_returns_nonzero_cost(self):
+        """Платный провайдер (deepseek) возвращает ненулевую стоимость."""
+        from translate_video.core.preflight import _estimate_cost_and_duration
+
+        cost, eta = _estimate_cost_and_duration(600.0, "deepseek")
+
+        self.assertGreater(cost["total_usd"], 0.0)
+        self.assertGreater(cost["translation_usd"], 0.0)
+        self.assertIn("note", cost)
+
+    def test_polza_includes_tts_cost(self):
+        """polza включает стоимость TTS."""
+        from translate_video.core.preflight import _estimate_cost_and_duration
+
+        cost, eta = _estimate_cost_and_duration(120.0, "polza")
+
+        self.assertGreater(cost["tts_usd"], 0.0)
+
+    def test_eta_includes_overhead(self):
+        """ETA включает минимум 30 сек накладных расходов."""
+        from translate_video.core.preflight import _estimate_cost_and_duration
+
+        _, eta = _estimate_cost_and_duration(0.0, "fake")
+
+        self.assertGreaterEqual(eta, 30)
+
+    def test_cost_estimate_in_preflight_report(self):
+        """PreflightReport содержит cost_estimate и duration_estimate_seconds при наличии длительности."""
+        import unittest.mock as mock
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "lesson.mp4"
+            video.write_bytes(b"video")
+
+            mock_result = mock.MagicMock()
+            mock_result.stdout = "120.0\n"
+
+            with mock.patch("subprocess.run", return_value=mock_result):
+                report = run_preflight(
+                    video, "fake",
+                    executable_finder=lambda x: f"/usr/bin/{x}",
+                )
+
+            self.assertIsNotNone(report.cost_estimate)
+            self.assertIsNotNone(report.duration_estimate_seconds)
+            payload = report.to_dict()
+            self.assertIn("cost_estimate", payload)
+            self.assertIn("duration_estimate_seconds", payload)
+
+    def test_cost_estimate_none_when_no_duration(self):
+        """cost_estimate равен None если длительность неизвестна."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "lesson.mp4"
+            video.write_bytes(b"video")
+
+            report = run_preflight(
+                video, "fake",
+                executable_finder=lambda _: None,  # ffprobe недоступен
+            )
+
+            self.assertIsNone(report.cost_estimate)
+            self.assertIsNone(report.duration_estimate_seconds)
+
+
 if __name__ == "__main__":
     unittest.main()

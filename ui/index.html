@@ -1,13 +1,74 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ui</title>
+    <meta name="description" content="Профессиональный перевод видео с AI-дублированием. Транскрипция, перевод, синтез речи — всё в одном приложении." />
+    <meta name="theme-color" content="#6366f1" />
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Apple PWA (iOS) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="VideoTranslator" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <!-- Open Graph -->
+    <meta property="og:title" content="AI Video Translator" />
+    <meta property="og:description" content="Профессиональный перевод видео с AI-дублированием" />
+    <meta property="og:type" content="website" />
+    <title>AI Video Translator</title>
   </head>
   <body>
+    <!-- PWA Splash Screen (Nm5-11) -->
+    <!-- Скрывается из React main.tsx через window.__hideSplash() -->
+    <div id="pwa-splash" aria-hidden="true">
+      <div class="splash-logo">🎬</div>
+      <div class="splash-title">AI Video Translator</div>
+      <div class="splash-subtitle">Загрузка…</div>
+      <div class="splash-bar">
+        <div class="splash-bar-fill"></div>
+      </div>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Service Worker + Splash fallback -->
+    <script>
+      // window.__hideSplash вызывается из React (main.tsx → AppErrorBoundary.componentDidMount)
+      // Здесь — только fallback на случай если React не отрисовался за 5 секунд
+      window.__hideSplash = function() {
+        var splash = document.getElementById('pwa-splash');
+        if (splash && !splash.classList.contains('hidden')) {
+          splash.classList.add('hidden');
+        }
+      };
+
+      window.addEventListener('load', function() {
+        // Принудительное скрытие через 5с (экстренный fallback)
+        setTimeout(window.__hideSplash, 5000);
+
+        // Service Worker регистрация
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(function(reg) {
+              console.info('[SW] registered, scope:', reg.scope);
+            })
+            .catch(function(err) {
+              console.warn('[SW] registration failed:', err);
+            });
+
+          // Авто-перезагрузка при активации нового SW (после деплоя)
+          // SW отправляет { type: 'SW_UPDATED' } → страница перезагружается
+          navigator.serviceWorker.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'SW_UPDATED') {
+              console.info('[SW] New version activated:', event.data.version, '— reloading...');
+              window.location.reload();
+            }
+          });
+        }
+      });
+    </script>
   </body>
 </html>

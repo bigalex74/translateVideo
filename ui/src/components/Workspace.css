@@ -107,10 +107,9 @@
     background: var(--bg-elevated);
 }
 
-/* D-BUG-04: левая панель шире — сегменты помещаются без лишних переносов */
 .workspace-grid {
     display: grid;
-    grid-template-columns: minmax(360px, 1fr) 340px;
+    grid-template-columns: 1fr 340px;
     gap: 16px;
     flex: 1;
     min-height: 0;
@@ -247,14 +246,10 @@
 .segment-item.translated { border-left-color: var(--accent-primary); }
 .segment-item.tts_ready { border-left-color: var(--success); }
 
-/* D-BUG-04: seg-header — тайминг и счётчик не перекрываются */
 .seg-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 6px;
-    flex-wrap: wrap;
-    min-width: 0;
+    align-items: center;
 }
 
 .seg-timing {
@@ -519,6 +514,14 @@
     margin: 0;
 }
 
+.running-eta {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    margin: 0;
+    letter-spacing: 0.01em;
+}
+
 .running-progress-wrap {
     width: 100%;
     height: 6px;
@@ -612,22 +615,14 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    overflow-x: hidden;        /* D-BUG-05: нет горизонтальной прокрутки */
 }
 
-/* ─── D-BUG-06: Шапка — усечение имени + tooltip ─────────────────────── */
+/* ─── Шапка: усечение длинного имени проекта ─────────────────────────── */
 .header-left h2 {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 40vw;
-    cursor: default;           /* показывает title tooltip при наведении */
-}
-
-/* D-BUG-06: header-row-title тоже усекает */
-.header-row-title h2 {
-    cursor: default;
-    max-width: 38vw;
 }
 
 /* ─── Modal: усечение имени проекта ──────────────────────────────────── */
@@ -1033,34 +1028,242 @@
   background: rgba(239,68,68,0.26) !important;
 }
 
-/* ══ D-BUG-01: Light theme — Workspace-специфичные переопределения ══════ */
-[data-theme="light"] .panel-header {
-  background: var(--bg-elevated);
+/* ══ Segment TTS preview button (Polza / NeuroAPI) ═══════════════════════════ */
+.seg-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-[data-theme="light"] .panel-tabs {
-  background: var(--bg-elevated);
+.seg-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent, #a78bfa);
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
 }
 
-[data-theme="light"] .panel-header-meta {
+.seg-preview-btn:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+.seg-preview-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.seg-preview-btn--loading {
+  color: var(--text-secondary);
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+}
+
+@keyframes seg-preview-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.seg-preview-spinner {
+  animation: seg-preview-spin 0.8s linear infinite;
+}
+
+/* ══ Yandex revert modal ═════════════════════════════════════════════════════ */
+.workspace-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: qa-item-in 0.2s ease;
+}
+
+.yandex-revert-card {
+  background: var(--bg-surface);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 16px;
+  padding: 32px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 440px;
+  width: 90vw;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(251, 191, 36, 0.12);
+}
+
+.yandex-revert-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.yandex-revert-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.yandex-revert-body {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.yandex-revert-body code {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.82rem;
+  color: #c4b5fd;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.yandex-revert-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.yandex-revert-btn-keep,
+.yandex-revert-btn-reset {
+  flex: 1;
+  padding: 9px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.yandex-revert-btn-keep {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: var(--text-secondary);
+}
+
+.yandex-revert-btn-keep:hover {
+  background: rgba(255,255,255,0.10);
+  color: var(--text-primary);
+}
+
+/* ── btn-danger ──────────────────────────────────────────────────────────── */
+.btn-danger,
+.yandex-revert-btn-reset {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.btn-danger:hover:not(:disabled),
+.yandex-revert-btn-reset:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+}
+
+.btn-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─── Autosave badge (CI iter 1) ────────────────────────────────────── */
+.autosave-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--accent-success, #22c55e);
+  opacity: 1;
+  animation: autosave-fade 3s ease-out forwards;
+}
+
+@keyframes autosave-fade {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ─── Z1.11: Portrait (вертикальное) видео в плеере ─────────────────────── */
+.video-container video {
+  /* Центрируем вертикальное видео — object-fit уже contain */
+  max-width: 100%;
+}
+/* Если видео меньше 75% соотношения сторон — вертикальное (9:16 = 0.5625) */
+@media (orientation: portrait) {
+  .video-container video {
+    max-height: 50vh;
+  }
+}
+/* Детектируем вертикальное видео по data-атрибуту */
+.video-container.is-portrait {
+  background: linear-gradient(#000, #000);
+}
+.video-container.is-portrait video {
+  max-height: 380px;
+  max-width: 200px;
+  margin: auto;
+}
+
+/* D6: Номер сегмента */
+.seg-number {
+  font-size: 0.72rem;
+  font-weight: 700;
   color: var(--text-muted);
-}
-
-[data-theme="light"] .running-stage-progress {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: var(--border-color);
-}
-
-[data-theme="light"] .qa-flag-item {
-  color: var(--text-muted);
-}
-
-[data-theme="light"] .video-container {
   background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1px 5px;
+  min-width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+  cursor: default;
+  user-select: none;
+  letter-spacing: -0.02em;
 }
 
-@media (prefers-color-scheme: light) {
-  [data-theme="system"] .panel-header { background: var(--bg-elevated); }
-  [data-theme="system"] .panel-tabs   { background: var(--bg-elevated); }
-  [data-theme="system"] .panel-header-meta { color: var(--text-muted); }
+/* D6: Поиск по списку проектов */
+.project-list-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* I5: Субтитры поверх видео */
+.video-container {
+  position: relative;
+}
+
+.subtitle-overlay {
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 6px;
+  text-align: center;
+  max-width: 80%;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+  z-index: 10;
+  line-height: 1.4;
 }
