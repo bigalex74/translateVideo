@@ -1,4 +1,4 @@
-.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:release lint ui-build ui-dev visual-check css-guard
+.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:release lint ui-build ui-dev visual-check visual-check-ci css-guard
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -120,9 +120,16 @@ css-guard:
 	python3 scripts/css_guard.py ui/src/index.css ui/src/components/ConfirmRunModal.css
 	@echo "$(GREEN)✔ CSS Guard OK$(RESET)"
 
-## visual-check: Playwright visual smoke — скриншоты критических состояний UI (Designer Level 2)
+## visual-check: Playwright visual smoke — ВИДИМЫЙ браузер + скриншоты (Designer Level 2)
 visual-check:
-	@echo "$(CYAN)📸 Visual Smoke — снимаем скриншоты UI...$(RESET)"
+	@echo "$(CYAN)📸 Visual Smoke — открываем браузер, снимаем скриншоты...$(RESET)"
 	@echo "   Убедитесь что приложение запущено на :8002"
 	cd ui && npx playwright test --config=playwright.visual.config.ts --reporter=list
 	@echo "$(GREEN)✔ Скриншоты в .agents/designer/screenshots/$(RESET)"
+
+## visual-check-ci: Visual smoke headless — для CI без GUI
+visual-check-ci:
+	@echo "$(CYAN)📸 Visual Smoke CI (headless)...$(RESET)"
+	cd ui && PWHEADLESS=true npx playwright test --config=playwright.visual.config.ts --reporter=list
+	@echo "$(GREEN)✔ Готово$(RESET)"
+

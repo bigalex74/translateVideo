@@ -18,15 +18,16 @@ export default defineConfig({
 
   use: {
     baseURL: 'http://localhost:8002',
-    channel: 'chrome',    // системный Google Chrome (/usr/bin/google-chrome)
-    headless: true,
+    channel: 'chrome',     // системный Google Chrome (/usr/bin/google-chrome)
+    headless: !!process.env.PWHEADLESS,  // PWHEADLESS=true для CI, по умолчанию — видимый браузер
+    slowMo: process.env.PWHEADLESS ? 0 : 400, // замедление только в headed-режиме
     screenshot: 'only-on-failure',
     trace: 'off',
     launchOptions: {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',   // важно в Linux без GUI
+        '--disable-dev-shm-usage',
       ],
     },
   },
