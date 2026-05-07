@@ -136,6 +136,10 @@ class TestAdminEndpoints(TestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertIn("version", data)
+        self.assertIn("app_version", data)
+        self.assertIn("commit", data)
+        self.assertIn("build_date", data)
+        self.assertIn("environment", data)
         self.assertIn("uptime_seconds", data)
 
     def test_openapi_json_accessible(self):

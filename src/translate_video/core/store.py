@@ -7,6 +7,7 @@ import hashlib
 import re
 import shutil
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -229,6 +230,22 @@ class ProjectStore:
             run.progress_message = message
             self.save_project(project)
             return
+
+    def create_snapshot(self, project: VideoProject, *, reason: str) -> Path:
+        """Save a compact project metadata snapshot before a destructive rerun."""
+
+        safe_reason = sanitize_filename(reason, fallback="rerun")
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        snapshot_dir = project.work_dir / "snapshots"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        snapshot_path = snapshot_dir / f"{timestamp}-{safe_reason}.json"
+        payload = {
+            "created_at": datetime.now(UTC).isoformat(),
+            "reason": reason,
+            "project": project.to_dict(),
+        }
+        self._write_json(snapshot_path, payload)
+        return snapshot_path
 
     def export_subtitles(
         self,

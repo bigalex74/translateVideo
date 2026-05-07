@@ -159,6 +159,20 @@ class APIPipelineTest(TestCase):
         self.assertNotIn("cleanup_test", _running_projects)
 
     @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
+    def test_partial_rerun_creates_snapshot(self, mock_thread):
+        """from_stage/force запуск должен сохранить snapshot перед перезаписью."""
+        self.store.create_project("dummy.mp4", project_id="snapshot_run")
+
+        response = self.client.post(
+            "/api/v1/projects/snapshot_run/run",
+            json={"provider": "fake", "from_stage": "transcribe"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        snapshots = list((self.work_root / "snapshot_run" / "snapshots").glob("*.json"))
+        self.assertEqual(len(snapshots), 1)
+
+    @patch("translate_video.api.routes.pipeline.asyncio.to_thread", new_callable=AsyncMock)
     def test_retry_from_stage_starts_background_task(self, mock_thread):
         """Retry endpoint должен ставить пайплайн в фон без несуществующих RunRequest/work_dir ошибок."""
 

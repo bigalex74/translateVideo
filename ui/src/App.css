@@ -372,6 +372,7 @@ button {
 .badge.completed { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
 .badge.running { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
 .badge.failed { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+.badge.cancelled { background: rgba(148, 163, 184, 0.15); color: var(--text-secondary); border: 1px solid rgba(148, 163, 184, 0.3); }
 .badge.created { background: rgba(161, 161, 170, 0.15); color: var(--text-secondary); border: 1px solid rgba(161, 161, 170, 0.3); }
 
 /* Error Banner */

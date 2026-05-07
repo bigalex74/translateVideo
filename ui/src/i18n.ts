@@ -211,6 +211,7 @@ const TEXT: LocaleMap = {
     'status.running': 'Выполняется',
     'status.completed': 'Завершён',
     'status.failed': 'Ошибка',
+    'status.cancelled': 'Отменён',
     'status.skipped': 'Пропущен',
     'status.pending': 'Ожидает',
     'provider.fake': 'Быстрый тест (демо-режим, без реального перевода)',
@@ -414,6 +415,7 @@ const TEXT: LocaleMap = {
     'status.running': 'Running',
     'status.completed': 'Completed',
     'status.failed': 'Error',
+    'status.cancelled': 'Cancelled',
     'status.skipped': 'Skipped',
     'status.pending': 'Pending',
     'provider.fake': 'Fast test (demo mode, no real translation)',
@@ -428,6 +430,7 @@ export const STATUS_EMOJI: Record<string, string> = {
   running: '⚙️',
   completed: '✅',
   failed: '❌',
+  cancelled: '🚫',
   skipped: '⏭️',
   pending: '⏳',
 };

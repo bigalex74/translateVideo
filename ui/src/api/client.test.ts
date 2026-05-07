@@ -15,13 +15,17 @@ import {
   fetchProviderBalance,
   fetchProviderModels,
   getProjectArtifacts,
+  getProjectDoctor,
+  getProjectSnapshots,
   getProjectStatus,
   listProjects,
   patchProjectConfig,
   preflightVideo,
   previewTTS,
   renameProject,
+  rebuildSubtitles,
   runPipeline,
+  runSegmentAction,
   safariSafeDownload,
   saveProjectSegments,
   subtitleExportUrl,
@@ -217,6 +221,49 @@ describe('getProjectArtifacts', () => {
     const [url] = lastCall(m) as [string];
     expect(url).toContain('/projects/proj1/artifacts');
     expect(result).toHaveProperty('artifacts');
+  });
+});
+
+describe('getProjectDoctor', () => {
+  it('GET /projects/:id/doctor', async () => {
+    const m = mockFetch(okResponse({ project_id: 'proj1', ok: true, issues: [], actions: [] }));
+    const result = await getProjectDoctor('proj1');
+    const [url] = lastCall(m) as [string];
+    expect(url).toContain('/projects/proj1/doctor');
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe('getProjectSnapshots', () => {
+  it('GET /projects/:id/snapshots', async () => {
+    const m = mockFetch(okResponse({ project_id: 'proj1', snapshots: [{ filename: 's.json' }] }));
+    const result = await getProjectSnapshots('proj1');
+    const [url] = lastCall(m) as [string];
+    expect(url).toContain('/projects/proj1/snapshots');
+    expect(result.snapshots).toHaveLength(1);
+  });
+});
+
+describe('rebuildSubtitles', () => {
+  it('POST /projects/:id/rebuild/subtitles', async () => {
+    const m = mockFetch(okResponse({ project_id: 'proj1', work_dir: 'runs/proj1', artifacts: [] }));
+    const result = await rebuildSubtitles('proj1');
+    const [url, init] = lastCall(m) as [string, RequestInit];
+    expect(url).toContain('/projects/proj1/rebuild/subtitles');
+    expect(init.method).toBe('POST');
+    expect(result.artifacts).toEqual([]);
+  });
+});
+
+describe('runSegmentAction', () => {
+  it('POST /projects/:id/segments/actions/:action', async () => {
+    const m = mockFetch(okResponse({ project_id: 'proj1', action: 'reset-tts', changed: 2, segment_ids: ['s1'], project: {} }));
+    const result = await runSegmentAction('proj1', 'reset-tts', ['s1'], true);
+    const [url, init] = lastCall(m) as [string, RequestInit];
+    expect(url).toContain('/projects/proj1/segments/actions/reset-tts');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toMatchObject({ segment_ids: ['s1'], force: true });
+    expect(result.changed).toBe(2);
   });
 });
 

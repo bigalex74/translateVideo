@@ -1,3 +1,84 @@
+## 1.94.0 - 2026-05-07 - FEAT - SEGMENT-RERUN
+### Segment-Level Rerun + Editor QA Actions
+
+**Backend:**
+- Добавлен `/api/v1/projects/{project_id}/segments/actions/{action}` для bulk-действий над выбранными сегментами.
+- Поддержаны действия `translate`, `tts`, `reset-tts`, `mark-reviewed`.
+- `reset-tts` безопасно удаляет только файлы внутри директории проекта, очищает `tts_path`/`tts_text`/`voice` и TTS QA-флаги.
+- `translate` заново переводит выбранные сегменты, сбрасывает их TTS и сохраняет translated transcript.
+- `tts` синтезирует только выбранные сегменты и мержит результат обратно в проект.
+- У сегмента появился флаг `reviewed` для ручной отметки QA-проверки.
+
+**Project Doctor:**
+- Диагностика теперь возвращает `segment_summary`: пустые переводы, сегменты без TTS, timing issues, QA-флаги и непроверенные QA-сегменты.
+- Добавлены `segment_actions`, которые подсказывают быстрый выбор проблемных сегментов в редакторе.
+
+**UI:**
+- В Workspace добавлены быстрые выборки: видимые сегменты, сегменты без TTS и QA-сегменты.
+- В bulk bar добавлены действия: заново перевести, озвучить, сбросить TTS и отметить проверенными.
+- Сегменты с ручной проверкой получают бейдж `Проверено`.
+- Project Doctor умеет выбирать проблемные группы сегментов из своей панели.
+
+**Тесты:**
+- Расширены API tests для `reset-tts`, `tts` и `mark-reviewed`.
+- Добавлен unit-test для segment summary/actions в Project Doctor.
+- Расширены UI client tests для segment actions.
+
+---
+
+## 1.93.0 - 2026-05-07 - FEAT - FUNCTIONAL-RERUN
+### Safe Partial Rerun + Project Doctor
+
+**Project Doctor:**
+- Добавлен `/api/v1/projects/{project_id}/doctor`: проверяет артефакты, stage_runs, failed/running этапы и рекомендует безопасный `from_stage`.
+- Добавлен `/api/v1/projects/{project_id}/snapshots`: список metadata snapshots перед опасными перезапусками.
+
+**Безопасный partial rerun:**
+- `from_stage` теперь dependency-aware: если запрошенный этап требует удалённый/отсутствующий upstream-артефакт, backend автоматически откатывается к безопасному этапу.
+- Исправлен риск `from_stage=transcribe` после удаления `source_audio.wav`: запуск откатывается к `extract_audio`.
+- Перед `force` или `from_stage` запуском создаётся snapshot проекта в `snapshots/`.
+- Отмена пайплайна теперь сохраняет статус проекта как `cancelled`, а не как `failed`.
+
+**UI:**
+- В Workspace добавлены быстрые действия частичной пересборки: `Субтитры`, `Озвучка`, `Видео`.
+- `Субтитры` пересобирает SRT/VTT напрямую из текущих сегментов без полного пайплайна.
+- Добавлена Project Doctor панель в Workspace: проблемы, рекомендованный старт, safe continue и snapshots.
+- Dashboard и status labels поддерживают `cancelled`.
+
+**Тесты:**
+- Добавлен `tests/unit/test_project_doctor.py`.
+- Расширены API tests для Project Doctor, snapshots, subtitle rebuild и partial rerun snapshot.
+- Расширены UI client tests для Doctor/subtitle rebuild.
+
+---
+
+## 1.92.1 - 2026-05-06 - INFRA - SPRINT-1
+### Sprint 1: Release Discipline, CI Gates, Docker Health
+
+**Release discipline:**
+- Добавлен `docs/release-checklist.md`: версия/docs, local gate, Docker gate, smoke checks и rollback note.
+- Добавлен `make ci:quick` для PR-gate и `make release:checklist`.
+- `make test:release` теперь сначала проверяет release metadata.
+- `scripts/bump_version.py` теперь синхронизирует `ui/public/sw.js`, чтобы PWA cache version не отставал от релиза.
+
+**CI/CD:**
+- Добавлен `.github/workflows/release-gate.yml`:
+  - quick gate для PR/push;
+  - Docker build gate с `APP_VERSION`, `VCS_REF`, `BUILD_DATE`;
+  - manual full release gate через `workflow_dispatch`.
+
+**Docker/health:**
+- Dockerfile укреплён как production multi-stage: зависимости ставятся на отдельном deps-слое, runtime получает OCI labels и build metadata.
+- `docker-compose.yml` получил build args и `healthcheck`.
+- `/api/health` теперь отдаёт `app_version`, `commit`, `build_date`, `environment`.
+
+**Тесты:**
+- Добавлен `tests/unit/test_release_metadata.py`: roadmap/changelog/version, CI workflow, release checklist и Docker/compose healthcheck.
+- `tests/unit/test_version_consistency.py` теперь проверяет `ui/public/sw.js`.
+- Расширен health endpoint test для build metadata.
+
+---
+
 ## 1.92.0 - 2026-05-06 - FIX+TEST - TVIDEO-218
 ### R9-И5: Perf Polish + QA Gate
 

@@ -12,7 +12,7 @@ import { DiskUsageWarning } from './DiskUsageWarning';
 import { getPersistedProvider } from '../store/settings';
 import {
   Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
-  ArrowRight, RefreshCw, Clock, Search, BookOpen, Download, Pencil, Check, X, Trash2
+  ArrowRight, RefreshCw, Clock, Search, BookOpen, Download, Pencil, Check, X, Trash2, XCircle
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -174,6 +174,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
     switch (status) {
       case 'completed': return <CheckCircle2 size={16} className="text-success" />;
       case 'failed':    return <AlertCircle  size={16} className="text-danger" />;
+      case 'cancelled': return <XCircle      size={16} className="text-muted" />;
       case 'running':   return <Loader2      size={16} className="text-warning animate-spin" />;
       default: return null;
     }
@@ -545,14 +546,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
               {/* Фильтр по статусу */}
               <div className="status-filter">
                 <Filter size={13} />
-                {['all', 'created', 'running', 'completed', 'failed'].map(s => (
+                {['all', 'created', 'running', 'completed', 'failed', 'cancelled'].map(s => (
                   <button
                     key={s}
                     className={`filter-pill ${statusFilter === s ? 'active' : ''}`}
                     onClick={() => setStatusFilter(s)}
                   >
                     {s === 'all' ? 'Все' : STATUS_EMOJI[s as keyof typeof STATUS_EMOJI] ?? ''}{' '}
-                    {s === 'all' ? '' : statusLabel(s as 'created'|'running'|'completed'|'failed', locale)}
+                    {s === 'all' ? '' : statusLabel(s, locale)}
                   </button>
                 ))}
               </div>

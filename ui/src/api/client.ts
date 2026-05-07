@@ -3,9 +3,12 @@ import type {
     PipelineConfig,
     PipelineConfigDraft,
     PreflightReport,
+    ProjectDoctorReport,
+    ProjectSnapshotsResponse,
     ProviderBalance,
     ProviderModel,
     Segment,
+    SegmentActionResponse,
     VideoProject,
 } from "../types/schemas";
 
@@ -122,6 +125,42 @@ export async function runPipeline(
 
 export async function getProjectArtifacts(project_id: string): Promise<ArtifactsResponse> {
     const res = await fetch(`${API_BASE}/projects/${project_id}/artifacts`, { headers: apiHeaders() });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export async function getProjectDoctor(project_id: string): Promise<ProjectDoctorReport> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/doctor`, { headers: apiHeaders() });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export async function getProjectSnapshots(project_id: string): Promise<ProjectSnapshotsResponse> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/snapshots`, { headers: apiHeaders() });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export async function rebuildSubtitles(project_id: string): Promise<ArtifactsResponse> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/rebuild/subtitles`, {
+        method: 'POST',
+        headers: apiHeaders(),
+    });
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json();
+}
+
+export async function runSegmentAction(
+    project_id: string,
+    action: 'translate' | 'tts' | 'reset-tts' | 'mark-reviewed',
+    segment_ids: string[],
+    force: boolean = false,
+): Promise<SegmentActionResponse> {
+    const res = await fetch(`${API_BASE}/projects/${project_id}/segments/actions/${encodeURIComponent(action)}`, {
+        method: 'POST',
+        headers: apiHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ segment_ids, force }),
+    });
     if (!res.ok) throw new Error(await readError(res));
     return res.json();
 }

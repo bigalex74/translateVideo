@@ -18,8 +18,9 @@ from pydantic import BaseModel, Field
 
 from translate_video.cli import _project_summary
 from translate_video.core.config import PipelineConfig
-from translate_video.core.schemas import ArtifactKind, Segment, SegmentStatus, VideoProject
+from translate_video.core.schemas import ArtifactKind, Segment, SegmentStatus, Stage, VideoProject
 from translate_video.core.store import ProjectStore, sanitize_filename, sanitize_project_id
+from translate_video.pipeline.doctor import diagnose_project
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
@@ -124,6 +125,13 @@ class SaveSegmentsRequest(BaseModel):
 
     segments: list[dict[str, Any]]
     translated: bool = True
+
+
+class SegmentActionRequest(BaseModel):
+    """Запрос bulk-действия над выбранными сегментами."""
+
+    segment_ids: list[str] = Field(default_factory=list)
+    force: bool = False
 
 
 # ─── Z5.5/Z1.3/Z3.1: Прогресс и ETA ──────────────────────────────────────────
@@ -539,6 +547,82 @@ def get_project_artifacts(project_id: str, store: ProjectStore = Depends(get_sto
         raise HTTPException(status_code=404, detail="Project not found")
 
 
+@router.get("/{project_id}/doctor", summary="Проверить целостность проекта и безопасный resume")
+def get_project_doctor(project_id: str, store: ProjectStore = Depends(get_store)):
+    """Вернуть диагностику проекта и безопасные действия частичной пересборки."""
+
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+        return diagnose_project(project)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@router.get("/{project_id}/snapshots", summary="Список снимков проекта перед rerun")
+def get_project_snapshots(project_id: str, store: ProjectStore = Depends(get_store)):
+    """Вернуть сохранённые metadata snapshots проекта."""
+
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    snapshots_dir = project.work_dir / "snapshots"
+    items = []
+    if snapshots_dir.exists():
+        for path in sorted(snapshots_dir.glob("*.json"), reverse=True):
+            created_at = None
+            reason = None
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                created_at = payload.get("created_at")
+                reason = payload.get("reason")
+            except Exception:  # noqa: BLE001
+                pass
+            items.append({
+                "filename": path.name,
+                "path": path.relative_to(project.work_dir).as_posix(),
+                "created_at": created_at,
+                "reason": reason,
+            })
+    return {"project_id": project.id, "snapshots": items}
+
+
+@router.post("/{project_id}/rebuild/subtitles", summary="Пересобрать субтитры из текущих сегментов")
+def rebuild_project_subtitles(project_id: str, store: ProjectStore = Depends(get_store)):
+    """Быстро пересобрать SRT/VTT без запуска полного пайплайна."""
+
+    try:
+        safe_project_id = sanitize_project_id(project_id)
+        project = store.load_project(store.root / safe_project_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.segments:
+        raise HTTPException(status_code=422, detail="В проекте нет сегментов для экспорта субтитров")
+    if not any((segment.translated_text or "").strip() for segment in project.segments):
+        raise HTTPException(status_code=422, detail="Нет переведённого текста для экспорта субтитров")
+
+    vtt_path = store.export_subtitles(project, fmt="vtt")
+    srt_path = store.export_subtitles(project, fmt="srt")
+    restored = store.load_project(project.work_dir)
+    return {
+        "project_id": restored.id,
+        "work_dir": restored.work_dir.as_posix(),
+        "subtitles_vtt": vtt_path.relative_to(restored.work_dir).as_posix(),
+        "subtitles": srt_path.relative_to(restored.work_dir).as_posix(),
+        "artifacts": [record.to_dict() for record in restored.artifact_records],
+    }
+
+
 @router.get(
     "/{project_id}/artifacts/audio",
     summary="Скачать аудиодорожку дубляжа (WAV/MP3) (Z2.6)",
@@ -552,9 +636,11 @@ def download_dubbed_audio(
 
     import subprocess  # noqa: PLC0415
 
-    safe_id = sanitize_project_id(project_id)
     try:
+        safe_id = sanitize_project_id(project_id)
         project = store.load_project(store.root / safe_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -1731,6 +1817,162 @@ def bulk_translate_segments(
         "queued": len(target_segs),
         "segment_ids": [s.id for s in target_segs],
         "message": f"{len(target_segs)} сегментов помечены для перевода. Запустите пайплайн с from_stage=translate",
+    }
+
+
+def _selected_segments(project: VideoProject, segment_ids: list[str]) -> list[Segment]:
+    selected = set(segment_ids)
+    segments = [
+        segment for segment in project.segments
+        if not selected or segment.id in selected
+    ]
+    if not segments:
+        raise HTTPException(status_code=404, detail="Выбранные сегменты не найдены")
+    return segments
+
+
+def _merge_segments(project: VideoProject, updated: list[Segment]) -> None:
+    by_id = {segment.id: segment for segment in updated}
+    project.segments = [by_id.get(segment.id, segment) for segment in project.segments]
+
+
+def _reset_segment_tts(project: VideoProject, segment: Segment) -> bool:
+    deleted = False
+    if segment.tts_path:
+        try:
+            path = (project.work_dir / segment.tts_path).resolve()
+            root = project.work_dir.resolve()
+            if path != root and root in path.parents and path.is_file():
+                path.unlink()
+                deleted = True
+        except OSError:
+            pass
+    segment.tts_path = None
+    segment.tts_text = ""
+    segment.voice = None
+    segment.qa_flags = [flag for flag in segment.qa_flags if not flag.startswith("tts_")]
+    return deleted
+
+
+def _build_segment_tts_provider(config: PipelineConfig):
+    from translate_video.tts import EdgeTTSProvider, build_openai_tts_provider, build_speechkit_tts_provider  # noqa: PLC0415
+
+    return (
+        build_speechkit_tts_provider(config)
+        or build_openai_tts_provider(config)
+        or EdgeTTSProvider()
+    )
+
+
+def _translate_selected_segments(project: VideoProject, segments: list[Segment]) -> list[Segment]:
+    from translate_video.translation import CloudFallbackSegmentTranslator, GoogleSegmentTranslator  # noqa: PLC0415
+
+    translator = CloudFallbackSegmentTranslator(fallback=GoogleSegmentTranslator())
+    return translator.translate(segments, project.config)
+
+
+@router.post(
+    "/{project_id}/segments/actions/{action}",
+    summary="Bulk-действия над выбранными сегментами (translate/tts/reset-tts/mark-reviewed)",
+)
+def run_segment_action(
+    project_id: str = FastAPIPath(...),
+    action: str = FastAPIPath(...),
+    body: SegmentActionRequest = Body(default_factory=SegmentActionRequest),
+    store: ProjectStore = Depends(get_store),
+):
+    """Выполнить редакторское действие над выбранными сегментами."""
+
+    safe_id = sanitize_project_id(project_id)
+    try:
+        project = store.load_project(store.root / safe_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    segments = _selected_segments(project, body.segment_ids)
+    changed = 0
+    details: dict[str, Any] = {}
+
+    if action == "reset-tts":
+        deleted = 0
+        for segment in segments:
+            deleted += 1 if _reset_segment_tts(project, segment) else 0
+            changed += 1
+        details["files_deleted"] = deleted
+
+    elif action == "tts":
+        target = [
+            segment for segment in segments
+            if body.force or not segment.tts_path
+        ]
+        if not target:
+            return {
+                "project_id": project.id,
+                "action": action,
+                "changed": 0,
+                "segment_ids": [],
+                "message": "Все выбранные сегменты уже имеют TTS",
+                "project": project_payload(project),
+            }
+        for segment in target:
+            _reset_segment_tts(project, segment)
+        provider = _build_segment_tts_provider(project.config)
+        updated = provider.synthesize(project, target)
+        changed = len(updated)
+        _merge_segments(project, updated)
+        if any(segment.tts_path for segment in updated):
+            store.add_artifact(
+                project,
+                kind=ArtifactKind.TTS_AUDIO,
+                path=project.work_dir / "tts",
+                stage=Stage.TTS,
+                content_type="inode/directory",
+                metadata={"segments": sum(1 for segment in project.segments if segment.tts_path)},
+            )
+
+    elif action == "translate":
+        target = [
+            segment for segment in segments
+            if body.force or not (segment.translated_text or "").strip()
+        ]
+        if not target:
+            return {
+                "project_id": project.id,
+                "action": action,
+                "changed": 0,
+                "segment_ids": [],
+                "message": "Все выбранные сегменты уже переведены",
+                "project": project_payload(project),
+            }
+        updated = _translate_selected_segments(project, target)
+        for segment in updated:
+            segment.status = SegmentStatus.TRANSLATED
+            segment.reviewed = False
+            _reset_segment_tts(project, segment)
+        changed = len(updated)
+        _merge_segments(project, updated)
+        store.save_segments(project, project.segments, translated=True, stage=Stage.TRANSLATE)
+
+    elif action == "mark-reviewed":
+        for segment in segments:
+            segment.reviewed = True
+            changed += 1
+
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail="Неизвестное действие. Допустимые: translate, tts, reset-tts, mark-reviewed",
+        )
+
+    store.save_project(project)
+    restored = store.load_project(project.work_dir)
+    return {
+        "project_id": restored.id,
+        "action": action,
+        "changed": changed,
+        "segment_ids": [segment.id for segment in segments],
+        "details": details,
+        "project": project_payload(restored),
     }
 
 # ─── NC8-01: Удаление сегмента из проекта ────────────────────────────────────

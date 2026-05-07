@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { apiHeaders, artifactDownloadUrl, getProjectStatus, runPipeline, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl, safariSafeDownload, withApiKeyQuery } from '../api/client';
-import type { ArtifactRecord, CostEstimate, VideoProject, Segment, PipelineConfig } from '../types/schemas';
+import { apiHeaders, artifactDownloadUrl, getProjectDoctor, getProjectSnapshots, getProjectStatus, rebuildSubtitles, runPipeline, runSegmentAction, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl, safariSafeDownload, withApiKeyQuery } from '../api/client';
+import type { ArtifactRecord, CostEstimate, ProjectDoctorReport, ProjectSnapshot, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
 import { stageProgressInfo } from '../progress';
@@ -58,6 +58,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [doctorLoading, setDoctorLoading] = useState(false);
+  const [doctorReport, setDoctorReport] = useState<ProjectDoctorReport | null>(null);
+  const [snapshots, setSnapshots] = useState<ProjectSnapshot[]>([]);
+  const [segmentActionLoading, setSegmentActionLoading] = useState<string | null>(null);
   const prevStatusRef = useRef<string | null>(null);
   const [confirm, setConfirm] = useState<{ force: boolean } | null>(null);
   const [showConfig, setShowConfig] = useState(false);
@@ -290,6 +294,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       document.title = `✅ Готово | ${base}`;
     } else if (project.status === 'failed') {
       document.title = `❌ Ошибка | ${base}`;
+    } else if (project.status === 'cancelled') {
+      document.title = `Остановлено | ${base}`;
     } else {
       document.title = base;
     }
@@ -386,6 +392,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   const isRunning = project.status === 'running';
   const isDone = project.status === 'completed';
   const segments = Array.isArray(project.segments) ? (project.segments as Segment[]) : [];
+  const filteredSegments = segments
+    .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
+      seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))
+    .filter(seg => !qaFlagFilter || (seg.qa_flags ?? []).includes(qaFlagFilter))
+    .filter(seg => !filterEmptyOnly || !seg.translated_text?.trim());
+  const hasTranslatedText = segments.some(seg => Boolean((seg.translated_text ?? '').trim()));
+  const canPartialRerun = !isRunning && hasTranslatedText;
+  const hasVoicePipeline = project.config?.translation_mode !== 'subtitles';
 
   // ─── Running overlay ──────────────────────────────────────────────────────
 
@@ -503,6 +517,108 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
 
   // ─── Run ──────────────────────────────────────────────────────────────────
 
+  const saveDirtySegments = async (): Promise<boolean> => {
+    if (!dirty) return true;
+    setSaving(true);
+    try {
+      await saveProjectSegments(projectId, segments);
+      setDirty(false);
+      return true;
+    } catch (saveErr) {
+      setMessage(`${t('workspace.saveError', locale)}: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startPartialRerun = async (fromStage: string, label: string) => {
+    setMessage('');
+    setRightTab('status');
+    if (!(await saveDirtySegments())) return;
+    try {
+      await runPipeline(projectId, false, undefined, undefined, fromStage);
+      setProject(prev => prev ? { ...prev, status: 'running' } : prev);
+      setMessage(`${label}: запущено`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : t('workspace.runError', locale));
+    }
+  };
+
+  const rebuildCurrentSubtitles = async () => {
+    setMessage('');
+    if (!(await saveDirtySegments())) return;
+    try {
+      await rebuildSubtitles(projectId);
+      const data = await getProjectStatus(projectId);
+      setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
+      setMessage('Субтитры пересобраны');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Не удалось пересобрать субтитры');
+    }
+  };
+
+  const runDoctor = async () => {
+    setDoctorLoading(true);
+    setMessage('');
+    try {
+      const [report, snapshotData] = await Promise.all([
+        getProjectDoctor(projectId),
+        getProjectSnapshots(projectId),
+      ]);
+      setDoctorReport(report);
+      setSnapshots(snapshotData.snapshots);
+      setRightTab('status');
+      const issueCount = report.issues.length;
+      const recommended = report.recommended_from_stage
+        ? ` Рекомендуемый старт: ${stageLabel(report.recommended_from_stage, locale)}.`
+        : '';
+      setMessage(`Проверка проекта: ${issueCount === 0 ? 'проблем не найдено' : `найдено ${issueCount}`}.${recommended}`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Не удалось проверить проект');
+    } finally {
+      setDoctorLoading(false);
+    }
+  };
+
+  const continueFromDoctor = async () => {
+    const fromStage = doctorReport?.recommended_from_stage ?? null;
+    if (!fromStage) {
+      setMessage('Project Doctor не нашёл этап для продолжения');
+      return;
+    }
+    await startPartialRerun(fromStage, `Продолжение с этапа ${stageLabel(fromStage, locale)}`);
+  };
+
+  const selectSegmentsWhere = (predicate: (segment: Segment) => boolean) => {
+    setSelectedSegIds(new Set(segments.filter(predicate).map(segment => segment.id)));
+  };
+
+  const runSelectedSegmentAction = async (
+    action: 'translate' | 'tts' | 'reset-tts' | 'mark-reviewed',
+    label: string,
+    force = false,
+  ) => {
+    const ids = Array.from(selectedSegIds);
+    if (ids.length === 0) return;
+    setSegmentActionLoading(action);
+    setMessage('');
+    if (!(await saveDirtySegments())) {
+      setSegmentActionLoading(null);
+      return;
+    }
+    try {
+      const result = await runSegmentAction(projectId, action, ids, force);
+      setProject(result.project);
+      setSelectedSegIds(new Set());
+      setMessage(`${label}: ${result.changed}`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : `Не удалось выполнить: ${label}`);
+    } finally {
+      setSegmentActionLoading(null);
+    }
+  };
+
   const handleRunConfirmed = async (force: boolean, fromStage: string | null) => {
     setConfirm(null);
     setMessage('');
@@ -510,19 +626,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     try {
       // Автосохранение несохранённых правок перед запуском пайплайна.
       // Без этого TTS использует старый текст с диска, а не отредактированный.
-      if (dirty) {
-        setSaving(true);
-        try {
-          await saveProjectSegments(projectId, segments);
-          setDirty(false);
-        } catch (saveErr) {
-          setMessage(`${t('workspace.saveError', locale)}: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
-          setSaving(false);
-          return; // не запускать пайплайн если не удалось сохранить
-        } finally {
-          setSaving(false);
-        }
-      }
+      if (!(await saveDirtySegments())) return;
       await runPipeline(projectId, force, undefined, undefined, fromStage);
       // Оптимистично переключаем статус — поллинг подхватит реальный
       setProject(prev => prev ? { ...prev, status: 'running' } : prev);
@@ -549,6 +653,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     switch (status) {
       case 'completed': return <CheckCircle2 size={16} className="text-success" />;
       case 'failed':    return <AlertCircle  size={16} className="text-danger" />;
+      case 'cancelled': return <XCircle      size={16} className="text-muted" />;
       case 'running':   return <Loader2      size={16} className="text-warning animate-spin" />;
       default: return <div className="timeline-marker" />;
     }
@@ -771,7 +876,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                failed             → [▶ Продолжить] [🔄 Перезапустить]
                completed          → [🔄 Перезапустить]
                running            → (ничего) */}
-          {!isRunning && project.status === 'failed' && (
+          {!isRunning && (project.status === 'failed' || project.status === 'cancelled') && (
             <button
               className="btn-success btn-sm"
               onClick={() => setConfirm({ force: false })}
@@ -780,7 +885,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               <Play size={14} /> {t('workspace.continue', locale)}
             </button>
           )}
-          {!isRunning && (project.status === 'created' || project.status === 'failed' || project.status === 'completed') && (
+          {!isRunning && (project.status === 'created' || project.status === 'failed' || project.status === 'completed' || project.status === 'cancelled') && (
             <button
               className="btn-secondary btn-sm"
               onClick={() => setConfirm({ force: true })}
@@ -791,6 +896,46 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
               }
             >
               <RefreshCw size={14} /> {project.status === 'completed' ? t('workspace.run', locale) : t('workspace.restart', locale)}
+            </button>
+          )}
+          {canPartialRerun && (
+            <div className="partial-rerun-group" aria-label="Частичная пересборка">
+              <button
+                className="btn-secondary btn-sm"
+                onClick={rebuildCurrentSubtitles}
+                title="Пересобрать SRT/VTT из текущего текста без полного пайплайна"
+              >
+                <AlignLeft size={14} /> Субтитры
+              </button>
+              {hasVoicePipeline && (
+                <>
+                  <button
+                    className="btn-secondary btn-sm"
+                    onClick={() => startPartialRerun('tts', 'Озвучка')}
+                    title="Пересинтезировать озвучку и пересобрать видео"
+                  >
+                    <Activity size={14} /> Озвучка
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
+                    onClick={() => startPartialRerun('render', 'Видео')}
+                    title="Пересобрать видео; если TTS-файлы уже удалены, сервер безопасно начнёт раньше"
+                  >
+                    <Film size={14} /> Видео
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          {!isRunning && (
+            <button
+              className="btn-icon"
+              title="Проверить проект и рекомендовать безопасное продолжение"
+              aria-label="Проверить проект"
+              disabled={doctorLoading}
+              onClick={runDoctor}
+            >
+              {doctorLoading ? <Loader2 size={15} className="animate-spin" /> : <Activity size={15} />}
             </button>
           )}
           {/* Z4.10: Keyboard shortcuts help */}
@@ -1137,6 +1282,28 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                   {filterEmptyOnly ? '✓' : ''}
                 </span>
               </button>
+              <button
+                className="btn-secondary btn-xs"
+                onClick={() => setSelectedSegIds(new Set(filteredSegments.map(s => s.id)))}
+                disabled={filteredSegments.length === 0}
+                title="Выбрать все сегменты с учётом текущих фильтров"
+              >
+                ✓ Видимые
+              </button>
+              <button
+                className="btn-secondary btn-xs"
+                onClick={() => selectSegmentsWhere(s => Boolean((s.translated_text ?? '').trim()) && !s.tts_path)}
+                title="Выбрать переведённые сегменты без TTS"
+              >
+                Без TTS
+              </button>
+              <button
+                className="btn-secondary btn-xs"
+                onClick={() => selectSegmentsWhere(s => (s.qa_flags ?? []).length > 0 && !s.reviewed)}
+                title="Выбрать QA-сегменты без отметки проверки"
+              >
+                QA
+              </button>
               {/* R7-И3: Side-by-side переключатель (Валентина Вт1) */}
               <button
                 id="btn-side-by-side"
@@ -1174,16 +1341,40 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 >📋 Копировать</button>
                 <button
                   className="btn-secondary btn-xs"
+                  disabled={segmentActionLoading !== null}
+                  onClick={() => runSelectedSegmentAction('translate', 'Переведено заново', true)}
+                >
+                  {segmentActionLoading === 'translate' ? '...' : '🌐 Перевести'}
+                </button>
+                <button
+                  className="btn-secondary btn-xs"
+                  disabled={segmentActionLoading !== null}
+                  onClick={() => runSelectedSegmentAction('tts', 'Озвучено', true)}
+                >
+                  {segmentActionLoading === 'tts' ? '...' : '🔊 Озвучить'}
+                </button>
+                <button
+                  className="btn-secondary btn-xs"
+                  disabled={segmentActionLoading !== null}
+                  onClick={() => runSelectedSegmentAction('reset-tts', 'TTS сброшен')}
+                >
+                  {segmentActionLoading === 'reset-tts' ? '...' : '↺ Сброс TTS'}
+                </button>
+                <button
+                  className="btn-secondary btn-xs"
+                  disabled={segmentActionLoading !== null}
+                  onClick={() => runSelectedSegmentAction('mark-reviewed', 'Отмечено проверенными')}
+                >
+                  {segmentActionLoading === 'mark-reviewed' ? '...' : '✓ Проверено'}
+                </button>
+                <button
+                  className="btn-secondary btn-xs"
                   onClick={() => setSelectedSegIds(new Set())}
                 >✕ Снять выбор</button>
               </div>
             )}
             <div className={`segments-list${sideBySide ? ' seg-side-by-side' : ''}`}>
-              {segments
-                .filter(seg => !segSearch || seg.source_text?.toLowerCase().includes(segSearch.toLowerCase()) ||
-                  seg.translated_text?.toLowerCase().includes(segSearch.toLowerCase()))
-                .filter(seg => !qaFlagFilter || (seg.qa_flags ?? []).includes(qaFlagFilter))  // NC8-02
-                .filter(seg => !filterEmptyOnly || !seg.translated_text?.trim())  // Л6: только пустые
+              {filteredSegments
                 // eslint-disable-next-line react-hooks/refs
                 .map((seg, segIndex) => (
                 <div
@@ -1242,6 +1433,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                     {(seg.edit_count ?? 0) > 0 && (
                       <span className="seg-edit-count" title="Количество ручных правок">
                         ✏️ {seg.edit_count}
+                      </span>
+                    )}
+                    {seg.reviewed && (
+                      <span className="seg-reviewed-badge" title="Сегмент проверен вручную">
+                        ✓ Проверено
                       </span>
                     )}
                     {/* Z2.10: copy translated text */}
@@ -1520,6 +1716,140 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
           {/* Вкладка: Статус */}
           {rightTab === 'status' && (
             <div className="right-tab-content">
+              {doctorReport && (
+                <div className={`doctor-panel doctor-panel--${doctorReport.ok ? 'ok' : 'warn'}`}>
+                  <div className="doctor-panel-head">
+                    <div className="doctor-panel-title">
+                      {doctorReport.ok
+                        ? <CheckCircle2 size={16} className="text-success" />
+                        : <AlertTriangle size={16} className="text-warning" />}
+                      <strong>Project Doctor</strong>
+                    </div>
+                    <button
+                      className="btn-icon doctor-close"
+                      title="Скрыть проверку"
+                      aria-label="Скрыть Project Doctor"
+                      onClick={() => setDoctorReport(null)}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  <div className="doctor-summary">
+                    <span>{doctorReport.ok ? 'Проблем не найдено' : `Найдено: ${doctorReport.issues.length}`}</span>
+                    {doctorReport.recommended_from_stage && (
+                      <span>
+                        Старт: <strong>{stageLabel(doctorReport.recommended_from_stage, locale)}</strong>
+                      </span>
+                    )}
+                  </div>
+
+                  {doctorReport.issues.length > 0 && (
+                    <ul className="doctor-issues">
+                      {doctorReport.issues.slice(0, 5).map((issue, index) => (
+                        <li key={`${issue.code}-${index}`} className={`doctor-issue doctor-issue--${issue.severity}`}>
+                          <span className="doctor-issue-code">{issue.code.replace(/_/g, ' ')}</span>
+                          <span className="doctor-issue-msg">
+                            {issue.stage ? `${stageLabel(issue.stage, locale)}: ` : ''}
+                            {issue.kind ? `${issue.kind}: ` : ''}
+                            {issue.message}
+                          </span>
+                        </li>
+                      ))}
+                      {doctorReport.issues.length > 5 && (
+                        <li className="doctor-issue doctor-issue--more">
+                          Ещё {doctorReport.issues.length - 5}
+                        </li>
+                      )}
+                    </ul>
+                  )}
+
+                  {doctorReport.actions.length > 0 && (
+                    <div className="doctor-actions-list">
+                      {doctorReport.actions
+                        .filter(action => action.enabled)
+                        .slice(0, 4)
+                        .map(action => (
+                          <span key={action.id} className="doctor-action-chip">
+                            {action.id}: {action.from_stage ? stageLabel(action.from_stage, locale) : 'auto'}
+                          </span>
+                        ))}
+                    </div>
+                  )}
+
+                  {doctorReport.segment_summary && (
+                    <div className="doctor-segment-summary">
+                      <span>Пустые: {doctorReport.segment_summary.empty_translations ?? 0}</span>
+                      <span>Без TTS: {doctorReport.segment_summary.missing_tts ?? 0}</span>
+                      <span>QA: {doctorReport.segment_summary.qa_flagged ?? 0}</span>
+                      <span>Не проверены: {doctorReport.segment_summary.unreviewed_issues ?? 0}</span>
+                    </div>
+                  )}
+
+                  {doctorReport.segment_actions && doctorReport.segment_actions.some(action => action.count > 0) && (
+                    <div className="doctor-panel-actions">
+                      {doctorReport.segment_actions
+                        .filter(action => action.count > 0)
+                        .map(action => (
+                          <button
+                            key={action.id}
+                            className="btn-secondary btn-sm"
+                            onClick={() => {
+                              if (action.id === 'select-empty') {
+                                selectSegmentsWhere(s => !(s.translated_text ?? '').trim());
+                              } else if (action.id === 'select-missing-tts') {
+                                selectSegmentsWhere(s => Boolean((s.translated_text ?? '').trim()) && !s.tts_path);
+                              } else if (action.id === 'select-timing-failed') {
+                                selectSegmentsWhere(s => (s.qa_flags ?? []).includes('timing_fit_failed'));
+                              } else if (action.id === 'select-unreviewed-qa') {
+                                selectSegmentsWhere(s => (s.qa_flags ?? []).length > 0 && !s.reviewed);
+                              }
+                            }}
+                          >
+                            {action.count} · {action.id.replace('select-', '')}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+
+                  <div className="doctor-panel-actions">
+                    <button
+                      className="btn-primary btn-sm"
+                      disabled={!doctorReport.recommended_from_stage || isRunning}
+                      onClick={continueFromDoctor}
+                    >
+                      <Play size={14} /> Продолжить безопасно
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm"
+                      disabled={doctorLoading}
+                      onClick={runDoctor}
+                    >
+                      {doctorLoading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
+                      Проверить снова
+                    </button>
+                  </div>
+
+                  {snapshots.length > 0 && (
+                    <div className="doctor-snapshots">
+                      <span className="doctor-snapshots-title">Snapshots: {snapshots.length}</span>
+                      <ul>
+                        {snapshots.slice(0, 3).map(snapshot => (
+                          <li key={snapshot.filename}>
+                            <span>{snapshot.reason || snapshot.filename}</span>
+                            {snapshot.created_at && (
+                              <time dateTime={snapshot.created_at}>
+                                {new Date(snapshot.created_at).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-US')}
+                              </time>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Г7/В7: CTA "Скачать всё" после завершения */}
               {isDone && (
                 <div className="download-all-cta">

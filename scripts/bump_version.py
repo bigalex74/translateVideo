@@ -90,7 +90,21 @@ def bump_version(bump_arg: str) -> str:
     )
     print(f"  __init__.py:    {new_version}")
 
-    # 4. change.log — НЕ генерируем заготовку автоматически.
+    # 4. ui/public/sw.js — cache busting для PWA/service worker.
+    sw = ROOT / "ui" / "public" / "sw.js"
+    if sw.exists():
+        sw.write_text(
+            re.sub(
+                r"const APP_VERSION = '[^']+'",
+                f"const APP_VERSION = '{new_version}'",
+                sw.read_text(encoding="utf-8"),
+                count=1,
+            ),
+            encoding="utf-8",
+        )
+        print(f"  ui/public/sw.js: {new_version}")
+
+    # 5. change.log — НЕ генерируем заготовку автоматически.
     # Причина: автоматическая вставка TODO-заготовки приводила к дублям, когда
     # описание добавлялось позже в том же скрипте (deploy).
     # Правило: changelog заполняется вручную/скриптом ДО вызова bump_version.

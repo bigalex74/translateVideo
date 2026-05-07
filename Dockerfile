@@ -20,12 +20,10 @@ ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Копируем только манифесты для кеша pip
-COPY pyproject.toml requirements.txt ./
-COPY src/translate_video/__init__.py src/translate_video/__init__.py
+COPY requirements.txt ./
 
-# Устанавливаем зависимости (без исходников — только deps layer)
-RUN pip install --no-cache-dir -e . --no-build-isolation || \
-    pip install --no-cache-dir -r requirements.txt
+# Устанавливаем runtime-зависимости без исходников приложения.
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Этап 3: Runtime образ (финальный — минимальный)
 FROM python:3.11-slim AS runtime
@@ -63,9 +61,17 @@ EXPOSE 8002
 
 # Z5.10: Docker image labels для rollback/canary управления
 ARG APP_VERSION=dev
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+ENV APP_VERSION="${APP_VERSION}" \
+    APP_COMMIT="${VCS_REF}" \
+    APP_BUILD_DATE="${BUILD_DATE}" \
+    APP_ENV=production
 LABEL org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.title="AI Video Translator" \
-      org.opencontainers.image.source="https://github.com/user/translateVideo"
+      org.opencontainers.image.source="https://github.com/bigalex74/translateVideo" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
