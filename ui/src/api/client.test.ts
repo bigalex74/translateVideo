@@ -11,19 +11,25 @@ import {
   batchCreateProjects,
   cancelPipeline,
   createProject,
+  createShareLink,
   deleteProject,
+  fetchAnalytics,
   fetchProviderBalance,
   fetchProviderModels,
+  fetchTranslationHint,
   getProjectArtifacts,
   getProjectDoctor,
   getProjectSnapshots,
   getProjectStatus,
+  getShareLink,
+  getSharedProject,
   listProjects,
   patchProjectConfig,
   preflightVideo,
   previewTTS,
-  renameProject,
   rebuildSubtitles,
+  renameProject,
+  revokeShareLink,
   runPipeline,
   runSegmentAction,
   safariSafeDownload,
@@ -500,6 +506,83 @@ describe('artifactDownloadUrl', () => {
 });
 
 // ── readError (через ошибочные ответы) ───────────────────────────────────────
+
+describe('fetchTranslationHint', () => {
+  it('POST /projects/:id/segments/:seg/hint и возвращает suggestions', async () => {
+    const m = mockFetch(okResponse({ suggestions: ['Привет', 'Здравствуй'], cached: false }));
+    const result = await fetchTranslationHint('proj1', 'seg1', []);
+    const [url, init] = lastCall(m) as [string, RequestInit];
+    expect(url).toContain('/projects/proj1/segments/seg1/hint');
+    expect(init.method).toBe('POST');
+    expect(result.suggestions).toHaveLength(2);
+    expect(result.cached).toBe(false);
+  });
+
+  it('бросает ошибку при HTTP ошибке', async () => {
+    mockFetch(errResponse('segment not found', 404));
+    await expect(fetchTranslationHint('proj1', 'missing', [])).rejects.toThrow('Hint error:');
+  });
+});
+
+describe('Share Links', () => {
+  it('createShareLink POST /projects/:id/share', async () => {
+    const m = mockFetch(okResponse({ share_token: 'tok1', share_url: 'https://x', expires_at: '2026-06-01', project_id: 'proj1' }));
+    const result = await createShareLink('proj1');
+    const [url, init] = lastCall(m) as [string, RequestInit];
+    expect(url).toContain('/projects/proj1/share');
+    expect(init.method).toBe('POST');
+    expect(result.share_token).toBe('tok1');
+  });
+
+  it('getShareLink GET /projects/:id/share', async () => {
+    const m = mockFetch(okResponse({ share_token: 'tok1', share_url: 'https://x', expires_at: '2026-06-01', project_id: 'proj1' }));
+    const result = await getShareLink('proj1');
+    const [url] = lastCall(m) as [string];
+    expect(url).toContain('/projects/proj1/share');
+    expect(result.share_token).toBe('tok1');
+  });
+
+  it('revokeShareLink DELETE /projects/:id/share', async () => {
+    const m = mockFetch(okResponse({ revoked: true }));
+    const result = await revokeShareLink('proj1');
+    const [url, init] = lastCall(m) as [string, RequestInit];
+    expect(url).toContain('/projects/proj1/share');
+    expect(init.method).toBe('DELETE');
+    expect(result.revoked).toBe(true);
+  });
+
+  it('getSharedProject GET /share/:token', async () => {
+    const m = mockFetch(okResponse({ project_id: 'proj1', status: 'completed' }));
+    await getSharedProject('tok1');
+    const [url] = lastCall(m) as [string];
+    expect(url).toContain('/share/tok1');
+  });
+});
+
+describe('fetchAnalytics', () => {
+  it('GET /analytics/summary возвращает статистику', async () => {
+    const m = mockFetch(okResponse({
+      total_projects: 5,
+      total_segments: 100,
+      total_words_translated: 500,
+      avg_translation_quality: 'good',
+      cost_usd_total: 1.5,
+      most_used_provider: 'deepseek',
+      projects_per_day: [],
+      status_distribution: {},
+      provider_distribution: {},
+    }));
+    const result = await fetchAnalytics();
+    const [url] = lastCall(m) as [string];
+    expect(url).toContain('/analytics/summary');
+    expect(result.total_projects).toBe(5);
+  });
+
+  it('бросает ошибку при HTTP 500', async () => {
+    mockFetch(new Response('', { status: 500 }));
+    await expect(fetchAnalytics()).rejects.toThrow('Analytics error: HTTP 500');
+  });
+});
 
 describe('readError fallback', () => {
   it('возвращает plain text если JSON не распарсился', async () => {
