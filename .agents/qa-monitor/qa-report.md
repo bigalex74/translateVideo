@@ -237,3 +237,11 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 - Прод v1.95.0 = local ✅
 - with_retry применён в speechkit, cloud.py, webhook ✅
 ### Подпись: QA Monitor | 2026-05-07 22:57
+
+---
+## [QA АПРУV] 2026-05-07 И2
+- Vitest: 223 тестов (было 212) +11 ✅ | Branch coverage 77.71% ≥ 75% ✅
+- Python: 920 тестов ✅ | Coverage ≥80% ✅
+- Прод v1.95.1 = local ✅
+- useVisibilityRefresh: 6 тестов ✅ | requestCompletionNotification: 5 тестов ✅
+### Подпись: QA Monitor | 2026-05-07 23:13

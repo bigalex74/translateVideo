@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import './Workspace.css';
 import { useProjectStatus } from '../hooks/useProjectStatus';
+import { useVisibilityRefresh, requestCompletionNotification } from '../hooks/useVisibilityRefresh';
 
 declare global {
   interface Window {
@@ -159,15 +160,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
   }, [projectId]);
 
   // Designer R6-iter2: Toast "Перевод готов!" при переходе running→completed
+  // TVIDEO-223: + Browser Notification при завершении
   useEffect(() => {
     if (!project) return;
     const prev = prevStatusRef.current;
     if (prev === 'running' && project.status === 'completed') {
       setMessage('✅ Перевод завершён! Скачайте результат.');
       setTimeout(() => setMessage(''), 5000);
+      // Browser Notification если вкладка не активна
+      void requestCompletionNotification(projectId, 'completed');
+    } else if (prev === 'running' && project.status === 'failed') {
+      void requestCompletionNotification(projectId, 'failed');
     }
     prevStatusRef.current = project.status;
-  }, [project]);
+  }, [project, projectId]);
 
   // R8-И1: WebSocket + adaptive HTTP fallback через useProjectStatus hook (Глеб Г7)
   // Заменяет инлайн поллинг — больше нет дёргающего setInterval
@@ -186,7 +192,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
     onError: (e) => console.error('[status] error', e),
   });
 
-  // Zombie-timeout: если через 8с после отмены статус не изменился — показываем Force Stop.
+  // TVIDEO-223: Принудительный poll при возврате на вкладку (visibility change)
+  // Решает проблему устаревшего статуса когда пользователь переключает вкладки.
+  useVisibilityRefresh({
+    enabled: project?.status === 'running',
+    onVisible: () => {
+      void getProjectStatus(projectId).then(data => {
+        setProject(prev => (prev && dirty ? { ...data, segments: prev.segments } : data));
+        if (data.status === 'completed' || data.status === 'failed') {
+          void requestCompletionNotification(projectId, data.status as 'completed' | 'failed');
+        }
+      }).catch(() => {});
+    },
+  });
   useEffect(() => {
     if (!cancelling) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -628,10 +646,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
       // Без этого TTS использует старый текст с диска, а не отредактированный.
       if (!(await saveDirtySegments())) return;
       await runPipeline(projectId, force, undefined, undefined, fromStage);
+      // TVIDEO-223: Запрашиваем разрешение на уведомления при первом запуске (контекстуально)
+      if ('Notification' in window && Notification.permission === 'default') {
+        void Notification.requestPermission();
+      }
       // Оптимистично переключаем статус — поллинг подхватит реальный
       setProject(prev => prev ? { ...prev, status: 'running' } : prev);
       setCancelling(false);
       setCancelConfirm(false);
+
     } catch (e) {
       setMessage(e instanceof Error ? e.message : t('workspace.runError', locale));
     }

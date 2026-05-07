@@ -197,3 +197,12 @@
 - Тесты: 12 штук, все зелёные ✅
 - SKILL.md: добавить правило «При добавлении HTTP-вызова — обернуть в with_retry немедленно» в следующей итерации обновления навыка
 ### Подпись: Skill Modernizer | 2026-05-07 22:57
+
+---
+## [SKILL-MODERNIZER] И2 v1.95.1
+**Режим:** B | **Дата:** 2026-05-07 23:13
+- useVisibilityRefresh — правильный паттерн: hook изолирован, enabled-guard, cleanup в return ✅
+- requestCompletionNotification — async функция, graceful degradation если Notification API нет ✅
+- Contextual permission request (при запуске, не при загрузке) — best practice UX ✅
+- SKILL.md UPDATE: добавить «Notification permission запрашивать контекстуально, не при старте приложения»
+### Подпись: Skill Modernizer | 2026-05-07 23:13
