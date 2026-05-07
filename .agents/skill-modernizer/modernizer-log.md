@@ -214,3 +214,11 @@
 - pointer:coarse для touch targets — правильный подход (лучше чем max-width) ✅
 - SKILL.md UPDATE: «Всегда добавлять pointer:coarse блок для touch target ≥44px»
 ### Подпись: Skill Modernizer | 2026-05-07 23:21
+
+---
+## [SKILL-MODERNIZER] И4 v1.95.3
+**Режим:** B | **Дата:** 2026-05-07 23:29
+- showKey паттерн (toggle visibility) — правильное использование local state ✅
+- Destructive action pattern: всегда window.confirm() перед localStorage clear ✅
+- SKILL.md UPDATE: «Деструктивные действия (clear, delete, reset) требуют confirm()»
+### Подпись: Skill Modernizer | 2026-05-07 23:29

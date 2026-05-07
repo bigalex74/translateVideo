@@ -1,3 +1,15 @@
+## 1.95.3 - 2026-05-07 - FEAT - SETTINGS-FAQ-UX
+### Settings FAQ + Destructive UX
+
+**Frontend (Settings.tsx):**
+- API-key поле: кнопка Show/Hide (Eye/EyeOff) рядом с полем пароля.
+- FAQ расширен с 8 до 12 вопросов: Retry/Backoff, cost_usd, уведомления, Visibility API.
+- Destructive confirm перед «Повторить онбординг» и «Сбросить всё».
+- Новая кнопка «Сбросить всё» (Trash2) — удаляет все localStorage настройки.
+- import Eye, EyeOff, Trash2 из lucide-react.
+
+---
+
 ## 1.95.2 - 2026-05-07 - FEAT - MOBILE-POLISH
 ### Mobile Responsive Polish — Workspace UI
 
