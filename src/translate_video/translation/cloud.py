@@ -18,6 +18,7 @@ from typing import Any, Protocol
 from translate_video.core.config import PipelineConfig
 from translate_video.core.env import load_env_file
 from translate_video.core.log import Timer, get_logger
+from translate_video.core.retry import with_retry
 from translate_video.core.prompting import (
     build_context_block,
     build_glossary_block,
@@ -748,19 +749,35 @@ def _post_json(
     else:
         open_fn = urllib.request.urlopen
 
+    def _attempt(req):
+        try:
+            with open_fn(req, timeout=timeout) as response:
+                return response.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            code = exc.code
+            if code in (429, 500, 502, 503, 504):
+                raise TranslationProviderError(f"HTTP {code}: retryable") from exc
+            raise TranslationProviderError(f"HTTP {code}: translation provider rejected request") from exc
+        except TimeoutError as exc:
+            raise TranslationProviderError("timeout: translation provider did not respond in time") from exc
+        except urllib.error.URLError as exc:
+            raise TranslationProviderError(f"network: {exc.reason}") from exc
+        except OSError as exc:
+            raise TranslationProviderError(f"os: {exc}") from exc
+
     try:
-        with open_fn(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        raise TranslationProviderError(f"HTTP {exc.code}: translation provider rejected request") from exc
-    except TimeoutError as exc:
-        raise TranslationProviderError("timeout: translation provider did not respond in time") from exc
-    except urllib.error.URLError as exc:
-        raise TranslationProviderError(f"network: {exc.reason}") from exc
-    except OSError as exc:
-        raise TranslationProviderError(f"os: {exc}") from exc
-    try:
+        raw = with_retry(
+            _attempt,
+            request,
+            max_attempts=3,
+            base_delay=1.0,
+            max_delay=30.0,
+            retryable_exceptions=(TranslationProviderError,),
+            label="translation_http",
+        )
         return json.loads(raw)
+    except TranslationProviderError:
+        raise
     except json.JSONDecodeError as exc:
         raise TranslationProviderError("translation provider returned invalid JSON") from exc
 
