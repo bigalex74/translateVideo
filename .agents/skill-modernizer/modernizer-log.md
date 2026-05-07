@@ -222,3 +222,11 @@
 - Destructive action pattern: всегда window.confirm() перед localStorage clear ✅
 - SKILL.md UPDATE: «Деструктивные действия (clear, delete, reset) требуют confirm()»
 ### Подпись: Skill Modernizer | 2026-05-07 23:29
+
+---
+## [SKILL-MODERNIZER] И5 v1.95.4
+**Режим:** B | **Дата:** 2026-05-07 23:38
+- calcQualityScore() — чистая функция вне компонента (good separation) ✅
+- 4-tier threshold design (ok/warn/danger/critical) — правильный UX паттерн ✅
+- SKILL.md UPDATE: «Используй 3-4 tier threshold для метрик качества (ok/warn/danger/critical)»
+### Подпись: Skill Modernizer | 2026-05-07 23:38

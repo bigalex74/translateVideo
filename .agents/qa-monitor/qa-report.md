@@ -261,3 +261,11 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 - Settings.tsx: TSC 0 ошибок ✅
 - Деструктивные действия защищены confirm() ✅ — prevent accidental reset
 ### Подпись: QA Monitor | 2026-05-07 23:29
+
+---
+## [QA АПРУV] 2026-05-07 И5
+- Vitest: 223 тестов ✅ | Python 920 тестов ✅ | Coverage ≥80%/75% ✅
+- Прод v1.95.4 = local ✅
+- StatsPanel.tsx: TSC 0 ошибок ✅
+- calcQualityScore: чистая функция, все ветки покрыты пороговыми значениями ✅
+### Подпись: QA Monitor | 2026-05-07 23:38

@@ -414,3 +414,99 @@
   padding: 4px 0;
 }
 
+
+/* ── TVIDEO-226: Quality Score Gauge ─────────────────────────────────────── */
+.stats-quality-gauge {
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stats-quality-gauge--excellent { border-color: rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.05); }
+.stats-quality-gauge--good      { border-color: rgba(99, 102, 241, 0.35); background: rgba(99, 102, 241, 0.05); }
+.stats-quality-gauge--warn      { border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.05); }
+.stats-quality-gauge--poor      { border-color: rgba(239, 68,  68, 0.35); background: rgba(239, 68,  68, 0.06); }
+
+.stats-quality-gauge-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.stats-quality-gauge-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.stats-quality-gauge-score {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-quality-gauge-grade {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.stats-quality-gauge--excellent .stats-quality-gauge-grade {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+}
+.stats-quality-gauge--good .stats-quality-gauge-grade {
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+}
+.stats-quality-gauge--warn .stats-quality-gauge-grade {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+.stats-quality-gauge--poor .stats-quality-gauge-grade {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+.stats-quality-gauge-bar-wrap {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.stats-quality-gauge-bar {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+.stats-quality-gauge--excellent .stats-quality-gauge-bar { background: linear-gradient(90deg, #10b981, #34d399); }
+.stats-quality-gauge--good      .stats-quality-gauge-bar { background: linear-gradient(90deg, #6366f1, #a5b4fc); }
+.stats-quality-gauge--warn      .stats-quality-gauge-bar { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.stats-quality-gauge--poor      .stats-quality-gauge-bar { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+.stats-quality-gauge-issues {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-quality-gauge-issues li {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* text-danger */
+.text-danger {
+  color: var(--danger) !important;
+}

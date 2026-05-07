@@ -1,3 +1,17 @@
+## 1.95.4 - 2026-05-07 - FEAT - QUALITY-THRESHOLDS
+### Quality Thresholds + Analytics UX
+
+**Frontend (StatsPanel.tsx + StatsPanel.css):**
+- calcQualityScore(): агрегированная оценка 0-100 на основе пороговых значений.
+  - Пороги: empty_translations >5%/-15, >15%/-30 | google_fallback >10%/-10, >20%/-20
+  - TTS overflow >5%/-5, >10%/-15, >20%/-25 | QA флаги >15%сегм/-7, >30%/-15
+- Quality Score Gauge: визуальный bar + grade (Отлично/Хорошо/Удовлет./Плохо) + список проблем.
+- 4 цветовых состояния: excellent(зелёный), good(синий), warn(янтарный), poor(красный).
+- overflow_rate: 3-tier threshold coloring (ok/warn/danger).
+- CSS: .stats-quality-gauge, .text-danger.
+
+---
+
 ## 1.95.3 - 2026-05-07 - FEAT - SETTINGS-FAQ-UX
 ### Settings FAQ + Destructive UX
 
