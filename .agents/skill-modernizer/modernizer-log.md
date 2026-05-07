@@ -206,3 +206,11 @@
 - Contextual permission request (при запуске, не при загрузке) — best practice UX ✅
 - SKILL.md UPDATE: добавить «Notification permission запрашивать контекстуально, не при старте приложения»
 ### Подпись: Skill Modernizer | 2026-05-07 23:13
+
+---
+## [SKILL-MODERNIZER] И3 v1.95.2
+**Режим:** B | **Дата:** 2026-05-07 23:21
+- CSS-only: mobile breakpoints корректны, viewport meta присутствует ✅
+- pointer:coarse для touch targets — правильный подход (лучше чем max-width) ✅
+- SKILL.md UPDATE: «Всегда добавлять pointer:coarse блок для touch target ≥44px»
+### Подпись: Skill Modernizer | 2026-05-07 23:21

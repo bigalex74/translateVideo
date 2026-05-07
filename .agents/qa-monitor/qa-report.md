@@ -245,3 +245,11 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 - Прод v1.95.1 = local ✅
 - useVisibilityRefresh: 6 тестов ✅ | requestCompletionNotification: 5 тестов ✅
 ### Подпись: QA Monitor | 2026-05-07 23:13
+
+---
+## [QA АПРУV] 2026-05-07 И3
+- Python: 920 тестов ✅ | Coverage ≥80% ✅
+- Vitest: 223 тестов ✅ | Branch coverage ≥75% ✅
+- Прод v1.95.2 = local ✅
+- CSS-only изменение: breakpoints ≤768px, ≤480px, pointer:coarse — нет регрессий в тестах ✅
+### Подпись: QA Monitor | 2026-05-07 23:21

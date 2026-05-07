@@ -1441,3 +1441,170 @@
   z-index: 10;
   line-height: 1.4;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   TVIDEO-224 — Mobile Responsive Polish
+   Breakpoints: ≤768px (tablet), ≤480px (phone)
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Убираем фиксированный padding у корня Workspace */
+  .workspace {
+    padding: 12px 8px;
+  }
+
+  /* Шапка компактнее */
+  .workspace-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  /* Грид → однoколоночный стек */
+  .workspace-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    overflow: auto;
+  }
+
+  /* Правая панель на мобильных: фиксированная высота чтобы вместиться */
+  .workspace-right {
+    max-height: 280px;
+  }
+
+  /* Кнопки в шапке — компактнее */
+  .btn-icon {
+    padding: 6px;
+  }
+
+  .btn-sm {
+    padding: 5px 8px;
+    font-size: 0.78rem;
+  }
+
+  /* Running card адаптируется к ширине экрана */
+  .running-card {
+    padding: 24px 20px;
+    max-width: calc(100vw - 32px);
+    margin: 16px;
+    border-radius: 12px;
+  }
+
+  .running-card h3 {
+    font-size: 1.1rem;
+  }
+
+  /* Список сегментов — меньше паддинг */
+  .segments-list {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .segment-item {
+    padding: 12px;
+  }
+
+  /* Группа partial-rerun — перенос на мобильных */
+  .partial-rerun-group {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* Правые вкладки — компактнее */
+  .right-tab-content {
+    padding: 10px;
+  }
+
+  /* Видео — меньше высота */
+  .video-container video {
+    max-height: 180px;
+  }
+
+  /* Doctor panel — меньше паддинг */
+  .doctor-panel {
+    padding: 8px;
+  }
+
+  /* Header заголовок — короче на маленьких экранах */
+  .header-left h2,
+  .header-row-title h2 {
+    max-width: 50vw;
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .workspace {
+    padding: 6px 4px;
+  }
+
+  .workspace-header {
+    padding: 8px 10px;
+  }
+
+  /* На телефоне правая панель совсем компактная */
+  .workspace-right {
+    max-height: 220px;
+  }
+
+  .running-card {
+    padding: 20px 16px;
+    gap: 12px;
+  }
+
+  .running-card h3 {
+    font-size: 1rem;
+  }
+
+  /* Кнопки inline на маленьких экранах */
+  .header-row-actions {
+    gap: 4px;
+  }
+
+  /* Сегменты совсем компактно */
+  .segment-item {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .seg-translated {
+    min-height: 60px;
+  }
+
+  /* Скрываем текст кнопок (только иконки) на малых экранах */
+  .btn-icon span {
+    display: none;
+  }
+
+  /* Seg header — укладываем в столбик на совсем маленьких */
+  .seg-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .header-left h2,
+  .header-row-title h2 {
+    max-width: 60vw;
+    font-size: 0.88rem;
+  }
+}
+
+/* touch: увеличиваем min tap target */
+@media (pointer: coarse) {
+  .btn-icon {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .panel-tabs button {
+    min-height: 44px;
+    padding: 10px;
+  }
+
+  .segment-item {
+    cursor: default;
+  }
+
+  .seg-timing--clickable {
+    padding: 4px 8px;
+  }
+}

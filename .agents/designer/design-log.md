@@ -488,3 +488,8 @@ CSS-изменение выглядело «добавлением анимац�
 ## [DESIGNER АПРУV] 2026-05-07 И2
 **v1.95.1 — Visibility+Notifications** — проверена Workspace: useVisibilityRefresh hook добавлен корректно. Запрос разрешения на notification при первом запуске — contextual (не навязчивый). Уведомление не показывается на активной вкладке ✅.
 ### Подпись: Designer | 2026-05-07 23:13
+
+---
+## [DESIGNER АПРУV] 2026-05-07 И3
+**v1.95.2 — Mobile Responsive Polish** — визуально проверен Lighthouse Accessibility report на 768px viewport. workspace-grid → 1 колонка ✅. running-card compact ✅. btn-icon 40x40px tap target (pointer:coarse) ✅. Viewport meta присутствует ✅.
+### Подпись: Designer | 2026-05-07 23:21

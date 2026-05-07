@@ -1,3 +1,18 @@
+## 1.95.2 - 2026-05-07 - FEAT - MOBILE-POLISH
+### Mobile Responsive Polish — Workspace UI
+
+**Frontend (Workspace.css):**
+- Добавлен блок responsive media queries (≤768px, ≤480px, pointer:coarse).
+- workspace-grid → 1 колонка на мобильных.
+- running-card: compact padding (20-24px), max-width: calc(100vw - 32px).
+- btn-icon: min tap target 40x40px на touch-устройствах.
+- panel-tabs: min-height 44px на coarse pointer.
+- segment-item, segments-list, workspace-header — compact padding.
+- video-container: max-height 180px на ≤768px, 260px на desktop.
+- header title: truncation + адаптивная ширина по breakpoints.
+
+---
+
 ## 1.95.1 - 2026-05-07 - FEAT - VISIBILITY-NOTIFICATIONS
 ### Visibility Change Refresh + Browser Notifications
 
