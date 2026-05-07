@@ -102,6 +102,47 @@ function fmtTime(s: number | null): string {
   return `${m}м ${rem.toFixed(0)}с`;
 }
 
+// TVIDEO-226: Пороговый агрегированный Quality Score (0-100)
+function calcQualityScore(stats: StatsData): { score: number; grade: 'excellent' | 'good' | 'warn' | 'poor'; label: string; issues: string[] } {
+  let score = 100;
+  const issues: string[] = [];
+  const { quality, tts, segments } = stats;
+
+  // Пустые переводы (порог: >5% сегментов = warn, >15% = critical)
+  if (segments.count > 0) {
+    const emptyRate = segments.empty_translations / segments.count;
+    if (emptyRate > 0.15) { score -= 30; issues.push(`Пустых переводов: ${(emptyRate * 100).toFixed(0)}%`); }
+    else if (emptyRate > 0.05) { score -= 15; issues.push(`Пустых переводов: ${(emptyRate * 100).toFixed(0)}%`); }
+  }
+
+  // Google fallback (порог: >20% = warn)
+  const totalSegs = segments.count || 1;
+  const fallbackRate = quality.google_fallback_count / totalSegs;
+  if (fallbackRate > 0.20) { score -= 20; issues.push(`Google fallback: ${(fallbackRate * 100).toFixed(0)}%`); }
+  else if (fallbackRate > 0.10) { score -= 10; issues.push(`Google fallback: ${(fallbackRate * 100).toFixed(0)}%`); }
+
+  // TTS overflow (порог: >10% = warn, >20% = critical)
+  if (tts.overflow_rate != null) {
+    if (tts.overflow_rate > 0.20) { score -= 25; issues.push(`TTS overflow: ${(tts.overflow_rate * 100).toFixed(0)}%`); }
+    else if (tts.overflow_rate > 0.10) { score -= 15; issues.push(`TTS overflow: ${(tts.overflow_rate * 100).toFixed(0)}%`); }
+    else if (tts.overflow_rate > 0.05) { score -= 5; }
+  }
+
+  // QA флаги (по цифрам)
+  if (quality.segments_with_issues > totalSegs * 0.3) { score -= 15; issues.push(`QA флаги: ${quality.segments_with_issues} сегм.`); }
+  else if (quality.segments_with_issues > totalSegs * 0.15) { score -= 7; }
+
+  score = Math.max(0, Math.min(100, score));
+  let grade: 'excellent' | 'good' | 'warn' | 'poor';
+  let label: string;
+  if (score >= 90) { grade = 'excellent'; label = 'Отлично'; }
+  else if (score >= 75) { grade = 'good'; label = 'Хорошо'; }
+  else if (score >= 55) { grade = 'warn'; label = 'Удовлетворительно'; }
+  else { grade = 'poor'; label = 'Плохо'; }
+
+  return { score, grade, label, issues };
+}
+
 interface Props {
   projectId: string;
 }
@@ -169,6 +210,9 @@ export const StatsPanel: React.FC<Props> = ({ projectId }) => {
     .filter(([k]) => !technicalPrefixes.some(p => k.startsWith(p)))
     .sort((a, b) => b[1] - a[1]);
 
+  // TVIDEO-226: Quality Score
+  const qs = calcQualityScore(stats);
+
   return (
     <div className="stats-panel">
       {/* Header */}
@@ -195,6 +239,26 @@ export const StatsPanel: React.FC<Props> = ({ projectId }) => {
         <span className={`stats-quality-badge ${summary.translation_quality}`}>
           {summary.translation_quality === 'professional' ? '⭐ Pro' : '🆓 Amateur'}
         </span>
+      </div>
+
+      {/* TVIDEO-226: Quality Score Gauge */}
+      <div className={`stats-quality-gauge stats-quality-gauge--${qs.grade}`}>
+        <div className="stats-quality-gauge-header">
+          <span className="stats-quality-gauge-label">🎯 Оценка качества</span>
+          <span className="stats-quality-gauge-score">{qs.score}/100</span>
+          <span className="stats-quality-gauge-grade">{qs.label}</span>
+        </div>
+        <div className="stats-quality-gauge-bar-wrap">
+          <div
+            className="stats-quality-gauge-bar"
+            style={{ width: `${qs.score}%` }}
+          />
+        </div>
+        {qs.issues.length > 0 && (
+          <ul className="stats-quality-gauge-issues">
+            {qs.issues.map(i => <li key={i}>⚠️ {i}</li>)}
+          </ul>
+        )}
       </div>
 
       {/* ── Время по этапам ── */}
@@ -394,7 +458,11 @@ export const StatsPanel: React.FC<Props> = ({ projectId }) => {
             )}
             <div className="stats-kv">
               <span>Переполнений</span>
-              <strong className={tts.overflow_count > 0 ? 'text-warn' : ''}>
+              {/* TVIDEO-226: Порог overflow_rate: ≤5%=ok, >5%=warn, >15%=crit */}
+              <strong className={
+                tts.overflow_rate != null && tts.overflow_rate > 0.15 ? 'text-danger' :
+                tts.overflow_rate != null && tts.overflow_rate > 0.05 ? 'text-warn' : ''
+              }>
                 {tts.overflow_count}
                 {tts.overflow_rate != null && ` (${(tts.overflow_rate * 100).toFixed(1)}%)`}
               </strong>
