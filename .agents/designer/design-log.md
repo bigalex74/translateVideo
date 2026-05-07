@@ -493,3 +493,8 @@ CSS-изменение выглядело «добавлением анимац�
 ## [DESIGNER АПРУV] 2026-05-07 И3
 **v1.95.2 — Mobile Responsive Polish** — визуально проверен Lighthouse Accessibility report на 768px viewport. workspace-grid → 1 колонка ✅. running-card compact ✅. btn-icon 40x40px tap target (pointer:coarse) ✅. Viewport meta присутствует ✅.
 ### Подпись: Designer | 2026-05-07 23:21
+
+---
+## [DESIGNER АПРУV] 2026-05-07 И4
+**v1.95.3 — Settings FAQ+UX** — API-key: Eye/EyeOff кнопки добавлены ✅. «Сбросить всё» — кнопка с красной рамкой (семантическая опасность) ✅. Destructive confirm dialog перед деструктивными действиями ✅. FAQ структурировано через `<details>`.
+### Подпись: Designer | 2026-05-07 23:29

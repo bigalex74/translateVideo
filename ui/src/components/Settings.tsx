@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, CheckCircle2, KeyRound, Copy, ExternalLink, BookOpen, HelpCircle, RotateCcw } from 'lucide-react';
+import { Save, CheckCircle2, KeyRound, Copy, ExternalLink, BookOpen, HelpCircle, RotateCcw, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { LOCALE_LABELS, providerLabels, t } from '../i18n';
 import {
   applyTheme,
@@ -45,6 +45,8 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
   const [saved,     setSaved]     = useState(false);
   const [apiKey,    setApiKey]    = useState(getPersistedApiKey);
   const [keyCopied, setKeyCopied] = useState(false);
+  // TVIDEO-225: показать/скрыть API-ключ
+  const [showKey, setShowKey] = useState(false);
 
   useEffect(() => {
     applyTheme(theme, largeText);
@@ -147,11 +149,22 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
               <input
                 id="settings-apikey"
                 className="text-input api-key-input"
-                type="password"
+                type={showKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 placeholder="Оставьте пустым если API_KEY не настроен на сервере"
+                autoComplete="off"
+                spellCheck={false}
               />
+              <button
+                type="button"
+                className="btn-secondary api-key-copy-btn"
+                onClick={() => setShowKey(v => !v)}
+                title={showKey ? 'Скрыть ключ' : 'Показать ключ'}
+                aria-label={showKey ? 'Скрыть API-ключ' : 'Показать API-ключ'}
+              >
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
               <button
                 type="button"
                 className="btn-secondary api-key-copy-btn"
@@ -316,6 +329,11 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
               ['Нужны ли мне API-ключи?', 'Если приложение развёрнуто администратором — нет. Иначе введите ключи в разделе выше.'],
               ['Что делать если перевод завис?', 'Подождите 5 минут. Если прогресс не меняется — нажмите «Перезапустить» на карточке проекта.'],
               ['Можно ли отредактировать субтитры?', 'Да! Откройте проект → редактируйте текст в каждом сегменте → Сохранить (или Ctrl+S).'],
+              // TVIDEO-225: Дополнительные FAQ из FBA
+              ['Что такое «Retry/Backoff»?', 'Автоматическое повторение запроса при сбое: 3 попытки с нарастающей паузой (2s, 4s, 8s). Данные не теряются при временных ошибках сети.'],
+              ['Что означает cost_usd в статусе?', 'Приблизительная стоимость запроса к AI-провайдеру в долларах. Используется для контроля расходов.'],
+              ['Почему я не получаю уведомление о завершении?', 'Убедитесь что вы разрешили уведомления браузера при запуске перевода. Уведомление приходит только если вкладка неактивна.'],
+              ['Что делать если статус устарел после смены вкладки?', 'Статус обновляется автоматически при возврате на вкладку (Visibility API). Если нет — обновите страницу (F5).'],
             ] as [string, string][]).map(([q, a]) => (
               <details key={q} className="faq-item">
                 <summary className="faq-q">{q}</summary>
@@ -323,18 +341,43 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
               </details>
             ))}
           </div>
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ marginTop: '12px', fontSize: '0.82rem' }}
-            onClick={() => {
-              localStorage.removeItem('tv_onboarded');
-              window.location.reload();
-            }}
-            title="Показать пошаговое руководство снова"
-          >
-            <RotateCcw size={14} /> Повторить онбординг
-          </button>
+          <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ fontSize: '0.82rem' }}
+              onClick={() => {
+                // TVIDEO-225: Destructive confirm перед сбросом онбординга
+                if (window.confirm('Повторить онбординг? Обучение запустится снова при следующем открытии приложения.')) {
+                  localStorage.removeItem('tv_onboarded');
+                  window.location.reload();
+                }
+              }}
+              title="Показать пошаговое руководство снова"
+            >
+              <RotateCcw size={14} /> Повторить онбординг
+            </button>
+            <button
+              id="settings-reset-all"
+              type="button"
+              className="btn-secondary"
+              style={{ fontSize: '0.82rem', color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.4)' }}
+              onClick={() => {
+                // TVIDEO-225: Destructive confirm — сброс всех настроек
+                if (window.confirm('Сбросить все настройки к значениям по умолчанию? Это действие нельзя отменить.')) {
+                  const keysToRemove = [
+                    'tv_webhook', 'tv_provider', 'tv_theme', 'tv_large_text',
+                    'tv_font_level', 'tv_compact_mode', 'tv_locale', API_KEY_STORAGE,
+                  ];
+                  keysToRemove.forEach(k => localStorage.removeItem(k));
+                  window.location.reload();
+                }
+              }}
+              title="Сбросить все настройки к значениям по умолчанию"
+            >
+              <Trash2 size={14} /> Сбросить всё
+            </button>
+          </div>
         </section>
 
         {/* Z5.15: О проекте */}
