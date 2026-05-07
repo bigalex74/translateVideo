@@ -44,7 +44,7 @@ export function ShareModal({ projectId, onClose }: ShareModalProps) {
       const data = await createShareLink(projectId);
       setShareUrl(data.share_url);
       setExpiresAt(data.expires_at);
-    } catch (err) {
+    } catch {
       setError('Ошибка создания ссылки');
     } finally {
       setLoading(false);

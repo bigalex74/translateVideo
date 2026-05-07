@@ -67,6 +67,26 @@
     gap: 8px;
 }
 
+.partial-rerun-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.seg-reviewed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.10);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    color: #86efac;
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+
 /* Обратная совместимость: если в layout ещё используются старые классы */
 .header-left {
     display: flex;
@@ -664,6 +684,158 @@
     word-break: break-all;
     white-space: pre-wrap;
     line-height: 1.5;
+}
+
+.doctor-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 8px;
+    background: rgba(56, 189, 248, 0.07);
+}
+
+.doctor-panel--warn {
+    border-color: rgba(245, 158, 11, 0.32);
+    background: rgba(245, 158, 11, 0.07);
+}
+
+.doctor-panel-head,
+.doctor-panel-title,
+.doctor-summary,
+.doctor-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.doctor-panel-head {
+    justify-content: space-between;
+}
+
+.doctor-panel-title strong {
+    font-size: 0.88rem;
+    color: var(--text-primary);
+}
+
+.doctor-close {
+    padding: 4px;
+}
+
+.doctor-summary {
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.doctor-summary span {
+    padding: 3px 7px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.doctor-issues,
+.doctor-snapshots ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.doctor-issues {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.doctor-issue {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.22);
+    border-left: 3px solid rgba(148, 163, 184, 0.45);
+}
+
+.doctor-issue--error {
+    border-left-color: var(--danger);
+}
+
+.doctor-issue--warning {
+    border-left-color: var(--warning);
+}
+
+.doctor-issue-code {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.doctor-issue-msg {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+.doctor-actions-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.doctor-segment-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.doctor-segment-summary span {
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.22);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+}
+
+.doctor-action-chip {
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.10);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+}
+
+.doctor-panel-actions {
+    flex-wrap: wrap;
+}
+
+.doctor-snapshots {
+    padding-top: 4px;
+    border-top: 1px solid var(--border-color);
+}
+
+.doctor-snapshots-title {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.doctor-snapshots li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.doctor-snapshots time {
+    color: var(--text-muted);
+    white-space: nowrap;
 }
 
 .timeline-progress {

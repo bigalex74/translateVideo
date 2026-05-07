@@ -33,7 +33,7 @@ export function AnalyticsDashboard() {
         const { fetchAnalytics } = await import('../api/client');
         const summary = await fetchAnalytics();
         setData(summary);
-      } catch (err) {
+      } catch {
         setError('Не удалось загрузить аналитику');
       } finally {
         setLoading(false);

@@ -16,6 +16,7 @@ from translate_video.core.log import Timer, get_logger
 from translate_video.core.store import ProjectStore, sanitize_project_id
 from translate_video.pipeline import build_stages, project_summary
 from translate_video.pipeline.context import StageContext
+from translate_video.pipeline.doctor import recommend_safe_from_stage
 from translate_video.pipeline.runner import PipelineCancelledError, PipelineRunner
 
 _log = get_logger(__name__)
@@ -275,10 +276,37 @@ async def run_pipeline_task(
     try:
         safe_project_id = sanitize_project_id(project_id)
         loaded_project = store.load_project(store.root / safe_project_id)
+        stages = build_stages(req.provider, project_config=loaded_project.config)
+        safe_plan = recommend_safe_from_stage(loaded_project, stages, req.from_stage)
+        if safe_plan.changed:
+            _log.warning(
+                "api.pipeline_from_stage_adjusted",
+                project=safe_project_id,
+                requested=safe_plan.requested_from_stage,
+                safe=safe_plan.safe_from_stage,
+                warnings=safe_plan.warnings,
+            )
+        if req.force or req.from_stage:
+            try:
+                snapshot = store.create_snapshot(
+                    loaded_project,
+                    reason=f"run-force-{req.force}-from-{req.from_stage or 'auto'}",
+                )
+                _log.info(
+                    "api.pipeline_snapshot_created",
+                    project=safe_project_id,
+                    path=str(snapshot),
+                )
+            except Exception as exc:  # noqa: BLE001
+                _log.warning(
+                    "api.pipeline_snapshot_failed",
+                    project=safe_project_id,
+                    error=str(exc)[:200],
+                )
         runner = PipelineRunner(
-            build_stages(req.provider, project_config=loaded_project.config),
+            stages,
             force=req.force,
-            from_stage=req.from_stage,
+            from_stage=safe_plan.safe_from_stage,
         )
 
         # Создаём cancel-токен для этого запуска
@@ -360,11 +388,11 @@ async def run_pipeline_task(
             await notify_webhook(webhook_url, summary)
 
     except PipelineCancelledError:
-        # Обновляем статус проекта до FAILED (cancelled) и сохраняем
+        # Обновляем статус проекта до CANCELLED и сохраняем.
         try:
             cancelled_project = store.load_project(store.root / safe_project_id)
             from translate_video.core.schemas import ProjectStatus
-            cancelled_project.status = ProjectStatus.FAILED
+            cancelled_project.status = ProjectStatus.CANCELLED
             store.save_project(cancelled_project)
         except Exception:
             pass
@@ -399,7 +427,7 @@ def cancel_pipeline(
 
     **Нормальный режим**: устанавливает cancel-флаг — пайплайн завершится после текущего этапа.
     **Zombie-режим**: если пайплайн не зарегистрирован (рестарт контейнера), но проект
-    имеет статус 'running' в FS — принудительно сбрасывает статус в 'failed'.
+    имеет статус 'running' в FS — принудительно сбрасывает статус в 'cancelled'.
     Возвращает 404 если проект не запущен и статус не 'running'.
     """
     from translate_video.core.schemas import ProjectStatus
@@ -429,7 +457,7 @@ def cancel_pipeline(
         )
 
     # Принудительно сбрасываем zombie-статус
-    project.status = ProjectStatus.FAILED
+    project.status = ProjectStatus.CANCELLED
     store.save_project(project)
     _log.warning(
         "api.pipeline_zombie_cancel",

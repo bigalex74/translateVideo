@@ -1,7 +1,7 @@
 export type SegmentStatus = "draft" | "transcribed" | "translated" | "tts_ready" | "failed";
-export type ProjectStatus = "created" | "running" | "completed" | "failed";
+export type ProjectStatus = "created" | "running" | "completed" | "failed" | "cancelled";
 export type JobStatus = "pending" | "running" | "completed" | "failed" | "skipped";
-export type Stage = "init" | "probe" | "extract_audio" | "transcribe" | "regroup" | "translate" | "voice_cast" | "tts" | "timing_fit" | "mix" | "render" | "qa" | "export";
+export type Stage = "init" | "probe" | "extract_audio" | "transcribe" | "regroup" | "translate" | "voice_cast" | "tts" | "timing_fit" | "mix" | "render" | "qa" | "export" | "embed_subtitles";
 
 export interface PipelineConfig {
     source_language: string;
@@ -85,6 +85,7 @@ export interface Segment {
     qa_flags?: string[];
     notes?: string;  // Z2.11: комментарий редактора
     edit_count?: number;  // Z2.16: счётчик ручных правок
+    reviewed?: boolean;
     word_count_source?: number;  // Z3.19
     word_count_translated?: number;  // Z3.19
 }
@@ -145,6 +146,62 @@ export interface ArtifactsResponse {
     project_id: string;
     work_dir: string;
     artifacts: ArtifactRecord[];
+}
+
+export interface ProjectDoctorIssue {
+    severity: "info" | "warning" | "error";
+    code: string;
+    stage?: string;
+    kind?: string;
+    path?: string;
+    message: string;
+}
+
+export interface ProjectDoctorAction {
+    id: string;
+    label: string;
+    enabled: boolean;
+    requested_from_stage?: string | null;
+    from_stage?: string | null;
+    warnings: string[];
+}
+
+export interface ProjectDoctorReport {
+    project_id: string;
+    status: ProjectStatus;
+    ok: boolean;
+    issues: ProjectDoctorIssue[];
+    recommended_from_stage?: string | null;
+    requested_from_stage?: string | null;
+    actions: ProjectDoctorAction[];
+    segment_summary?: Record<string, number>;
+    segment_actions?: Array<{
+        id: string;
+        label: string;
+        count: number;
+        action: string;
+    }>;
+}
+
+export interface SegmentActionResponse {
+    project_id: string;
+    action: string;
+    changed: number;
+    segment_ids: string[];
+    details?: Record<string, unknown>;
+    project: VideoProject;
+}
+
+export interface ProjectSnapshot {
+    filename: string;
+    path: string;
+    created_at?: string | null;
+    reason?: string | null;
+}
+
+export interface ProjectSnapshotsResponse {
+    project_id: string;
+    snapshots: ProjectSnapshot[];
 }
 
 export interface PreflightCheck {

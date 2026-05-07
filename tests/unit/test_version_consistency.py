@@ -30,6 +30,13 @@ def _read_init_version(root: Path) -> str:
     return m.group(1)
 
 
+def _read_sw_version(root: Path) -> str:
+    text = (root / "ui" / "public" / "sw.js").read_text(encoding="utf-8")
+    m = re.search(r"const APP_VERSION = '([^']+)'", text)
+    assert m, "APP_VERSION не найдена в ui/public/sw.js"
+    return m.group(1)
+
+
 class TestVersionConsistency(unittest.TestCase):
     """Версия должна быть одинаковой во всех трёх файлах."""
 
@@ -37,6 +44,7 @@ class TestVersionConsistency(unittest.TestCase):
         pyproject = _read_pyproject_version(_ROOT)
         file_ver  = _read_file_version(_ROOT)
         init_ver  = _read_init_version(_ROOT)
+        sw_ver    = _read_sw_version(_ROOT)
 
         self.assertEqual(
             pyproject, file_ver,
@@ -49,6 +57,10 @@ class TestVersionConsistency(unittest.TestCase):
         self.assertEqual(
             file_ver, init_ver,
             f"VERSION ({file_ver}) и __init__.py ({init_ver}) расходятся",
+        )
+        self.assertEqual(
+            file_ver, sw_ver,
+            f"VERSION ({file_ver}) и ui/public/sw.js ({sw_ver}) расходятся",
         )
 
     def test_version_format(self):

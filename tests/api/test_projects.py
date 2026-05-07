@@ -9,7 +9,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from translate_video.api.main import app
-from translate_video.core.schemas import ArtifactKind, Segment, Stage
+from translate_video.core.schemas import ArtifactKind, Segment, SegmentStatus, Stage
 from translate_video.core.store import ProjectStore
 from translate_video.api.routes.projects import get_store
 
@@ -168,6 +168,216 @@ class APIProjectsTest(TestCase):
         response = self.client.get("/api/v1/projects/artifacts_test/artifacts")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["artifacts"][0]["kind"], "source_transcript")
+
+    def test_project_doctor_reports_actions(self):
+        """Project Doctor должен вернуть безопасные действия для проекта."""
+        project = self.store.create_project("dummy.mp4", project_id="doctor_route")
+        self.store.save_segments(
+            project,
+            [Segment(start=0, end=1, source_text="Hello", translated_text="Привет")],
+            translated=True,
+        )
+
+        response = self.client.get("/api/v1/projects/doctor_route/doctor")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["project_id"], "doctor_route")
+        self.assertIn("actions", data)
+        self.assertTrue(any(item["id"] == "tts" for item in data["actions"]))
+
+    def test_project_snapshots_lists_metadata_snapshots(self):
+        """Снимки проекта должны отображаться через API."""
+        project = self.store.create_project("dummy.mp4", project_id="snapshots_route")
+        self.store.create_snapshot(project, reason="test")
+
+        response = self.client.get("/api/v1/projects/snapshots_route/snapshots")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data["snapshots"]), 1)
+        self.assertEqual(data["snapshots"][0]["reason"], "test")
+
+    def test_rebuild_subtitles_from_current_segments(self):
+        """Быстрая пересборка субтитров не должна запускать пайплайн."""
+        project = self.store.create_project("dummy.mp4", project_id="subtitles_rebuild")
+        self.store.save_segments(
+            project,
+            [Segment(start=0, end=1, source_text="Hello", translated_text="Привет")],
+            translated=True,
+        )
+
+        response = self.client.post("/api/v1/projects/subtitles_rebuild/rebuild/subtitles")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["subtitles"], "subtitles/translated.srt")
+        self.assertTrue((self.work_root / "subtitles_rebuild" / "subtitles" / "translated.srt").exists())
+
+    def test_segment_action_reset_tts(self):
+        """Bulk reset-tts должен очищать TTS metadata выбранного сегмента."""
+        project = self.store.create_project("dummy.mp4", project_id="seg_reset_tts")
+        tts_file = project.work_dir / "tts" / "seg_1.mp3"
+        tts_file.parent.mkdir(parents=True, exist_ok=True)
+        tts_file.write_bytes(b"mp3")
+        seg = Segment(
+            id="seg_1",
+            start=0,
+            end=1,
+            source_text="Hello",
+            translated_text="Привет",
+            tts_path="tts/seg_1.mp3",
+            tts_text="Привет",
+            qa_flags=["tts_overflow_after_rate", "timing_fit_failed"],
+        )
+        self.store.save_segments(project, [seg], translated=True)
+
+        response = self.client.post(
+            "/api/v1/projects/seg_reset_tts/segments/actions/reset-tts",
+            json={"segment_ids": ["seg_1"]},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        restored = self.store.load_project(self.work_root / "seg_reset_tts")
+        self.assertIsNone(restored.segments[0].tts_path)
+        self.assertEqual(restored.segments[0].tts_text, "")
+        self.assertEqual(restored.segments[0].qa_flags, ["timing_fit_failed"])
+        self.assertFalse(tts_file.exists())
+
+    def test_segment_action_mark_reviewed(self):
+        """Bulk mark-reviewed должен выставлять reviewed=True."""
+        project = self.store.create_project("dummy.mp4", project_id="seg_reviewed")
+        seg = Segment(
+            id="seg_1",
+            start=0,
+            end=1,
+            source_text="Hello",
+            translated_text="Привет",
+            qa_flags=["timing_fit_failed"],
+        )
+        self.store.save_segments(project, [seg], translated=True)
+
+        response = self.client.post(
+            "/api/v1/projects/seg_reviewed/segments/actions/mark-reviewed",
+            json={"segment_ids": ["seg_1"]},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        restored = self.store.load_project(self.work_root / "seg_reviewed")
+        self.assertTrue(restored.segments[0].reviewed)
+
+    def test_segment_action_tts_uses_provider_and_merges_result(self):
+        """Bulk tts должен синтезировать выбранный сегмент и сохранить результат."""
+
+        class FakeProvider:
+            def synthesize(self, project, segments):
+                for segment in segments:
+                    path = project.work_dir / "tts" / f"{segment.id}.mp3"
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(b"mp3")
+                    segment.tts_path = path.relative_to(project.work_dir).as_posix()
+                    segment.tts_text = segment.translated_text
+                return segments
+
+        project = self.store.create_project("dummy.mp4", project_id="seg_tts")
+        self.store.save_segments(
+            project,
+            [Segment(id="seg_1", start=0, end=1, source_text="Hello", translated_text="Привет")],
+            translated=True,
+        )
+
+        with patch("translate_video.api.routes.projects._build_segment_tts_provider", return_value=FakeProvider()):
+            response = self.client.post(
+                "/api/v1/projects/seg_tts/segments/actions/tts",
+                json={"segment_ids": ["seg_1"]},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        restored = self.store.load_project(self.work_root / "seg_tts")
+        self.assertEqual(restored.segments[0].tts_path, "tts/seg_1.mp3")
+
+    def test_segment_action_tts_skips_if_all_have_tts(self):
+        """Bulk tts без force не должен вызывать провайдер если у всех сегментов есть TTS."""
+        project = self.store.create_project("dummy.mp4", project_id="seg_tts_skip")
+        self.store.save_segments(
+            project,
+            [Segment(
+                id="seg_1", start=0, end=1,
+                source_text="Hello", translated_text="Привет",
+                tts_path="tts/seg_1.mp3",
+            )],
+            translated=True,
+        )
+
+        with patch("translate_video.api.routes.projects._build_segment_tts_provider") as mock_provider:
+            response = self.client.post(
+                "/api/v1/projects/seg_tts_skip/segments/actions/tts",
+                json={"segment_ids": ["seg_1"]},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["changed"], 0)
+        self.assertIn("уже имеют TTS", data["message"])
+        mock_provider.assert_not_called()
+
+    def test_segment_action_unknown_returns_422(self):
+        """Неизвестное действие должно вернуть 422."""
+        project = self.store.create_project("dummy.mp4", project_id="seg_unknown_action")
+        self.store.save_segments(
+            project,
+            [Segment(id="seg_1", start=0, end=1, source_text="Hello")],
+        )
+
+        response = self.client.post(
+            "/api/v1/projects/seg_unknown_action/segments/actions/explode",
+            json={"segment_ids": ["seg_1"]},
+        )
+
+        self.assertEqual(response.status_code, 422)
+
+    def test_segment_action_translate_resets_tts_and_reviewed_flag(self):
+        """Bulk translate должен обновить перевод и сбросить зависимые TTS данные."""
+
+        def fake_translate(_project, segments):
+            for segment in segments:
+                segment.translated_text = "Новый перевод"
+            return segments
+
+        project = self.store.create_project("dummy.mp4", project_id="seg_translate")
+        tts_file = project.work_dir / "tts" / "seg_1.mp3"
+        tts_file.parent.mkdir(parents=True, exist_ok=True)
+        tts_file.write_bytes(b"mp3")
+        self.store.save_segments(
+            project,
+            [
+                Segment(
+                    id="seg_1",
+                    start=0,
+                    end=1,
+                    source_text="Hello",
+                    translated_text="Старый перевод",
+                    status=SegmentStatus.TRANSLATED,
+                    tts_path="tts/seg_1.mp3",
+                    reviewed=True,
+                )
+            ],
+            translated=True,
+        )
+
+        with patch("translate_video.api.routes.projects._translate_selected_segments", side_effect=fake_translate):
+            response = self.client.post(
+                "/api/v1/projects/seg_translate/segments/actions/translate",
+                json={"segment_ids": ["seg_1"], "force": True},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        restored = self.store.load_project(self.work_root / "seg_translate")
+        self.assertEqual(restored.segments[0].translated_text, "Новый перевод")
+        self.assertEqual(restored.segments[0].status, SegmentStatus.TRANSLATED)
+        self.assertFalse(restored.segments[0].reviewed)
+        self.assertIsNone(restored.segments[0].tts_path)
+        self.assertFalse(tts_file.exists())
 
     def test_download_artifact(self):
         """Артефакт должен скачиваться по его типу."""

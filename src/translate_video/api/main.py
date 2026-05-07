@@ -255,6 +255,10 @@ def health_check():
     payload: dict = {
         "status": "ok",
         "version": __version__,
+        "app_version": os.getenv("APP_VERSION", __version__),
+        "commit": os.getenv("APP_COMMIT", "unknown"),
+        "build_date": os.getenv("APP_BUILD_DATE", "unknown"),
+        "environment": os.getenv("APP_ENV", "local"),
         "uptime_seconds": uptime_s,
         "uptime": uptime_human,
         "running_projects": len(_running_projects),

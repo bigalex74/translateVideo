@@ -9,23 +9,25 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
  */
 export function OfflineBanner() {
   const { isOnline, wasOffline } = useOnlineStatus();
-  const [showRestored, setShowRestored] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const showRestored = isOnline && wasOffline;
 
   useEffect(() => {
-    if (isOnline && wasOffline) {
-      setShowRestored(true);
+    if (showRestored) {
       const t1 = setTimeout(() => setHidden(true), 3000);
       return () => clearTimeout(t1);
     }
+  }, [showRestored]);
+
+  useEffect(() => {
     if (!isOnline) {
-      setHidden(false);
-      setShowRestored(false);
+      const t1 = setTimeout(() => setHidden(false), 0);
+      return () => clearTimeout(t1);
     }
-  }, [isOnline, wasOffline]);
+  }, [isOnline]);
 
   if (!wasOffline && isOnline) return null;
-  if (hidden) return null;
+  if (hidden && isOnline) return null;
 
   if (showRestored) {
     return (

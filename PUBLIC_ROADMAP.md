@@ -3,11 +3,31 @@
 Этот документ отражает планируемые направления развития проекта.
 Обновляется после каждого релиза.
 
-**Текущая версия:** 1.37.0 (CI Iteration 4)
+**Текущая версия:** 1.94.0 (Segment-Level Rerun)
 
 ---
 
 ## ✅ Реализовано
+
+### v1.94.0 (Segment-Level Rerun)
+- Bulk-действия над выбранными сегментами: заново перевести, озвучить, сбросить TTS, отметить проверенными.
+- Backend endpoint `/segments/actions/{action}` для точечной редакторской пересборки без полного проекта.
+- Safe `reset-tts`: удаляет только файлы внутри проекта и очищает TTS metadata/QA flags выбранных сегментов.
+- Project Doctor показывает segment summary и быстрые действия выбора проблемных групп.
+- Workspace получил быстрые фильтры `Видимые`, `Без TTS`, `QA` и бейдж `Проверено`.
+
+### v1.93.0 (Safe Partial Rerun)
+- Project Doctor: диагностика артефактов/stage_runs, панель проблем, snapshots и безопасное продолжение.
+- Dependency-aware `from_stage`: небезопасный старт автоматически откатывается к upstream-этапу.
+- Snapshots перед `force`/partial rerun в `snapshots/`.
+- Workspace quick actions: пересобрать субтитры, озвучку или видео без полного перезапуска.
+- Отдельный статус `cancelled` для пользовательской отмены.
+
+### v1.92.1 (Sprint 1 Infrastructure)
+- Release checklist: обязательный порядок проверки версии, docs, Docker, smoke и rollback.
+- CI gates: quick PR gate, Docker build gate и manual full release gate.
+- Docker/compose healthchecks: build metadata, OCI labels, `/api/health` smoke.
+- Version discipline: тесты синхронизации `VERSION`, `pyproject.toml`, `__init__.py`, roadmap и `change.log`.
 
 ### v1.34.0 (CI Iter 1)
 - `/api/health` расширен: uptime, running_projects, memory_mb
@@ -38,12 +58,12 @@
 
 ## 🚧 В разработке / Следующий релиз
 
-### v1.38.0 (CI Iter 5 — planned)
+### v1.95.0 (Editing Reliability — planned)
 - [ ] Notifications: visibilitychange → toast при возврате на вкладку
 - [ ] Mobile responsive polish — адаптивные карточки
 - [ ] FAQ секция в Settings
-- [ ] Retry с exponential backoff для TTS
-- [ ] Multi-stage Docker build
+- [ ] Uniform retry/backoff для перевода, TTS и webhook
+- [ ] Более частая отмена внутри долгих TTS/render операций
 
 ---
 
@@ -82,4 +102,4 @@
 ---
 
 *Roadmap обновляется командой разработки после каждого цикла обратной связи.*
-*Последнее обновление: 2026-05-04*
+*Последнее обновление: 2026-05-07*

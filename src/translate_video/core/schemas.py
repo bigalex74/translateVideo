@@ -29,6 +29,7 @@ class ProjectStatus(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class Stage(StrEnum):
@@ -192,6 +193,8 @@ class Segment:
     notes: str = ""
     # Z2.16: Счётчик ручных правок перевода (инкрементируется при каждом изменении)
     edit_count: int = 0
+    # 1.94: редакторская отметка, что сегмент проверен вручную.
+    reviewed: bool = False
 
     def __post_init__(self) -> None:
         if self.end < self.start:

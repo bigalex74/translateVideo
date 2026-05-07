@@ -2,7 +2,12 @@ version: '3.8'
 
 services:
   video-translator:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+        VCS_REF: ${APP_COMMIT:-unknown}
+        BUILD_DATE: ${APP_BUILD_DATE:-unknown}
     container_name: video-translator
     restart: unless-stopped
     network_mode: host        # прямой доступ к хост-сервисам (мост :5000, прокси :10808)
@@ -12,3 +17,13 @@ services:
       - .env            # ключи облачных rewriter-провайдеров (Gemini, OR, AIHubMix...)
     environment:
       - WORK_ROOT=/app/runs
+      - APP_ENV=${APP_ENV:-production}
+      - APP_VERSION=${APP_VERSION:-dev}
+      - APP_COMMIT=${APP_COMMIT:-unknown}
+      - APP_BUILD_DATE=${APP_BUILD_DATE:-unknown}
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/api/health', timeout=5)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
