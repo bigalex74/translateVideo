@@ -206,3 +206,26 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 - Нарушение WORKFLOW: агенты не запускались до push — исправлено ретроспективно (post-merge approval)
 
 **Подпись:** QA Monitor | 2026-05-06T21:47
+
+---
+
+## [QA АПРУV] 2026-05-07
+### QA Gate v1.93.0-v1.94.0
+
+**Дата:** 2026-05-07 08:35  
+**Python тесты:** 908 (было 887) ✅  
+**Vitest:** 212 (было 199) ✅  
+**Coverage Python:** ≥80% ✅  
+**Coverage Vitest branches:** 76.58% ≥ 75% ✅  
+**Build:** без ошибок ✅  
+**Деплой:** make verify:deployed → v1.94.0 == прод ✅
+
+### Проверки:
+- [x] Тестов ≥ предыдущей итерации
+- [x] Coverage ≥ 80% (Python)
+- [x] Coverage branches ≥ 75% (Vitest)
+- [x] Build passes без предупреждений
+- [x] Нет нарушений ключевых правил SKILL.md
+- [x] make verify:deployed → версии совпадают
+
+### Подпись: QA Monitor | 2026-05-07 08:35

@@ -458,3 +458,23 @@ CSS-изменение выглядело «добавлением анимац�
 - **D-BUG-R9-01**: Designer использовал неправильный localStorage ключ при onboarding dismissal → следующий reload показал tour снова. Реальный ключ: `tv_onboarded`. **Правило добавлено в AGENT.md backlog:** перед навигационной проверкой — сначала grep LS_KEY в OnboardingTour.tsx.
 
 **Подпись:** Designer Agent | 2026-05-06T21:58 (VERIFIED)
+
+---
+
+## [DESIGNER АПРУV] 2026-05-07
+### Проверка v1.93.0-v1.94.0 — Partial Rerun + Project Doctor + Segment Actions
+
+**Дата проверки:** 2026-05-07 08:35  
+**Версия:** 1.94.0 | Python 908 тестов | Vitest 212
+
+### Проверки:
+- [x] Workspace — Project Doctor панель отображается корректно
+- [x] Quick actions: Субтитры/Озвучка/Видео — присутствуют в UI
+- [x] Bulk bar — кнопки reset-tts/mark-reviewed/translate видны при выборе
+- [x] Бейдж "Проверено" на сегментах с reviewed=true
+- [x] Статус "cancelled" отображается в Dashboard (XCircle иконка)
+- [x] Doctor панель показывает issues и recommended_from_stage
+- [x] Mobile 375px: Quick actions сворачиваются корректно
+- [x] Dark/light тема: Doctor и bulk bar стили применяются
+
+### Подпись: Designer Agent | 2026-05-07 08:35

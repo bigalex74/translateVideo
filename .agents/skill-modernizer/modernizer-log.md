@@ -168,3 +168,22 @@
 5. Алгоритм Режим A/B можно улучшить? — Режим A должен явно включать проверку что агенты запустятся ДО следующего merge
 
 **Подпись:** Skill Modernizer | 2026-05-06T22:00
+
+---
+
+## [SKILL-MODERNIZER] v1.93-1.94 Audit
+**Дата:** 2026-05-07 08:35  
+**Режим:** B (пост-итерационный аудит)
+
+### Проверено:
+- [x] make iteration выполнен (тесты + деплой + верификация)
+- [x] Ветка TVIDEO-219-221 создана и слита через --no-ff
+- [x] 2 новых тестов для segment actions ветвей (coverage gap fix)
+- [x] 8 новых тестов для client.ts (Share Links, Hints, Analytics)
+- [x] SW sync branch покрыт тестами
+- [x] Path traversal защита в _reset_segment_tts корректна
+- [x] doctor.py coverage: 88%
+
+### SKILL.md изменения: нет (v3.5 актуален)
+
+### Подпись: Skill Modernizer | 2026-05-07 08:35
