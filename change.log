@@ -1,3 +1,16 @@
+## 1.95.1 - 2026-05-07 - FEAT - VISIBILITY-NOTIFICATIONS
+### Visibility Change Refresh + Browser Notifications
+
+**Frontend:**
+- useVisibilityRefresh хук: при visibilitychange→visible принудительный poll статуса.
+- Browser Notification API: уведомление при status=completed/failed если вкладка неактивна.
+- Разрешение запрашивается при первом запуске перевода (контекстуально).
+
+**Тесты (useVisibilityRefresh.test.ts):**
+- 6 тестов: addEventListener, enabled=false, visible trigger, hidden skip, unmount cleanup.
+
+---
+
 ## 1.95.0 - 2026-05-07 - FEAT - RETRY-BACKOFF
 ### Uniform Retry/Backoff — SpeechKit, Translation Providers, Webhook
 
