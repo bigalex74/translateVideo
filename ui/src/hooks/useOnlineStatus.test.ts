@@ -76,3 +76,35 @@ describe('useOnlineStatus', () => {
     removeSpy.mockRestore();
   });
 });
+
+describe('useOnlineStatus — Background Sync branch', () => {
+  it('вызывает sync.register при восстановлении сети если SW controller активен', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+
+    const registerMock = vi.fn().mockResolvedValue(undefined);
+    const fakeReg = { sync: { register: registerMock } };
+
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        controller: {},
+        ready: Promise.resolve(fakeReg),
+      },
+    });
+
+    const { result } = renderHook(() => useOnlineStatus());
+    expect(result.current.isOnline).toBe(true);
+
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+      await Promise.resolve(); // flush microtask
+    });
+
+    // дать Promise.resolve цепочке завершиться
+    await new Promise((r) => setTimeout(r, 0));
+    expect(registerMock).toHaveBeenCalledWith('sync-save-segments');
+
+    // cleanup
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: undefined });
+  });
+});
