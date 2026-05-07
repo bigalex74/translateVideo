@@ -229,3 +229,11 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 - [x] make verify:deployed → версии совпадают
 
 ### Подпись: QA Monitor | 2026-05-07 08:35
+
+---
+## [QA АПРУV] 2026-05-07 И1
+- Python тесты: 920 (было 908) +12 retry тестов ✅
+- Vitest: 212 ✅ | Python coverage ≥80% ✅ | Vitest branches ≥75% ✅
+- Прод v1.95.0 = local ✅
+- with_retry применён в speechkit, cloud.py, webhook ✅
+### Подпись: QA Monitor | 2026-05-07 22:57

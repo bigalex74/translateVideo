@@ -187,3 +187,13 @@
 ### SKILL.md изменения: нет (v3.5 актуален)
 
 ### Подпись: Skill Modernizer | 2026-05-07 08:35
+
+---
+## [SKILL-MODERNIZER] И1 v1.95.0
+**Режим:** B | **Дата:** 2026-05-07 22:57
+- with_retry применён корректно: speechkit (_synth/_synth_plain), cloud.py (_post_json/_attempt), webhook (_send_sync)
+- HTTP 4xx (кроме 429) — non-retryable: корректно ✅
+- HTTP 429 — min_sleep=5.0s: корректно ✅
+- Тесты: 12 штук, все зелёные ✅
+- SKILL.md: добавить правило «При добавлении HTTP-вызова — обернуть в with_retry немедленно» в следующей итерации обновления навыка
+### Подпись: Skill Modernizer | 2026-05-07 22:57

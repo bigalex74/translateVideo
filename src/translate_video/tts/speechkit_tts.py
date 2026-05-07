@@ -42,6 +42,7 @@ import urllib.error
 import urllib.request
 
 from translate_video.core.log import Timer, get_logger
+from translate_video.core.retry import with_retry
 from translate_video.core.schemas import Segment
 from translate_video.tts import stress as _stress
 from translate_video.tts.ssml_enhance import EMOTION_OFF, enhance as ssml_enhance, enhance_tts_v3
@@ -332,9 +333,15 @@ class YandexSpeechKitTTSProvider:
         }
         if self.folder_id:
             headers["x-folder-id"] = self.folder_id
-        audio_bytes = self._http_post(
+        audio_bytes = with_retry(
+            self._http_post,
             SPEECHKIT_TTS_URL,
             payload,
+            max_attempts=3,
+            base_delay=2.0,
+            max_delay=30.0,
+            retryable_exceptions=(RuntimeError, OSError, ConnectionError, TimeoutError),
+            label="speechkit_tts",
             headers=headers,
             timeout=self.timeout,
         )
@@ -377,9 +384,15 @@ class YandexSpeechKitTTSProvider:
         }
         if self.folder_id:
             headers["x-folder-id"] = self.folder_id
-        audio_bytes = self._http_post(
+        audio_bytes = with_retry(
+            self._http_post,
             SPEECHKIT_TTS_URL,
             payload,
+            max_attempts=3,
+            base_delay=2.0,
+            max_delay=30.0,
+            retryable_exceptions=(RuntimeError, OSError, ConnectionError, TimeoutError),
+            label="speechkit_tts_plain",
             headers=headers,
             timeout=self.timeout,
         )

@@ -34,6 +34,8 @@ import threading
 import urllib.request
 from datetime import datetime, timezone
 
+from translate_video.core.retry import with_retry
+
 _log = logging.getLogger(__name__)
 
 
@@ -102,7 +104,7 @@ def _send_sync(
 
     timeout = int(os.getenv("WEBHOOK_TIMEOUT", "10"))
 
-    try:
+    def _attempt():
         req = urllib.request.Request(
             webhook_url,
             data=body,
@@ -116,5 +118,15 @@ def _send_sync(
                 status,
                 resp.status,
             )
+
+    try:
+        with_retry(
+            _attempt,
+            max_attempts=3,
+            base_delay=2.0,
+            max_delay=60.0,
+            retryable_exceptions=(OSError, ConnectionError, TimeoutError),
+            label="webhook",
+        )
     except Exception as exc:  # noqa: BLE001
         _log.warning("webhook.failed project_id=%s error=%s", project_id, str(exc)[:200])

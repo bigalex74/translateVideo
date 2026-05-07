@@ -1,3 +1,18 @@
+## 1.95.0 - 2026-05-07 - FEAT - RETRY-BACKOFF
+### Uniform Retry/Backoff — SpeechKit, Translation Providers, Webhook
+
+**Backend:**
+- Применён `with_retry()` к SpeechKit TTS (_synth / _synth_plain): 3 попытки, backoff 2s→30s.
+- Применён `with_retry()` к translation/cloud.py _post_json: retry при HTTP 429/5xx с `TranslationProviderError`.
+- Применён `with_retry()` к webhook._send_sync: 3 попытки, backoff 2s→60s при OSError/Timeout.
+- HTTP 400 и другие 4xx (кроме 429) — немедленный re-raise без retry.
+- HTTP 429 — минимальный sleep 5.0s (rate-limit aware).
+
+**Тесты (tests/unit/test_retry_policy.py):**
+- 12 новых тестов: success, retry-until-success, max-attempts-exhaust, non-retryable, backoff-factor, delay-cap, http-429, http-400, webhook-retry-integration, RetryConfig defaults.
+
+---
+
 ## 1.94.0 - 2026-05-07 - FEAT - SEGMENT-RERUN
 ### Segment-Level Rerun + Editor QA Actions
 
