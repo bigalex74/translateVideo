@@ -30,8 +30,10 @@ usage() {
   echo ""
   echo "Опции:"
   echo "  --all       Запустить все dev-агенты последовательно"
-  echo "  --parallel  Запустить все dev-агенты параллельно (фоновые процессы)"
-  echo "  --model MODEL  Выбрать модель (по умолчанию: gemini-2.5-flash)"
+  echo "  --parallel  Запустить все dev-агенты параллельно (с задержкой 5с между запусками, лимит 60 req/min)"
+  echo "  --model MODEL  Выбрать модель (по умолчанию: gemini-2.5-pro)"
+  echo ""
+  echo "Лимиты подписки: 1500 req/day, 120 req/min (Standard) | 2000 req/day (Enterprise)"
   echo ""
   echo "Примеры:"
   echo "  $0 backend"
@@ -42,7 +44,7 @@ usage() {
 
 run_agent() {
   local AGENT_NAME="$1"
-  local MODEL="${2:-gemini-2.5-flash}"
+  local MODEL="${2:-gemini-2.5-pro}"
   local AGENT_DIR="$AGENTS_DIR/$AGENT_NAME"
 
   if [ ! -d "$AGENT_DIR" ]; then
@@ -172,12 +174,14 @@ echo -e "${CYAN}╚════════════════════�
 echo ""
 
 if $RUN_PARALLEL; then
-  echo -e "${YELLOW}⚡ Параллельный режим — запуск ${#AGENTS_TO_RUN[@]} агентов одновременно...${RESET}"
+  echo -e "${YELLOW}⚡ Параллельный режим — запуск ${#AGENTS_TO_RUN[@]} агентов (задержка 5с между стартами)...${RESET}"
+  echo -e "${YELLOW}  Лимит подписки: 120 req/min — stagger предотвращает rate limit${RESET}"
   PIDS=()
   for agent in "${AGENTS_TO_RUN[@]}"; do
     run_agent "$agent" "$MODEL" > "/tmp/agent-$agent.log" 2>&1 &
     PIDS+=($!)
     echo -e "  → $agent запущен (PID=$!)"
+    sleep 5  # stagger: не превышаем 120 req/min при параллельном запуске
   done
 
   echo ""
