@@ -2054,6 +2054,22 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       📦 ZIP (все форматы)
                     </a>
                   </div>
+                  {/* И4: Скрипт перевода — DOCX, TSV, TXT [Надежда#5] */}
+                  <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>Скрипт перевода:</span>
+                    <a href={`/api/v1/projects/${projectId}/export/script?format=docx&include_source=true`}
+                      download className="btn-secondary btn-xs" title="Скрипт в Word (.docx)" style={{ textDecoration: 'none' }}>
+                      📄 DOCX
+                    </a>
+                    <a href={`/api/v1/projects/${projectId}/export/script?format=tsv&include_source=true`}
+                      download className="btn-secondary btn-xs" title="Таблица: таймкод + оригинал + перевод (Excel)" style={{ textDecoration: 'none' }}>
+                      📊 TSV
+                    </a>
+                    <a href={`/api/v1/projects/${projectId}/export/script?format=txt&include_source=true`}
+                      download className="btn-secondary btn-xs" title="Текстовый скрипт с таймкодами" style={{ textDecoration: 'none' }}>
+                      📝 TXT
+                    </a>
+                  </div>
                 </div>
               )}
             </div>

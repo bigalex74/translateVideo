@@ -1677,7 +1677,66 @@ def export_script_txt(
     from io import StringIO  # noqa: PLC0415
     from fastapi.responses import Response  # noqa: PLC0415
 
-    if format == "tsv":
+    # DOCX (Надежда#5 — экспорт в Word без python-docx, через нативный zipfile+OpenXML)
+    if format == "docx":
+        import zipfile  # noqa: PLC0415
+        from io import BytesIO  # noqa: PLC0415
+
+        # Строим параграфы
+        paragraphs_xml = ""
+        for i, seg in enumerate(project.segments, 1):
+            start_ts = f"{int(seg.start // 60):02d}:{seg.start % 60:05.2f}"
+            end_ts = f"{int(seg.end // 60):02d}:{seg.end % 60:05.2f}"
+            tc = f"[{i}] {start_ts} → {end_ts}"
+            src = (seg.source_text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            tgt = (seg.translated_text or "(нет перевода)").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            paragraphs_xml += f"""
+  <w:p><w:r><w:rPr><w:b/><w:color w:val="4472C4"/></w:rPr><w:t xml:space="preserve">{tc}</w:t></w:r></w:p>
+  <w:p><w:r><w:rPr><w:color w:val="666666"/></w:rPr><w:t xml:space="preserve">ОР: {src}</w:t></w:r></w:p>
+  <w:p><w:r><w:t xml:space="preserve">ПЕР: {tgt}</w:t></w:r></w:p>
+  <w:p><w:r><w:t/></w:r></w:p>"""
+
+        title_xml = safe_id.replace("&", "&amp;").replace("<", "&lt;")
+        doc_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<w:body>
+  <w:p><w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t>Перевод: {title_xml}</w:t></w:r></w:p>
+  <w:p><w:r><w:t/></w:r></w:p>
+  {paragraphs_xml}
+  <w:sectPr/>
+</w:body>
+</w:document>"""
+
+        rels_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+    Target="word/document.xml"/>
+</Relationships>"""
+
+        content_types_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml"
+    ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>"""
+
+        buf = BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("[Content_Types].xml", content_types_xml)
+            zf.writestr("_rels/.rels", rels_xml)
+            zf.writestr("word/document.xml", doc_xml)
+        from fastapi.responses import Response  # noqa: PLC0415
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{safe_id}_script.docx"'},
+        )
+
+    # TSV
+
         buf = StringIO()
         buf.write("start\tend\tsource\ttranslated\n")
         for seg in project.segments:
