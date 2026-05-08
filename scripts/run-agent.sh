@@ -98,8 +98,25 @@ ${PROJECT_CONTEXT}
 
   echo -e "${YELLOW}  → Запрос к gemini ($MODEL)...${RESET}"
 
-  # Запускаем gemini в headless режиме
-  OUTPUT=$(cd "$(pwd)" && gemini -y --model "$MODEL" --prompt "$PROMPT" 2>&1 | grep -v 'Warning:\|YOLO mode\|Ripgrep\|MCP issues\|overriding the built')
+  # Используем GEMINI.md агента если есть, иначе AGENT.md
+  if [ -f "$AGENT_DIR/GEMINI.md" ]; then
+    SYSTEM_CTX=$(cat "$AGENT_DIR/GEMINI.md")
+    echo -e "${CYAN}  → Используется GEMINI.md (системный промпт)${RESET}"
+  else
+    SYSTEM_CTX="$AGENT_CONTEXT"
+    echo -e "${YELLOW}  → GEMINI.md не найден, используется AGENT.md${RESET}"
+  fi
+
+  # Собираем полный промпт = системный контекст + минимальная задача
+  FULL_PROMPT="${SYSTEM_CTX}
+
+---
+Задача: выполни аудит проекта translateVideo v${VERSION} (${DATE}).
+Корень проекта: $(pwd)
+Запиши отчёт в $AGENT_DIR/review-log.md"
+
+  # Запуск ИЗ КОРНЯ ПРОЕКТА (доступ ко всему коду), GEMINI.md передаём через промпт
+  OUTPUT=$(gemini -y --model "$MODEL" --prompt "$FULL_PROMPT" 2>&1 | grep -v 'Warning:\|YOLO mode\|Ripgrep\|MCP issues\|overriding the built')
   EXIT_CODE=$?
 
   if [ $EXIT_CODE -ne 0 ]; then
