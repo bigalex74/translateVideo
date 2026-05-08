@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import os
+import mimetypes
 from dataclasses import asdict, dataclass, field
 from importlib.util import find_spec
 from pathlib import Path
@@ -32,6 +33,10 @@ TIMING_REWRITE_ENV = {
     "aihubmix": "AIHUBMIX_API_KEY",
     "polza": "POLZA_API_KEY",
 }
+
+# Ограничения безопасности
+MAX_INPUT_FILE_SIZE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB
+ALLOWED_MIME_TYPES = ("video/mp4", "video/webm", "video/x-matroska", "video/quicktime")
 
 
 @dataclass(slots=True)
@@ -156,6 +161,9 @@ def _probe_duration(
         return None
     if not input_path.is_file():
         return None
+    # SECURITY: Защита от Command Injection. Не обрабатывать файлы, начинающиеся с '-'.
+    if str(input_path).startswith("-"):
+        return None
     try:
         result = subprocess.run(
             [
@@ -226,7 +234,7 @@ def run_preflight(
 
 
 def _check_input_video(input_path: Path) -> PreflightCheck:
-    """Проверить доступность и непустоту входного файла."""
+    """Проверить доступность, размер и тип входного файла."""
 
     if not input_path.exists():
         return PreflightCheck(
@@ -242,6 +250,8 @@ def _check_input_video(input_path: Path) -> PreflightCheck:
             message="путь не является файлом",
             details={"path": input_path.as_posix()},
         )
+    
+    # SECURITY: Проверка размера файла для защиты от DoS
     size = input_path.stat().st_size
     if size <= 0:
         return PreflightCheck(
@@ -250,11 +260,33 @@ def _check_input_video(input_path: Path) -> PreflightCheck:
             message="входной файл пустой",
             details={"path": input_path.as_posix(), "size_bytes": str(size)},
         )
+    if size > MAX_INPUT_FILE_SIZE_BYTES:
+        return PreflightCheck(
+            name="input_video",
+            ok=False,
+            message=f"файл слишком большой (> {MAX_INPUT_FILE_SIZE_BYTES // 1024**3} GB)",
+            details={"path": input_path.as_posix(), "size_bytes": str(size)},
+        )
+
+    # SECURITY: Проверка MIME-типа файла
+    mime_type, _ = mimetypes.guess_type(input_path)
+    if mime_type not in ALLOWED_MIME_TYPES:
+        return PreflightCheck(
+            name="input_video",
+            ok=False,
+            message=f"неподдерживаемый тип файла: {mime_type}",
+            details={"path": input_path.as_posix(), "mime_type": str(mime_type)},
+        )
+
     return PreflightCheck(
         name="input_video",
         ok=True,
-        message="входной файл найден",
-        details={"path": input_path.as_posix(), "size_bytes": str(size)},
+        message="входной файл найден и прошел проверку безопасности",
+        details={
+            "path": input_path.as_posix(),
+            "size_bytes": str(size),
+            "mime_type": str(mime_type),
+        },
     )
 
 

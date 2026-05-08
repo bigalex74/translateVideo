@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/home/user/translateVideo/logs/.5a73fa62520573cd63253788b9e5f9cfffd52af6-audit.json",
+    "files": [
+        {
+            "date": 1778258112127,
+            "name": "/home/user/translateVideo/logs/mcp-puppeteer-2026-05-08.log",
+            "hash": "f94156a9ca1a69b7861ffc4bd61b4c98999d6918b4f76639e57bf02ea679538f"
+        }
+    ],
+    "hashType": "sha256"
+}

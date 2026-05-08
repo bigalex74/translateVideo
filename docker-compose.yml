@@ -10,7 +10,8 @@ services:
         BUILD_DATE: ${APP_BUILD_DATE:-unknown}
     container_name: video-translator
     restart: unless-stopped
-    network_mode: host        # прямой доступ к хост-сервисам (мост :5000, прокси :10808)
+    ports:
+      - "8002:8002"
     volumes:
       - ./runs:/app/runs
     env_file:

@@ -306,26 +306,3 @@ iteration:
 	@echo "$(GREEN)╚══════════════════════════════════════════════════════════════╝$(RESET)"
 
 
-## agent:backend: Запустить Backend dev-агента через gemini CLI
-agent\:backend:
-	@./scripts/run-agent.sh backend
-
-## agent:cto: Запустить CTO агента через gemini CLI
-agent\:cto:
-	@./scripts/run-agent.sh cto
-
-## agent:security: Запустить Security агента через gemini CLI
-agent\:security:
-	@./scripts/run-agent.sh security
-
-## agent:all: Запустить всех 12 dev-агентов последовательно
-agent\:all:
-	@./scripts/run-agent.sh --all
-
-## agent:parallel: Запустить всех 12 dev-агентов ПАРАЛЛЕЛЬНО
-agent\:parallel:
-	@./scripts/run-agent.sh --parallel
-
-## agent:run: Запустить конкретного агента: make agent:run AGENT=backend
-agent\:run:
-	@./scripts/run-agent.sh $(AGENT)

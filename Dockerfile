@@ -40,6 +40,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
+# Создаем non-root пользователя и рабочую директорию
+RUN useradd --create-home --shell /bin/bash appuser
+WORKDIR /app
+RUN chown -R appuser:appuser /app
+
 # Копируем установленные пакеты из deps layer
 COPY --from=python-deps /usr/local/lib/python3.11 /usr/local/lib/python3.11
 COPY --from=python-deps /usr/local/bin /usr/local/bin
@@ -54,8 +59,10 @@ RUN pip install --no-cache-dir -e . --no-deps
 # Копируем собранный frontend
 COPY --from=frontend-builder /app/ui/dist /app/ui/dist
 
-# Создаём директорию для данных
-RUN mkdir -p /app/runs
+# Создаём директорию для данных и выставляем права
+RUN mkdir -p /app/runs && chown -R appuser:appuser /app/runs
+
+USER appuser
 
 EXPOSE 8002
 
