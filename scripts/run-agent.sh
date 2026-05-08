@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# run-agent.sh — запуск реального CLI-субагента через gemini --prompt
+# run-agent.sh — запуск реального CLI-субагента через gemini -y --prompt
+# Модель: gemini-2.5-pro (подписка, OAuth personal)
 # Использование: ./scripts/run-agent.sh <agent-name> [--all]
 # Примеры:
 #   ./scripts/run-agent.sh backend
@@ -96,7 +97,7 @@ ${PROJECT_CONTEXT}
   echo -e "${YELLOW}  → Запрос к gemini ($MODEL)...${RESET}"
 
   # Запускаем gemini в headless режиме
-  OUTPUT=$(cd "$(pwd)" && gemini --model "$MODEL" --prompt "$PROMPT" 2>&1)
+  OUTPUT=$(cd "$(pwd)" && gemini -y --model "$MODEL" --prompt "$PROMPT" 2>&1 | grep -v 'Warning:\|YOLO mode\|Ripgrep\|MCP issues\|overriding the built')
   EXIT_CODE=$?
 
   if [ $EXIT_CODE -ne 0 ]; then
@@ -124,7 +125,7 @@ if [ $# -eq 0 ]; then
   usage
 fi
 
-MODEL="gemini-2.5-flash"
+MODEL="gemini-2.5-pro"
 RUN_ALL=false
 RUN_PARALLEL=false
 AGENTS_TO_RUN=()
