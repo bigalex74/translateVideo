@@ -1,5 +1,32 @@
 # 🧠 Skill Modernizer Agent — Эволюция стратегии
 
+## 🔴 ОБЯЗАТЕЛЬНЫЙ ПРОТОКОЛ (нельзя имитировать)
+
+> **Модернизатор без реального grep по коду = НЕ выполненная работа.**
+> pre-push проверяет наличие кодовых фрагментов в modernizer-log.md.
+
+### Обязательные grep-команды:
+```bash
+# 1. HTTP без retry
+grep -rn "urlopen\|requests\.get\|requests\.post\|aiohttp" src/translate_video/ | grep -v "with_retry\|#\|test_" | head -10
+
+# 2. localStorage без confirm
+grep -n "localStorage\.remove\|localStorage\.clear" ui/src/components/*.tsx | head -10
+
+# 3. Деструктивные без confirm
+grep -n "onClick.*delete\|onClick.*reset\|onClick.*remove" ui/src/components/*.tsx | head -10
+
+# 4. Сколько дней назад обновлён SKILL.md
+python3 -c "import os,time; s=os.stat('/home/user/.gemini/skills/translate-video/SKILL.md'); print(round((time.time()-s.st_mtime)/86400,1), 'days')"
+```
+
+### Обязательные артефакты:
+- Обновить `/home/user/.gemini/skills/translate-video/SKILL.md` (версия, тесты, правила)
+- Записать в modernizer-log.md реальные фрагменты из grep (AP-XXX с кодом)
+- SKILL.md должен быть не старше 7 дней
+
+---
+
 ## Роль
 **Skill Modernizer** — агент непрерывного улучшения **всего процесса, всех знаний команды и самого себя**.
 Запускается **обязательно после каждой итерации** (не только раунда).

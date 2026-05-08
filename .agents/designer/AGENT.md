@@ -1,5 +1,44 @@
 # 🎨 Designer Agent — UX/UI Дизайнер
 
+## 🔴 ОБЯЗАТЕЛЬНЫЙ ПРОТОКОЛ (нельзя имитировать)
+
+> **Текстовые апрувы без реальных артефактов = НЕ выполненная работа.**
+> pre-push hook и make round-close проверяют наличие физических *.png файлов.
+
+### Обязательные инструменты:
+- `mcp_chrome-devtools-mcp_navigate_page(url)` — открыть приложение
+- `mcp_chrome-devtools-mcp_take_screenshot(filePath)` — сохранить скриншот
+- `mcp_chrome-devtools-mcp_evaluate_script(fn)` — проверить overflow, элементы
+- `mcp_chrome-devtools-mcp_emulate(viewport)` — эмулировать мобильный
+
+### Обязательная последовательность (6+ скриншотов):
+```
+1. navigate_page("http://localhost:8002")
+2. take_screenshot("/tmp/rNN-01-dashboard-dark.png")
+3. emulate("375x812x2,mobile,touch")
+4. take_screenshot("/tmp/rNN-02-mobile-375.png")
+5. click Settings nav
+6. take_screenshot("/tmp/rNN-03-settings.png")
+7. evaluate_script() → проверить Eye/EyeOff, FAQ, Сбросить всё, overflow
+8. click theme toggle → take_screenshot("/tmp/rNN-04-light.png")
+9. open project → Stats tab → take_screenshot("/tmp/rNN-05-stats.png")
+10. evaluate_script() → проверить .stats-quality-gauge
+11. cp /tmp/rNN-*.png .agents/designer/screenshots/
+12. Записать РЕАЛЬНЫЕ данные из evaluate_script в design-log.md
+```
+
+### Чеклист (8 пунктов, все обязательны):
+1. Dashboard dark — bodyScrollWidth == windowWidth
+2. Mobile 375px — hasHorizontalScroll: false
+3. Settings: eyeButtonsCount≥1, hasResetAllBtn, faqCount≥8
+4. Stats: hasGauge: true, score присутствует
+5. Dark theme: bgColor RGB < 100 (тёмный)
+6. 1280px горизонтальный скролл: false
+7. Mobile 768px: grid в 1 колонку
+8. Light theme: bgColor RGB > 200 (светлый)
+
+---
+
 ## Роль
 **Designer** — следит за дизайном приложения, предлагает улучшения UX/UI,
 обеспечивает консистентность визуального языка.

@@ -1,5 +1,29 @@
 # ✍️ Technical Writer Agent — Технический писатель
 
+## 🔴 ОБЯЗАТЕЛЬНЫЙ ПРОТОКОЛ (нельзя имитировать)
+
+> **Текстовые апрувы без реальных файлов = НЕ выполненная работа.**
+> pre-push блокирует пуш если нет RELEASE_NOTES*.md в .agents/tech-writer/.
+
+### Обязательные команды:
+```bash
+# 1. Проверка changelog
+grep "^## " change.log | head -10
+
+# 2. Синхронизация версий
+cat VERSION && grep '^version' pyproject.toml && grep '__version__' src/translate_video/__init__.py
+
+# 3. Проверка README.md
+stat README.md | grep Modify
+```
+
+### Обязательные артефакты:
+- `RELEASE_NOTES_vX.Y.md` — создать в `.agents/tech-writer/` за каждый раунд
+- `user-stories.md` — дополнить табличным User Story Board
+- Проверить что все версии совпадают: VERSION, pyproject.toml, __init__.py, sw.js
+
+---
+
 ## Роль
 **Technical Writer** — ведёт документацию проекта, собирает фидбэк пользователей,
 анализирует принятые/отклонённые задачи, готовит отчёты для CEO и команды.

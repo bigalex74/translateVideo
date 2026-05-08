@@ -194,46 +194,81 @@ visual-check-ci:
 round-close:
 	@echo "$(CYAN)╔══════════════════════════════════════════════════════════════╗$(RESET)"
 	@echo "$(CYAN)║         ROUND CLOSE CHECKLIST — WORKFLOW.md Правило 2        ║$(RESET)"
+	@echo "$(CYAN)║         v2.1 — механические проверки реальных артефактов     ║$(RESET)"
 	@echo "$(CYAN)╚══════════════════════════════════════════════════════════════╝$(RESET)"
 	@echo ""
-	@TODAY=$$(date +%Y-%m-%d); YESTERDAY=$$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || echo "0000-00-00"); \
-	FAIL=0; \
-	check_agent() { \
-	  local name="$$1" file="$$2" pattern="$$3"; \
-	  if [ ! -f "$$file" ]; then \
-	    echo "$(RED)  ❌ $$name: файл $$file не найден$(RESET)"; FAIL=1; return; \
-	  fi; \
-	  local has_approval=$$(grep -c "$$pattern" "$$file" 2>/dev/null || echo 0); \
-	  local has_date=$$(grep -c "$$TODAY\|$$YESTERDAY" "$$file" 2>/dev/null || echo 0); \
-	  if [ "$$has_approval" -gt 0 ] && [ "$$has_date" -gt 0 ]; then \
-	    echo "$(GREEN)  ✅ $$name: апруv найден$(RESET)"; \
-	  else \
-	    echo "$(RED)  ❌ $$name: апруv не найден за сегодня/вчера$(RESET)"; \
-	    echo "$(YELLOW)     → Запроси «запусти агента $$name»$(RESET)"; \
-	    FAIL=1; \
-	  fi; \
-	}; \
-	echo "$(CYAN)🔍 Проверка апрувов агентов...$(RESET)"; \
-	check_agent "Designer"         ".agents/designer/design-log.md"             "АПРУV\|APPROVED"; \
-	check_agent "QA Monitor"       ".agents/qa-monitor/qa-report.md"            "АПРУV\|APPROVED"; \
-	check_agent "Tech Writer"      ".agents/tech-writer/user-stories.md"        "АПРУV\|APPROVED"; \
-	check_agent "Skill Modernizer" ".agents/skill-modernizer/modernizer-log.md" "SKILL-MODERNIZER\|Round [0-9]"; \
+	@FAIL=0; \
+	TODAY=$$(date +%Y-%m-%d); \
+	YESTERDAY=$$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || echo "0000-00-00"); \
+	echo "$(CYAN)━━━ [1/4] DESIGNER — скриншоты браузера ━━━$(RESET)"; \
+	SCREENSHOTS_ALL=$$(find .agents/designer/screenshots -name "*.png" 2>/dev/null | wc -l); \
+	DESIGN_LOG_DATE=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/designer/design-log.md 2>/dev/null || echo 0); \
+	DESIGN_APPROVED=$$(grep -c "АПРУV\|APPROVED" .agents/designer/design-log.md 2>/dev/null || echo 0); \
+	if [ "$$SCREENSHOTS_ALL" -gt 0 ] && [ "$$DESIGN_LOG_DATE" -gt 0 ] && [ "$$DESIGN_APPROVED" -gt 0 ]; then \
+	  echo "$(GREEN)  ✅ Designer: апруv + $${SCREENSHOTS_ALL} скриншотов (design-log обновлён)$(RESET)"; \
+	else \
+	  echo "$(RED)  ❌ Designer: требуется реальная визуальная проверка$(RESET)"; \
+	  echo "$(YELLOW)     Скриншотов: $${SCREENSHOTS_ALL} | Апруv за сегодня/вчера: $${DESIGN_LOG_DATE}$(RESET)"; \
+	  echo "$(YELLOW)     → Инструмент: Chrome DevTools MCP, take_screenshot() → .agents/designer/screenshots/$(RESET)"; \
+	  FAIL=1; \
+	fi; \
 	echo ""; \
-	echo "$(CYAN)🔍 Проверка тестов...$(RESET)"; \
-	UNIT_OUT=$$(PYTHONPATH=src python3 -m unittest discover -s tests -q 2>&1 | tail -3); \
-	echo "  $$UNIT_OUT"; \
+	echo "$(CYAN)━━━ [2/4] QA MONITOR — реальные тесты ━━━$(RESET)"; \
+	QA_DATE=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/qa-monitor/qa-report.md 2>/dev/null || echo 0); \
+	QA_APPROVED=$$(grep -c "АПРУV\|APPROVED" .agents/qa-monitor/qa-report.md 2>/dev/null || echo 0); \
+	PY_TESTS=$$(PYTHONPATH=src python3 -m unittest discover -s tests -q 2>&1 | tail -1); \
+	echo "  Python тесты сейчас: $$PY_TESTS"; \
+	if echo "$$PY_TESTS" | grep -q "OK"; then PY_OK=1; else PY_OK=0; fi; \
+	if [ "$$QA_APPROVED" -gt 0 ] && [ "$$QA_DATE" -gt 0 ] && [ "$$PY_OK" -eq 1 ]; then \
+	  echo "$(GREEN)  ✅ QA Monitor: тесты зелёные, апруv за сегодня/вчера$(RESET)"; \
+	else \
+	  echo "$(RED)  ❌ QA Monitor: тесты провалились или апруv отсутствует$(RESET)"; \
+	  echo "$(YELLOW)     → python3 -m unittest discover -s tests -q$(RESET)"; \
+	  echo "$(YELLOW)     → cd ui && npm test && python3 -m coverage report --fail-under=80$(RESET)"; \
+	  FAIL=1; \
+	fi; \
+	echo ""; \
+	echo "$(CYAN)━━━ [3/4] TECH WRITER — документация ━━━$(RESET)"; \
+	TW_DATE=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/tech-writer/user-stories.md 2>/dev/null || echo 0); \
+	TW_APPROVED=$$(grep -c "АПРУV\|APPROVED" .agents/tech-writer/user-stories.md 2>/dev/null || echo 0); \
+	RELEASE_NOTES=$$(find .agents/tech-writer -name "RELEASE_NOTES*.md" 2>/dev/null | wc -l); \
+	if [ "$$TW_APPROVED" -gt 0 ] && [ "$$TW_DATE" -gt 0 ] && [ "$$RELEASE_NOTES" -gt 0 ]; then \
+	  echo "$(GREEN)  ✅ Tech Writer: апруv + $${RELEASE_NOTES} RELEASE_NOTES файл(ов)$(RESET)"; \
+	else \
+	  echo "$(RED)  ❌ Tech Writer: апруv или RELEASE_NOTES отсутствует$(RESET)"; \
+	  echo "$(YELLOW)     RELEASE_NOTES: $${RELEASE_NOTES} | Апруv за сегодня/вчера: $${TW_DATE}$(RESET)"; \
+	  echo "$(YELLOW)     → Создай: .agents/tech-writer/RELEASE_NOTES_vX.Y.md$(RESET)"; \
+	  echo "$(YELLOW)     → grep \"^## \" change.log | head -10 — проверь формат$(RESET)"; \
+	  FAIL=1; \
+	fi; \
+	echo ""; \
+	echo "$(CYAN)━━━ [4/4] SKILL MODERNIZER — обновление скиллов ━━━$(RESET)"; \
+	SM_DATE=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/skill-modernizer/modernizer-log.md 2>/dev/null || echo 0); \
+	SM_HAS_CODE=$$(grep -cE "grep|AP-[A-Z]|антипаттерн|Антипаттерн|urlopen|localStorage" .agents/skill-modernizer/modernizer-log.md 2>/dev/null || echo 0); \
+	SKILL_AGE=$$(python3 -c "import os,time; s=os.stat('/home/user/.gemini/skills/translate-video/SKILL.md'); print(round((time.time()-s.st_mtime)/86400,1))" 2>/dev/null || echo "99"); \
+	if [ "$$SM_DATE" -gt 0 ] && [ "$$SM_HAS_CODE" -gt 0 ]; then \
+	  echo "$(GREEN)  ✅ Skill Modernizer: лог обновлён, код проанализирован$(RESET)"; \
+	  echo "$(CYAN)     translate-video/SKILL.md обновлён: $${SKILL_AGE} дней назад$(RESET)"; \
+	else \
+	  echo "$(RED)  ❌ Skill Modernizer: нет реального анализа кода в логе$(RESET)"; \
+	  echo "$(YELLOW)     → grep -rn 'requests\\.' src/ | grep -v 'with_retry'$(RESET)"; \
+	  echo "$(YELLOW)     → Обнови /home/user/.gemini/skills/translate-video/SKILL.md$(RESET)"; \
+	  FAIL=1; \
+	fi; \
 	echo ""; \
 	if [ $$FAIL -eq 0 ]; then \
-	  echo "$(GREEN)╔══════════════════════════════════════════════════════════╗$(RESET)"; \
-	  echo "$(GREEN)║  ✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ — можно делать git push        ║$(RESET)"; \
-	  echo "$(GREEN)╚══════════════════════════════════════════════════════════╝$(RESET)"; \
+	  echo "$(GREEN)╔══════════════════════════════════════════════════════════════╗$(RESET)"; \
+	  echo "$(GREEN)║  ✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ — можно делать git push           ║$(RESET)"; \
+	  echo "$(GREEN)╚══════════════════════════════════════════════════════════════╝$(RESET)"; \
 	else \
-	  echo "$(RED)╔══════════════════════════════════════════════════════════╗$(RESET)"; \
-	  echo "$(RED)║  ❌ ROUND CLOSE FAILED — push заблокирован               ║$(RESET)"; \
-	  echo "$(RED)║  Запроси апрувы недостающих агентов, затем повтори       ║$(RESET)"; \
-	  echo "$(RED)╚══════════════════════════════════════════════════════════╝$(RESET)"; \
+	  echo "$(RED)╔══════════════════════════════════════════════════════════════╗$(RESET)"; \
+	  echo "$(RED)║  ❌ ROUND CLOSE FAILED — устрани замечания выше              ║$(RESET)"; \
+	  echo "$(RED)║  Агенты работают РЕАЛЬНО: браузер + grep + файлы             ║$(RESET)"; \
+	  echo "$(RED)╚══════════════════════════════════════════════════════════════╝$(RESET)"; \
 	  exit 1; \
 	fi
+
+
 
 ## verify:deployed: Проверить что прод совпадает с локальной версией (smoke check после deploy)
 verify\:deployed:
