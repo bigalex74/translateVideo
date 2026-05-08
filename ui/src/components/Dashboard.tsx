@@ -63,6 +63,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
+  // R10-ИГГ (Batch): Очередь загрузки нескольких файлов
+  const [batchQueue, setBatchQueue] = useState<{name: string; status: 'pending'|'uploading'|'done'|'error'; projectId?: string; error?: string}[]>([]);
+  const [batchActive, setBatchActive] = useState(false);
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -191,46 +194,83 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
       onDrop={async e => {
         e.preventDefault();
         setDragOver(false);
-        const file = e.dataTransfer.files[0];
-        if (!file || !file.type.startsWith('video/')) {
-          setError(locale === 'ru' ? 'Только видеофайлы' : 'Only video files allowed');
+        const files = Array.from(e.dataTransfer.files).filter(f =>
+          f.type.startsWith('video/') || f.type.startsWith('audio/')
+        );
+        if (files.length === 0) {
+          setError(locale === 'ru' ? 'Только видео- или аудиофайлы' : 'Only video or audio files allowed');
           return;
         }
-        setLoading(true);
-        try {
-          const { uploadProject, runPipeline } = await import('../api/client');
-          const created = await uploadProject(file);
-          if (autoRun) {
-            // R8-И5: «Один клик» — сразу запустить перевод
-            await runPipeline(created.project_id, false, getPersistedProvider());
+        if (files.length === 1) {
+          setLoading(true);
+          try {
+            const { uploadProject, runPipeline } = await import('../api/client');
+            const created = await uploadProject(files[0]);
+            if (autoRun) await runPipeline(created.project_id, false, getPersistedProvider());
+            onOpenProject(created.project_id);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Upload failed');
+          } finally { setLoading(false); setAutoRun(false); }
+          return;
+        }
+        // Много файлов — batch режим
+        const queue = files.map(f => ({ name: f.name, status: 'pending' as const }));
+        setBatchQueue(queue);
+        setBatchActive(true);
+        const { uploadProject, runPipeline } = await import('../api/client');
+        for (let i = 0; i < files.length; i++) {
+          setBatchQueue(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'uploading' } : item));
+          try {
+            const created = await uploadProject(files[i]);
+            if (autoRun) { try { await runPipeline(created.project_id, false, getPersistedProvider()); } catch {/* continue */} }
+            setBatchQueue(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'done', projectId: created.project_id } : item));
+          } catch (err) {
+            setBatchQueue(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'error', error: err instanceof Error ? err.message : String(err) } : item));
           }
-          onOpenProject(created.project_id);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Upload failed');
-        } finally { setLoading(false); setAutoRun(false); }
+        }
+        setBatchActive(false);
+        setAutoRun(false);
+        refreshProjects();
       }}
     >
-      {/* Z4.15 + R8-И5: Drag-and-drop overlay «Один клик» */}
+      {/* Z4.15 + R8-И5 + R10-ИГГ: DnD overlay (batch) */}
       {dragOver && (
         <div className="dashboard-dnd-overlay">
-          <span>📽 Перетащите видео</span>
+          <span>🎬 Перетащите видео (можно несколько)</span>
           <div className="dnd-options">
-            <button
-              className="dnd-option-btn"
-              onClick={() => { setAutoRun(false); }}
-              onDragEnter={() => setAutoRun(false)}
-            >
-              📁 Создать проект
+            <button className="dnd-option-btn" onClick={() => { setAutoRun(false); }} onDragEnter={() => setAutoRun(false)}>
+              📁 Создать проект(ы)
             </button>
-            <button
-              className="dnd-option-btn dnd-option-run"
-              onClick={() => { setAutoRun(true); }}
-              onDragEnter={() => setAutoRun(true)}
-              title="Загрузить видео и сразу запустить перевод без дополнительных шагов"
-            >
+            <button className="dnd-option-btn dnd-option-run" onClick={() => { setAutoRun(true); }} onDragEnter={() => setAutoRun(true)}
+              title="Загрузить видео и сразу запустить перевод">
               ⚡ Создать и перевести
             </button>
           </div>
+        </div>
+      )}
+      {/* R10-ИГГ: Batch очередь загрузки нескольких файлов */}
+      {batchQueue.length > 0 && (
+        <div className="batch-queue glass-panel" role="status" aria-live="polite">
+          <div className="batch-queue-header">
+            <span>📦 Батч-загрузка: {batchQueue.filter(i => i.status === 'done').length}/{batchQueue.length}</span>
+            {!batchActive && (
+              <button className="btn-secondary btn-xs" onClick={() => setBatchQueue([])}>× Скрыть</button>
+            )}
+          </div>
+          {batchQueue.map((item, idx) => (
+            <div key={idx} className={`batch-queue-item batch-queue-item--${item.status}`}>
+              <span className="batch-queue-status">
+                {item.status === 'pending'   ? '⏳' :
+                 item.status === 'uploading' ? '🔄' :
+                 item.status === 'done'      ? '✅' : '❌'}
+              </span>
+              <span className="batch-queue-name">{item.name}</span>
+              {item.projectId && (
+                <button className="btn-secondary btn-xs" onClick={() => onOpenProject(item.projectId!)}>Открыть</button>
+              )}
+              {item.error && <span className="batch-queue-error">{item.error.slice(0, 60)}</span>}
+            </div>
+          ))}
         </div>
       )}
       <header className="page-header">

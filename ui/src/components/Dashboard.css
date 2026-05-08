@@ -451,3 +451,40 @@
 /* Dashboard stats дополнительные карточки */
 .stat-card.stat-words { border-color: rgba(59, 130, 246, 0.3); }
 .stat-card.stat-time  { border-color: rgba(16, 185, 129, 0.3); }
+
+/* ─── R10-ИГГ: Batch queue panel ──────────────────────────────────────────── */
+.batch-queue {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+.batch-queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+.batch-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 0.82rem;
+}
+.batch-queue-item:last-child { border-bottom: none; }
+.batch-queue-status { font-size: 1rem; flex-shrink: 0; }
+.batch-queue-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+.batch-queue-error { color: var(--danger); font-size: 0.78rem; }
+.batch-queue-item--done .batch-queue-name { color: var(--success); }
+.batch-queue-item--error .batch-queue-name { color: var(--danger); opacity: 0.8; }
+.batch-queue-item--uploading .batch-queue-name { color: var(--warning); }
