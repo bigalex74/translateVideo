@@ -1736,7 +1736,7 @@ def export_script_txt(
         )
 
     # TSV
-
+    if format == "tsv":
         buf = StringIO()
         buf.write("start\tend\tsource\ttranslated\n")
         for seg in project.segments:
