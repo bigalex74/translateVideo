@@ -1,3 +1,23 @@
+## 1.96.0 — 2026-05-08 — R11: ExportPanel, textarea auto-resize, timezone-aware, docker-compose fix
+
+### R11-И1: Workspace.tsx декомпозиция
+- Вынесен ExportPanel.tsx (115 строк) из Workspace.tsx
+- UX улучшение: DOCX primary button, ZIP субтитров primary
+
+### R11-И2: UX улучшения
+- Авторасширение textarea сегментов под содержимое [В2]
+- Кнопки ≥44px на планшетах/touch устройствах [Н4]
+
+### R11-И3: Security headers (уже были в v1.9x.x)
+- X-Content-Type-Options, X-Frame-Options уже добавлены ранее ✅
+
+### R11-И4: Режим субтитры-only (уже был в v1.9x.x)
+- PIPELINE_MODES['subtitles'] существует ✅
+
+### R11-И5: Технический долг
+- datetime.utcnow() → datetime.now(timezone.utc) [projects.py]
+- Убран устаревший атрибут version из docker-compose.yml
+
 ## 1.95.9 — 2026-05-08 — R10-И5: Стоимость запуска в Dashboard
 ### ✨ Улучшения
 - Dashboard: суммарная стоимость запуска ($) в карточке проекта из billing_snapshots [Виктор#4]

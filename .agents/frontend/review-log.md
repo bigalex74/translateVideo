@@ -44,3 +44,24 @@ billing_snapshots в schemas.ts     → строка 140 ✅
 ### Критичных блокеров: 0 (Workspace монолит — техдолг, не блокер)
 
 ### Подпись: Frontend АПРУV | 2026-05-08 v1.95.9
+
+---
+## Frontend Review — 2026-05-08 v1.96.0
+
+### Команды:
+```bash
+cd ui && npx tsc --noEmit  → 0 ошибок
+wc -l ui/src/components/*.tsx | sort -rn | head -3:
+    8263 итого   2147 ui/src/components/Workspace.tsx   1127 ui/src/components/AdvancedSettings.tsx 
+```
+
+### Изменения R11:
+- ExportPanel.tsx создан (115 строк) — декомпозиция из Workspace.tsx
+- Workspace.tsx: 2208 → 2141 (-67 строк)
+- textarea auto-resize onInput handler
+- CSS: btn-xs ≥44px на pointer:coarse+min-width:600px
+- Unused imports: ArtifactCard убран из Workspace.tsx
+
+### АПРУV: tsc чистый, ExportPanel работает
+
+### Подпись: Frontend АПРУV | 2026-05-08 v1.96.0

@@ -30,3 +30,15 @@ wc -l src/translate_video/api/routes/projects.py → 2700+
 | 10 | **Date handling**: 1 вхождение utcnow() deprecated — перейти на timezone-aware datetime | `projects.py:2652` | 🟡 |
 
 ### Подпись: System Analyst АПРУV | 2026-05-08 v1.95.9
+
+---
+## SYSTEM-ANALYST Review — 2026-05-08 v1.96.0
+
+### Данные из кода R11:
+- VERSION: 1.96.0
+- Workspace.tsx: 2141 строк (была 2208)
+- ExportPanel: новый компонент 115 строк
+- textarea auto-resize: добавлен onInput handler
+- 920 Python тестов OK
+
+### АПРУV | 2026-05-08 v1.96.0

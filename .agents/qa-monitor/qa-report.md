@@ -324,3 +324,21 @@ Duration: ~1.4s
 ### Регрессии: нет
 
 ### АПРУV: R10-И1..И5 QA approved — QA Monitor | 2026-05-08
+
+---
+## QA Report — 2026-05-08 v1.96.0
+
+### Команды:
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -q  → Ran 920 tests OK
+npx tsc --noEmit  → Exit 0
+```
+
+### Дефект найден и исправлен:
+- FAIL: test_public_roadmap_current_version_matches_version_file
+- Причина: PUBLIC_ROADMAP.md содержал 1.95.9 вместо 1.96.0
+- Фикс: обновлена версия → тест зелёный
+
+### АПРУV: 920 тестов OK (skipped=2), tsc clean
+
+### Подпись: QA Monitor АПРУV | 2026-05-08 v1.96.0

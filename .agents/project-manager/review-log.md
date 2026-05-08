@@ -32,3 +32,27 @@ cat VERSION                          → 1.95.9
 | 10 | **Агентная система**: 16 агентов теперь имеют enforcement — качество процесса растёт ✅ | 🟢 |
 
 ### Подпись: PM АПРУV | 2026-05-08 v1.95.9
+
+---
+## PM Review — 2026-05-08 v1.96.0
+
+### Velocity R11:
+```
+git log --oneline TVIDEO-R11-workspace-decompose | wc -l → задачи R11
+Итерации: 5 запланировано
+Закрыто: И1 ExportPanel ✅, И2 UX ✅, И3 Security (уже был) ✅, И4 SubOnly (уже был) ✅, И5 техдолг ✅
+```
+
+### Backlog Status R11:
+| User Story | Статус |
+|---|---|
+| В2 Textarea auto-resize | ✅ Закрыт |
+| Н4 Планшет 44px | ✅ Закрыт |
+| 8 остальных | ⏸️ Отложены |
+
+### R12 план:
+- Г7 WebSocket polling
+- СА декомпозиция projects.py
+- Email notifications (С3)
+
+### Подпись: PM АПРУV | 2026-05-08 v1.96.0

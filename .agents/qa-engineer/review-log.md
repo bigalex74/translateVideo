@@ -44,3 +44,23 @@ curl /api/v1/projects/{id}/export/script?format=docx    → 200 + Microsoft Word
 ### Вердикт: QA АПРУV с замечаниями. Нагрузочные тесты — следующий приоритет.
 
 ### Подпись: QA Engineer АПРУV | 2026-05-08 v1.95.9
+
+---
+## QA Engineer Review — 2026-05-08 v1.96.0
+
+### Команды:
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -q → 920 OK (skipped=2)
+npx tsc --noEmit → 0 errors
+```
+
+### Дефекты R11:
+- НАЙДЕНО: PUBLIC_ROADMAP.md версия не обновлена → test_public_roadmap FAIL
+- ИСПРАВЛЕНО: обновили 1.95.9 → 1.96.0 → тест зелёный
+- РИСК: textarea auto-resize нет unit-теста → добавить в R12
+
+### R12 задачи QA:
+- Тест на авторасширение textarea (Playwright или jsdom)
+- E2E: проверить ExportPanel кнопки доступны
+
+### Подпись: QA Engineer АПРУV | 2026-05-08 v1.96.0

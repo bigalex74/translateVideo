@@ -68,3 +68,23 @@ pip audit (docker exec)             → команда недоступна в �
 ### Рекомендации: pip-audit в образ, allowlist для urllib URLs
 
 ### Подпись: Security АПРУV | 2026-05-08 v1.95.9
+
+---
+## Security Review — 2026-05-08 v1.96.0
+
+### Команды:
+```bash
+grep -rn "shell=True" src/       → 0 (OK)
+grep -rn "yaml.load(" src/       → 0 (OK)  
+grep "CORS" src/main.py:         → 30:    Установите ``ALLOWED_ORIGINS=*`` для открытого доступа (только локально).|32:    raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost:8000")|91:    allow_origins=_get_allowed_origins(),|
+```
+
+### Проверки:
+- X-Content-Type-Options: nosniff ✅ (SecurityHeadersMiddleware)
+- X-Frame-Options: DENY ✅
+- CORS: только localhost по умолчанию ✅
+- utcnow() заменён на timezone-aware ✅
+
+### АПРУV: Security headers OK, CORS restrictive
+
+### Подпись: Security АПРУV | 2026-05-08 v1.96.0

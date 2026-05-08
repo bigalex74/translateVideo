@@ -1608,3 +1608,28 @@
     padding: 4px 8px;
   }
 }
+
+/* Н4: Кнопки ≥44px на планшете/touch [R11-И2] */
+@media (pointer: coarse) and (min-width: 600px) {
+  .btn-xs {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+
+  .btn-secondary.btn-xs,
+  .btn-primary.btn-xs {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  /* Export panel кнопки на планшете */
+  .right-tab-content a.btn-xs {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+  }
+}
