@@ -304,3 +304,42 @@ ui/src/components/OnboardingTour.tsx:144: localStorage.removeItem(LS_KEY);
 4. dev-agents/SKILL.md — выявлена задолженность
 
 ### Подпись: Skill Modernizer | 2026-05-08 07:36
+
+---
+## R10-И1..И5 Skill Modernizer — 2026-05-08
+
+### Реальный анализ новых паттернов:
+
+#### AP-R10-DOCX-01: Нативный OpenXML без зависимостей ✅
+```bash
+grep -n "zipfile" src/translate_video/api/routes/projects.py
+# → строки 1682, 1727: zipfile.ZipFile для DOCX
+```
+Паттерн: нативный Python zipfile вместо python-docx. Отличный подход — нет зависимостей в Docker образе.
+
+#### AP-R10-DOCX-02: XML-инъекция защищена ✅
+```bash
+grep -n "replace.*amp.*lt.*gt" src/translate_video/api/routes/projects.py
+# → строки 1691-1699: .replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+```
+XML escaping применён ко всем пользовательским данным (source_text, translated_text, project_id). ОК.
+
+#### AP-R10-LOCAL-01: localStorage для сортировки ✅ OK
+```bash
+grep -n "localStorage" ui/src/components/Dashboard.tsx
+# → строки 48-86: tv_sort_by, tv_sort_dir — только UI состояние, не PII
+```
+localStorage используется только для UI предпочтений (сортировка). Не PII. Паттерн ОК.
+
+#### AP-R10-URLLIB-01: urllib.request в provider_catalog ⚠️ МОНИТОРИНГ
+```bash
+grep -rn "urllib.request" src/translate_video/ | grep -v pycache
+# → provider_catalog.py:221, timing/cloud.py:727 — внешние HTTP запросы
+```
+urllib.request используется для внешних API (не пользовательский ввод). SSRF риск minimal (URL из конфига).
+Рекомендация: добавить allowlist для хостов в provider_catalog — в бэклог.
+
+### Антипаттернов критических: 0
+### Рекомендации в бэклог: 1 (provider_catalog allowlist)
+
+### АПРУV: R10-И1..И5 code analysis done — Skill Modernizer | 2026-05-08

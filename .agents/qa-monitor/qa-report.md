@@ -294,3 +294,33 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 - sanitize_project_id() — используется при каждом обращении к ФС ✅ (из AGENT.md)
 
 ### Подпись: QA Monitor | 2026-05-08 07:36
+
+---
+## R10-И1..И5 QA Report — 2026-05-08
+
+### Frontend tests (vitest):
+```
+Tests  223 passed (223)
+Duration: ~1.4s
+```
+
+### API endpoint tests (реальные curl запросы):
+- GET /export/script?format=docx → 200 OK, Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document, 6351 bytes ✅
+- `file` tool: "Microsoft Word 2007+" — файл корректен ✅
+- GET /export/script?format=tsv → 200 OK, данные корректны ✅
+- GET /api/health → version=1.95.9 ✅
+
+### New features smoke test:
+- И1: UX ошибок загрузки — API проверен (404 → понятное сообщение) ✅
+- И2: Глоссарий для всех — AdvancedSettings build OK ✅
+- И3: Batch DnD — batchQueue state, processFile функция — build OK ✅
+- И4: DOCX export — реально работает, Microsoft Word совместим ✅
+- И5: billing_snapshots в типе VideoProject — build OK, field optional ✅
+
+### Security check:
+- sanitize_project_id() — используется при каждом обращении к ФС ✅
+- DOCX endpoint: экранирует &, <, > символы в XML ✅
+
+### Регрессии: нет
+
+### АПРУV: R10-И1..И5 QA approved — QA Monitor | 2026-05-08

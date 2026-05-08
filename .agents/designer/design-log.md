@@ -531,3 +531,25 @@ CSS-изменение выглядело «добавлением анимац�
 ### Баги: нет
 
 ### Подпись: Designer | 2026-05-08 07:36
+
+---
+## R10-И1..И5 Visual Audit — 2026-05-08
+
+### Screenshots made:
+- r10-И-dashboard.png — Dashboard v1.95.9 (localhost:8002)
+- r10-И-workspace.png — Workspace открыт, проект ЗАВЕРШЁН
+- r10-И4-export-buttons.png — DOCX/TSV/TXT кнопки видны в Файлы (подтверждено)
+
+### UX observations:
+- DnD overlay текст обновлён: "Перетащите видео (можно несколько)" ✅
+- Файлы tab: SRT/VTT/ASS/SBV + ZIP + Скрипт перевода (DOCX/TSV/TXT) — все кнопки видимы ✅
+- Глоссарий перенесён из professional-only секции — доступен всем пользователям ✅
+- Batch queue panel CSS добавлен (batch-queue, glass-panel) ✅
+- Cost в карточке Dashboard: billing_snapshots суммируется и показывается с тултипом ✅
+
+### Issues found:
+- Правая панель (Файлы) требует прокрутки для просмотра DOCX кнопок — возможно стоит поднять блок "Скрипт перевода" выше, над субтитрами
+
+### Баги: нет критических
+
+### АПРУV: R10-И1..И5 UI changes approved — Designer | 2026-05-08
