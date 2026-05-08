@@ -22,11 +22,8 @@ session-start:
 	@echo "$(CYAN)📋 ПОСЛЕДНИЕ 5 КОММИТОВ:$(RESET)"
 	@git log --oneline -5
 	@echo ""
-	@echo "$(CYAN)🔴 БЭКЛОГ (высокий приоритет):$(RESET)"
-	@echo "  С3  — Email SMTP уведомления (Светлана ждёт)"
-	@echo "  Г7  — WebSocket вместо polling (CTO, CEO)"
-	@echo "  SA  — projects.py декомпозиция (~2700 строк)"
-	@echo "  У1  — ZIP кнопка primary button (Тимур)"
+	@echo "$(CYAN)🔴 БЭКЛОГ P1 (из .agents/tech-writer/user-stories.md):$(RESET)"
+	@grep "🔴 P1" .agents/tech-writer/user-stories.md 2>/dev/null | sed 's/^[ |]*/  /' || echo "  (файл не найден)"
 	@echo ""
 	@echo "$(CYAN)🤖 ПРОТОКОЛ АГЕНТОВ (ОБЯЗАТЕЛЬНО перед push):$(RESET)"
 	@echo "  1. make round-close     — 8 авто-проверок (тесты, tsc, security, docker...)"
