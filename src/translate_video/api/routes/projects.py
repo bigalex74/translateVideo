@@ -2649,8 +2649,8 @@ def create_share_link(
 
     token = _secrets.token_urlsafe(16)
     expires_at = (
-        datetime.datetime.utcnow() + datetime.timedelta(days=7)
-    ).isoformat() + "Z"
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+    ).isoformat()
 
     # Сохраняем в project.json через extra_data
     if not hasattr(project, "_extra") or project._extra is None:

@@ -8,7 +8,7 @@ import { flagBelongsToStage } from '../qa_stage_filter';
 import { QASummary } from './QASummary';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { AdvancedSettings } from './AdvancedSettings';
-import { ArtifactCard } from './ArtifactCard';
+import { ExportPanel } from './ExportPanel';
 import { StatsPanel } from './StatsPanel';
 import { DevLogPanel } from './DevLogPanel';
 import { SSMLToolbar, renderTtsMarkup } from './SSMLToolbar';
@@ -1607,6 +1607,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                         : t('workspace.enterTranslation', locale)
                     }
                     rows={2}
+                    onInput={(e) => {
+                      /* В2: Авторасширение textarea [R11-И2] */
+                      const el = e.currentTarget;
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }}
+                    style={{ resize: 'none', overflow: 'hidden' }}
                   />
                   {/* Л4: Счётчик символов — предупреждение при > 84 (стандарт субтитров) */}
                   {(() => {
@@ -1996,83 +2003,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
             </div>
           )}
 
-          {/* Вкладка: Файлы */}
+          {/* Вкладка: Файлы — ExportPanel [R11-И1] */}
           {rightTab === 'artifacts' && (
-            <div className="right-tab-content">
-              {project.artifact_records && project.artifact_records.length > 0 ? (
-                project.artifact_records
-                  .filter(r => r.kind !== 'settings')
-                  .map(r => <ArtifactCard key={r.kind} record={r} projectId={projectId} locale={locale} />)
-              ) : downloadableArtifacts.length > 0 ? (
-                downloadableArtifacts.map(item => (
-                  <a key={item.kind} className="artifact-link"
-                    href={artifactDownloadUrl(projectId, item.kind)}
-                    target="_blank" rel="noreferrer"
-                    title={(item as { kind: string; label: string; title?: string }).title}
-                  >
-                    <Download size={14} /> {item.label}
-                  </a>
-                ))
-              ) : (
-                <p className="empty-text">{t('workspace.noResults', locale)}</p>
-              )}
-
-              {/* А6: Экспорт субтитров в разных форматах */}
-              {segments.length > 0 && (
-                <div style={{
-                  marginTop: '16px', borderTop: '1px solid var(--border)',
-                  paddingTop: '12px',
-                }}>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
-                    📄 Экспорт субтитров
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {(['srt', 'vtt', 'ass', 'sbv'] as const).map(fmt => (
-                      <a
-                        key={fmt}
-                        href={subtitleExportUrl(projectId, fmt)}
-                        target="_blank" rel="noreferrer"
-                        className="btn-secondary btn-xs"
-                        title={{
-                          srt: 'SubRip — универсальный, VLC/DaVinci/Premiere/YouTube',
-                          vtt: 'WebVTT — HTML5 браузерный плеер',
-                          ass: 'Advanced SubStation Alpha — Aegisub, профессиональные редакторы',
-                          sbv: 'YouTube SBV — для загрузки в YouTube Studio/Udemy',
-                        }[fmt]}
-                        style={{ textDecoration: 'none', fontFamily: 'monospace', fontSize: '0.8rem' }}
-                      >
-                        {fmt.toUpperCase()}
-                      </a>
-                    ))}
-                    <a
-                      href={subtitleExportZipUrl(projectId)}
-                      target="_blank" rel="noreferrer"
-                      className="btn-secondary btn-xs"
-                      title="Скачать все форматы (SRT+VTT+ASS+SBV) в одном ZIP-архиве"
-                      style={{ textDecoration: 'none' }}
-                    >
-                      📦 ZIP (все форматы)
-                    </a>
-                  </div>
-                  {/* И4: Скрипт перевода — DOCX, TSV, TXT [Надежда#5] */}
-                  <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>Скрипт перевода:</span>
-                    <a href={`/api/v1/projects/${projectId}/export/script?format=docx&include_source=true`}
-                      download className="btn-secondary btn-xs" title="Скрипт в Word (.docx)" style={{ textDecoration: 'none' }}>
-                      📄 DOCX
-                    </a>
-                    <a href={`/api/v1/projects/${projectId}/export/script?format=tsv&include_source=true`}
-                      download className="btn-secondary btn-xs" title="Таблица: таймкод + оригинал + перевод (Excel)" style={{ textDecoration: 'none' }}>
-                      📊 TSV
-                    </a>
-                    <a href={`/api/v1/projects/${projectId}/export/script?format=txt&include_source=true`}
-                      download className="btn-secondary btn-xs" title="Текстовый скрипт с таймкодами" style={{ textDecoration: 'none' }}>
-                      📝 TXT
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ExportPanel
+              projectId={projectId}
+              locale={locale}
+              segments={segments}
+              artifactRecords={project.artifact_records}
+              downloadableArtifacts={downloadableArtifacts}
+            />
           )}
 
           {/* Вкладка: Статистика */}

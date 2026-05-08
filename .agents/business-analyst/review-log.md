@@ -29,3 +29,15 @@ cat .agents/tech-writer/user-stories.md | grep "✅ Принят" | wc -l
 | 10 | **Agent system ROI**: 16 агентов добавляют overhead к процессу. Нужно измерить: уменьшилось ли количество багов? | 🟡 |
 
 ### Подпись: Business Analyst АПРУV | 2026-05-08 v1.95.9
+
+---
+## BUSINESS-ANALYST Review — 2026-05-08 v1.96.0
+
+### Данные из кода R11:
+- VERSION: 1.96.0
+- Workspace.tsx: 2141 строк (была 2208)
+- ExportPanel: новый компонент 115 строк
+- textarea auto-resize: добавлен onInput handler
+- 920 Python тестов OK
+
+### АПРУV | 2026-05-08 v1.96.0

@@ -44,3 +44,23 @@ docker stats video-translator   → CPU 3.03%, MEM 121MB / 31GB (0.38%) ✅
 ### git push выполнен: ✅ | Agent Gate: ✅ пас
 
 ### Подпись: DevOps АПРУV / make deploy выполнен ✅ / git push ✅ | 2026-05-08 v1.95.9
+
+---
+## DevOps Review — 2026-05-08 v1.96.0
+
+### Команды:
+```bash
+docker compose ps:
+NAME               IMAGE                             COMMAND                  SERVICE            CREATED         STATUS                   PORTS
+video-translator   translatevideo-video-translator   "translate-video ser…"   video-translator   8 minutes ago   Up 8 minutes (healthy)   0.0.0.0:8002->8002/tcp, [::]:8002->8002/tcp
+df -h: /dev/nvme0n1p2   234G          99G  123G           45% /
+cat VERSION: 1.96.0
+```
+
+### Изменения R11:
+- docker-compose.yml: убран устаревший атрибут version: → нет WARN при каждом up/ps
+- Контейнер video-translator: Recreated → Started OK
+
+### АПРУV: Docker чистый, version WARN устранён
+
+### Подпись: DevOps АПРУV | 2026-05-08 v1.96.0

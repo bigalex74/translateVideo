@@ -50,3 +50,22 @@ grep -rn "TODO|FIXME" src/         → 0 (нет техдолга в марке�
 ### Требует внимания (🟡): 7 — все существующий код, не новый
 
 ### Подпись: Backend АПРУV | 2026-05-08 v1.95.9
+
+---
+## Backend Review — 2026-05-08 v1.96.0
+
+### Команды:
+```bash
+python3 -m compileall -q src          → 
+grep -rn "utcnow()" src/              → 0 (исправлено R11-И5)
+grep -rn "async def" src/             → 10 функций
+grep -rn "except Exception" src/      → 52
+```
+
+### Изменения R11:
+- datetime.utcnow() → datetime.now(timezone.utc) в projects.py:2652
+- 920 Python тестов OK
+
+### АПРУV: Backend чистый, utcnow() устранён
+
+### Подпись: Backend АПРУV | 2026-05-08 v1.96.0

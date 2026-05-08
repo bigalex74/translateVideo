@@ -553,3 +553,33 @@ CSS-изменение выглядело «добавлением анимац�
 ### Баги: нет критических
 
 ### АПРУV: R10-И1..И5 UI changes approved — Designer | 2026-05-08
+
+---
+## R11 Design Review — 2026-05-08 v1.96.0
+
+### Скриншоты:
+- R11-dashboard-dark.png — Dashboard тёмная тема, нет overflow
+- R11-dashboard-light.png — Dashboard светлая тема
+- R11-export-panel.png — Workspace с вкладкой Файлы (ExportPanel)
+
+### Команды проверки:
+```
+curl http://localhost:8002/api/health → v1.96.0 ok
+Chrome DevTools: screenshot dashboard (dark/light) + Workspace
+DOM: uid=30_2256 button "Файлы" → ExportPanel рендерится
+DOM: uid=30_2260 link "📦 Скачать всё (ZIP)" — кнопка видна
+DOM: uid=30_2262 link "📄 SRT" — кнопки субтитров видны
+```
+
+### Проверки:
+- ✅ Dashboard dark: нет горизонтального скролла, статистика 1 проект
+- ✅ Dashboard light: переключение темы работает
+- ✅ ExportPanel: компонент рендерится, кнопки экспорта видны
+- ✅ Workspace.tsx декомпозиция прозрачна для пользователя
+
+### Замечания:
+- Для проектов с artifact_records используется ArtifactCard (корректно)
+- DOCX/TSV/TXT появится когда segments загружены (при completed status)
+- textarea auto-resize проверить в следующем раунде с реальным редактированием
+
+### Подпись: Designer АПРУV | 2026-05-08 v1.96.0

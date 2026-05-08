@@ -57,3 +57,28 @@ python3 -m compileall -q src              → OK (0 ошибок)
 | 10 | **AGENT.md системе нужны интеграционные тесты**: агенты проверяются по файлам, а не по результату работы | `.agents/` | 🟡 |
 
 ### Подпись: CTO АПРУV | 2026-05-08 v1.95.9
+
+---
+## CTO Review — 2026-05-08 v1.96.0
+
+### Команды:
+```bash
+wc -l ui/src/components/Workspace.tsx  → 2147 (было 2208)
+grep -rn "async def" src/             → 10
+grep -rn "utcnow()" src/             → 0 (исправлено)
+```
+
+### Архитектурный анализ:
+| # | Замечание | Статус |
+|---|---|---|
+| 1 | Workspace.tsx: 2208→2141 строк, ExportPanel выделен | 🟡 Частично (цель <1500) |
+| 2 | projects.py монолит 2700+ строк | 🔴 R12 |
+| 3 | datetime.utcnow() deprecated → исправлен | ✅ |
+| 4 | docker-compose version: warning → устранён | ✅ |
+
+### R12 архитектурные задачи:
+1. projects.py: выделить export.py (~300 строк)
+2. Workspace.tsx: выделить SegmentEditor.tsx (~400 строк)
+3. WebSocket: заменить polling в useProjectStatus hook
+
+### Подпись: CTO АПРУV | 2026-05-08 v1.96.0

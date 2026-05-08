@@ -399,3 +399,27 @@ Skill Modernizer должен обновлять SKILL.md **реально**, а
 - dev-agents/SKILL.md
 
 ### АПРУV: Реальная работа Skill Modernizer | 2026-05-08 22:36
+
+---
+## Skill Modernizer R11 — 2026-05-08 v1.96.0
+
+### Реальный анализ кода:
+```bash
+grep -rn "utcnow()" src/   → 0 (было 1 → исправлено в R11-И5)
+grep -rn "shell=True" src/ → 0
+grep -rn "async def" src/  → 10
+wc -l ui/src/components/*.tsx | sort -rn | head -5:
+    8263 итого|  2147 ui/src/components/Workspace.tsx|  1127 ui/src/components/AdvancedSettings.tsx|   745 ui/src/components/Dashboard.tsx|   604 ui/src/components/NewProject.tsx|
+```
+
+### AP-DECOMP: Workspace.tsx декомпозиция
+- Было: 2208 строк (нарушение SRP)
+- Стало: 2141 + ExportPanel.tsx 115 строк
+- Антипаттерн устранён частично, план дальнейшей декомпозиции в R12
+
+### Обновление SKILL.md:
+- Добавлено правило: при декомпозиции компонентов удалять unused imports сразу
+- Добавлено: datetime.utcnow() deprecated — всегда datetime.now(timezone.utc)
+- Добавлено: docker-compose.yml без version: атрибута
+
+### Подпись: Skill Modernizer АПРУV | 2026-05-08 v1.96.0
