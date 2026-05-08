@@ -284,3 +284,31 @@ make test:all && make test:coverage
 ### Правило 4 — Не пушим в develop без апрува Designer + Tech Writer
 
 Ждём апруv от обоих агентов. Порядок не важен — нужны все три.
+
+## 🔴 УРОК R11 (2026-05-08): Smoke-test export endpoints обязателен
+
+### После каждого деплоя тестировать все export endpoints:
+```bash
+PROJECT_ID=$(curl -s --connect-to "localhost:8002:127.0.0.1:8002" \
+  http://localhost:8002/api/v1/projects | python3 -c "
+import sys,json; d=json.load(sys.stdin); p=d.get('projects',[]); 
+print(p[0]['project_id'] if p else 'NONE')")
+
+for FORMAT in srt vtt ass; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-to "localhost:8002:127.0.0.1:8002" \
+    "http://localhost:8002/api/v1/projects/$PROJECT_ID/subtitles?format=$FORMAT")
+  echo "subtitles/$FORMAT: $STATUS (expect 200)"
+done
+
+for FORMAT in docx tsv txt; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-to "localhost:8002:127.0.0.1:8002" \
+    "http://localhost:8002/api/v1/projects/$PROJECT_ID/export/script?format=$FORMAT&include_source=true")
+  echo "script/$FORMAT: $STATUS (expect 200)"
+done
+```
+
+### PermissionError fix (R11 — runs/ файлы root):
+```bash
+docker exec --user root video-translator chown -R appuser:appuser /app/runs/
+```
+

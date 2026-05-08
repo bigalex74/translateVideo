@@ -31,8 +31,10 @@ deploy:
 	cd ui && npm run build
 	docker compose build
 	docker compose up -d
+	@# [D-RULE-02] Fix permissions: runs/ файлы могут быть root → appuser не может читать
+	@sleep 2 && docker exec --user root video-translator chown -R appuser:appuser /app/runs/ 2>/dev/null || true
 	@echo "$(GREEN)✔ Готово. Версия:$(RESET)"
-	@sleep 2 && curl -s http://localhost:8002/api/health
+	@sleep 1 && curl -s http://localhost:8002/api/health
 
 ## restart: Перезапустить контейнер без пересборки (только если нет изменений кода)
 restart:
@@ -317,15 +319,50 @@ round-close:
 	  fi; \
 	done; \
 	echo ""; \
+	echo "$(CYAN)━━━ УРОВЕНЬ 3: ОБЯЗАТЕЛЬНЫЕ ПРОВЕРКИ (2 новых) ━━━$(RESET)"; \
+	echo ""; \
+	echo "$(CYAN)━━━ [17/18] BUSINESS ANALYST — опрос пользователей ━━━$(RESET)"; \
+	SURVEY_FILE=$$(ls .agents/business-analyst/user-surveys/ 2>/dev/null | sort | tail -1); \
+	if [ -n "$$SURVEY_FILE" ]; then \
+	  SURVEY_DATE=$$(echo "$$SURVEY_FILE" | grep -oE "R[0-9]+"); \
+	  SURVEY_TODAY=$$(grep -c "$$TODAY\|$$YESTERDAY" ".agents/business-analyst/user-surveys/$$SURVEY_FILE" 2>/dev/null || echo 0); \
+	  if [ "$$SURVEY_TODAY" -gt 0 ]; then \
+	    echo "$(GREEN)  ✅ Business Analyst: опрос пользователей проведён ($$SURVEY_FILE)$(RESET)"; \
+	  else \
+	    echo "$(RED)  ❌ Business Analyst: нет актуального опроса пользователей$(RESET)"; \
+	    echo "$(YELLOW)     → Создай .agents/business-analyst/user-surveys/R{N}-survey.md$(RESET)"; \
+	    FAIL=1; \
+	  fi; \
+	else \
+	  echo "$(RED)  ❌ Business Analyst: папка user-surveys/ пуста$(RESET)"; \
+	  FAIL=1; \
+	fi; \
+	echo ""; \
+	echo "$(CYAN)━━━ [18/18] DESIGNER — smoke test export endpoints ━━━$(RESET)"; \
+	PROJECT_FOR_SMOKE=$$(curl -s --connect-to "localhost:8002:127.0.0.1:8002" http://localhost:8002/api/v1/projects 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('projects',[]); print(p[0]['project_id'] if p else '')" 2>/dev/null); \
+	if [ -n "$$PROJECT_FOR_SMOKE" ]; then \
+	  SRT_STATUS=$$(curl -s -o /dev/null -w "%{http_code}" --connect-to "localhost:8002:127.0.0.1:8002" "http://localhost:8002/api/v1/projects/$$PROJECT_FOR_SMOKE/subtitles?format=srt" 2>/dev/null); \
+	  DOCX_STATUS=$$(curl -s -o /dev/null -w "%{http_code}" --connect-to "localhost:8002:127.0.0.1:8002" "http://localhost:8002/api/v1/projects/$$PROJECT_FOR_SMOKE/export/script?format=docx&include_source=true" 2>/dev/null); \
+	  if [ "$$SRT_STATUS" = "200" ] && [ "$$DOCX_STATUS" = "200" ]; then \
+	    echo "$(GREEN)  ✅ Designer smoke: SRT=200 DOCX=200 — export работает$(RESET)"; \
+	  else \
+	    echo "$(RED)  ❌ Designer smoke: SRT=$$SRT_STATUS DOCX=$$DOCX_STATUS — export СЛОМАН$(RESET)"; \
+	    echo "$(YELLOW)     → docker exec --user root video-translator chown -R appuser:appuser /app/runs/$(RESET)"; \
+	    FAIL=1; \
+	  fi; \
+	else \
+	  echo "$(YELLOW)  ⚠️ Designer smoke: нет проектов для smoke test (пропускаем)$(RESET)"; \
+	fi; \
+	echo ""; \
 	if [ $$FAIL -eq 0 ]; then \
 	  echo "$(GREEN)╔══════════════════════════════════════════════════════════════════╗$(RESET)"; \
-	  echo "$(GREEN)║  ✅ ROUND CLOSE v3.0 ПРОЙДЕН — все 16 агентов апрувнули       ║$(RESET)"; \
+	  echo "$(GREEN)║  ✅ ROUND CLOSE v3.1 ПРОЙДЕН — 18 проверок OK                 ║$(RESET)"; \
 	  echo "$(GREEN)║  Можно делать: git push origin develop                          ║$(RESET)"; \
 	  echo "$(GREEN)╚══════════════════════════════════════════════════════════════════╝$(RESET)"; \
 	else \
 	  echo "$(RED)╔══════════════════════════════════════════════════════════════════╗$(RESET)"; \
-	  echo "$(RED)║  ❌ ROUND CLOSE FAILED — не все 16 агентов отработали           ║$(RESET)"; \
-	  echo "$(RED)║  Агенты работают РЕАЛЬНО: браузер + grep + docker + анализ      ║$(RESET)"; \
+	  echo "$(RED)║  ❌ ROUND CLOSE FAILED — не все 18 проверок пройдены           ║$(RESET)"; \
+	  echo "$(RED)║  Агенты работают РЕАЛЬНО: браузер + grep + docker + опрос      ║$(RESET)"; \
 	  echo "$(RED)╚══════════════════════════════════════════════════════════════════╝$(RESET)"; \
 	  exit 1; \
 	fi

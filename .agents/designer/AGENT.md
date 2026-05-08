@@ -507,3 +507,27 @@ localStorage.setItem('<РЕАЛЬНЫЙ_LS_KEY>', '1');
 **НИКОГДА не устанавливать угаданные ключи** (`onboarding_complete`, `tour_done` и т.д.) без проверки кода.
 
 ---
+
+## 🔴 УРОК R11 (2026-05-08): Скриншот ≠ Тестирование
+
+### Что пошло не так:
+- В R11 дизайнер сделал 3 скриншота, но **не кликнул ни одну кнопку ExportPanel**
+- Реальный баг (PermissionError на SRT/DOCX) был обнаружен только при ручной проверке
+
+### Обязательные action-тесты в ExportPanel (после любого изменения export):
+```
+1. click(button "Файлы")                     ← открыть вкладку
+2. Проверить наличие ссылок SRT/VTT/ASS/SBV/ZIP/DOCX/TSV/TXT в DOM
+3. Для каждой ссылки выполнить HTTP GET и убедиться в 200 OK:
+   curl -s -o /dev/null -w "%{http_code}" --connect-to "localhost:8002:127.0.0.1:8002" \
+     "http://localhost:8002/api/v1/projects/{id}/subtitles?format=srt"
+4. Если 404/500 → НЕМЕДЛЕННО фиксить (Правило 1 WORKFLOW)
+```
+
+### [D-RULE-02] PermissionError после пересборки Docker
+После каждого `make deploy` проверять права на runs/:
+```bash
+docker exec --user root video-translator chown -R appuser:appuser /app/runs/
+```
+Файлы создаются от root при некоторых операциях → контейнер (appuser) не может их читать.
+
