@@ -14,7 +14,19 @@ cd ui && npx vitest run --coverage 2>&1 | grep -E "All files|Branch" | head -3
 curl -s http://localhost:8002/api/health | python3 -c "import sys,json; print('PROD:', json.load(sys.stdin).get('version'))"
 ```
 
+### R10 УРОК: Smoke-тест новых endpoints (ОБЯЗАТЕЛЬНО после каждого деплоя)
+После добавления нового endpoint — **реально вызвать его curl-ом** с реальным проектом:
+```bash
+# Пример для нового export endpoint (добавлен в R10-И4):
+PROJECT=$(curl -s "http://localhost:8002/api/v1/projects?page_size=1" | python3 -c "import sys,json; print(json.load(sys.stdin)['projects'][0]['project_id'])" 2>/dev/null)
+curl -s -o /tmp/test.docx -w "%{http_code} %{content_type}" \
+  "http://localhost:8002/api/v1/projects/${PROJECT}/export/script?format=docx"
+file /tmp/test.docx  # должно вернуть "Microsoft Word 2007+"
+```
+**Принцип:** Юнит-тест ≠ smoke-test. Новая фича без curl-проверки на проде — не проверена.
+
 ### Пороги: Python ≥ 80% | Vitest branch ≥ 75% | 0 failures | prod == local
+
 
 ---
 

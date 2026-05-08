@@ -25,6 +25,32 @@ python3 -c "import os,time; s=os.stat('/home/user/.gemini/skills/translate-video
 - Записать в modernizer-log.md реальные фрагменты из grep (AP-XXX с кодом)
 - SKILL.md должен быть не старше 7 дней
 
+### 🔴 R10 КРИТИЧНЫЙ УРОК: Обновлять AGENT.md ВСЕХ агентов, не только SKILL.md
+**Проблема R10:** Skill Modernizer писал в лог "анализ проведён" без обновления AGENT.md агентов.
+**Результат:** Агенты в следующем раунде повторяли те же ошибки.
+
+**Обязательный алгоритм после каждого раунда:**
+```
+1. Для КАЖДОГО из 16 агентов:
+   - Что пошло не так в этом раунде? (реальное наблюдение)
+   - Есть ли в AGENT.md правило предотвращающее это? → Если нет → ДОБАВИТЬ
+2. Обновить translate-video/SKILL.md (версия, новые поля схем, паттерны)
+3. Обновить свой собственный AGENT.md (Self-Evolution Protocol)
+```
+
+**Список агентов для проверки каждый раунд:**
+| Агент | Типичные слабые места | Output-файл |
+|-------|----------------------|-------------|
+| designer | не проверяет новые компоненты, забывает прокрутку | design-log.md |
+| qa-monitor | только юниты, не smoke-тест новых endpoints | qa-report.md |
+| tech-writer | неправильный формат changelog, не обновляет ROADMAP | user-stories.md |
+| skill-modernizer | пишет лог вместо обновления AGENT.md | modernizer-log.md |
+| frontend | не запускает `npm run lint` и `tsc --noEmit` | review-log.md |
+| backend | не проверяет отступы при вставке if-веток | review-log.md |
+| devops | не замечает обход pre-push через make deploy | review-log.md |
+| project-manager | не проверяет соответствие changelog ↔ VERSION | review-log.md |
+| ceo | не требует доказательств агентской работы | review-log.md |
+
 ---
 
 ## Роль

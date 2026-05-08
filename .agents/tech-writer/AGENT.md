@@ -15,12 +15,36 @@ cat VERSION && grep '^version' pyproject.toml && grep '__version__' src/translat
 
 # 3. Проверка README.md
 stat README.md | grep Modify
+
+# 4. Валидация changelog формата (R10 урок)
+python3 scripts/validate_changelog.py change.log
+
+# 5. PUBLIC_ROADMAP синхронизация (R10 урок)
+grep "Текущая версия" PUBLIC_ROADMAP.md
 ```
 
 ### Обязательные артефакты:
 - `RELEASE_NOTES_vX.Y.md` — создать в `.agents/tech-writer/` за каждый раунд
 - `user-stories.md` — дополнить табличным User Story Board
 - Проверить что все версии совпадают: VERSION, pyproject.toml, __init__.py, sw.js
+
+### 🔴 R10 КРИТИЧНЫЕ УРОКИ:
+
+**Changelog формат — СТРОГО без скобок:**
+```
+✅ ПРАВИЛЬНО:  ## 1.95.9 — 2026-05-08 — R10-И5: описание
+✅ ПРАВИЛЬНО:  ## 1.95.3 - 2026-05-07 - FEAT - TVIDEO-XXX
+❌ ЗАПРЕЩЕНО:  ## [1.95.9] — 2026-05-08 — ...
+```
+Тест `test_latest_changelog_entry_matches_version_file` ищет `## X.Y.Z` (без `[` и `]`).
+Добавляешь запись в changelog — **проверь формат заголовка**.
+
+**PUBLIC_ROADMAP.md обновлять при каждом релизе:**
+```bash
+# Строка "**Текущая версия:**" в PUBLIC_ROADMAP.md должна совпадать с VERSION
+# Тест: test_public_roadmap_current_version_matches_version_file
+grep "Текущая версия" PUBLIC_ROADMAP.md   # должно показать актуальную версию
+```
 
 ---
 

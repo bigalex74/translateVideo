@@ -27,7 +27,7 @@
 12. Записать РЕАЛЬНЫЕ данные из evaluate_script в design-log.md
 ```
 
-### Чеклист (8 пунктов, все обязательны):
+### Чеклист (8 пунктов + R10 дополнения, все обязательны):
 1. Dashboard dark — bodyScrollWidth == windowWidth
 2. Mobile 375px — hasHorizontalScroll: false
 3. Settings: eyeButtonsCount≥1, hasResetAllBtn, faqCount≥8
@@ -36,6 +36,12 @@
 6. 1280px горизонтальный скролл: false
 7. Mobile 768px: grid в 1 колонку
 8. Light theme: bgColor RGB > 200 (светлый)
+
+### R10 дополнения к чеклисту (проверять если менялись эти компоненты):
+- **Batch DnD overlay**: при dragover показывает текст "Перетащите видео (можно несколько)" — `evaluate_script(() => document.querySelector('.dashboard-dnd-overlay')?.textContent)`
+- **Файлы → Экспорт скрипта**: кнопки DOCX/TSV/TXT видны в панели — **требуется прокрутка вниз** (`.right-tab-content` div), проверять через evaluate_script с scrollTop
+- **Dashboard карточка → стоимость**: если у проекта есть billing_snapshots — видна строка "💰 Стоимость $X.XXX" — проверять у completed проектов
+- **Глоссарий**: виден без professional-режима — `document.querySelector('[class*="glossary"]')` не null при любых настройках
 
 ---
 
