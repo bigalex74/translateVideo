@@ -937,43 +937,6 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
             <span className="adv-hint">Нажмите Enter или «+» для добавления</span>
           </div>
 
-          {/* Z2.9: Глоссарий с переводами */}
-          <div className="adv-field">
-            <label className="adv-label">📖 Глоссарий (термин → перевод)</label>
-            <div className="adv-glossary">
-              {(c.glossary_terms ?? []).map((entry, idx) => (
-                <div key={idx} className="adv-glossary-row">
-                  <span className="adv-glossary-source">{entry.source}</span>
-                  <span className="adv-glossary-arrow">→</span>
-                  <span className="adv-glossary-target">{entry.target}</span>
-                  <button
-                    type="button"
-                    className="adv-tag-remove"
-                    onClick={() => {
-                      const terms = [...(c.glossary_terms ?? [])];
-                      terms.splice(idx, 1);
-                      onChange({ glossary_terms: terms });
-                    }}
-                    disabled={disabled}
-                    aria-label={`Удалить ${entry.source}`}
-                  >×</button>
-                </div>
-              ))}
-              <GlossaryAddRow
-                disabled={disabled}
-                onAdd={(src, tgt) => {
-                  if (!src || !tgt) return;
-                  const terms = [...(c.glossary_terms ?? [])];
-                  if (!terms.some(t => t.source === src)) {
-                    terms.push({ source: src, target: tgt });
-                    onChange({ glossary_terms: terms });
-                  }
-                }}
-              />
-            </div>
-            <span className="adv-hint">Термины, которые LLM обязан перевести именно так</span>
-          </div>
-
           {/* Режим разработчика */}
           <div className="adv-field adv-field--devmode">
             <div className="adv-devmode-row">
@@ -1000,6 +963,49 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* ── Глоссарий (всегда доступен, вне зависимости от режима) ────────── */}
+      <div className="adv-section">
+        <div className="adv-section-title">📖 Глоссарий терминов</div>
+        <div className="adv-field">
+          <label className="adv-label">Термин → Перевод</label>
+          <div className="adv-glossary">
+            {(c.glossary_terms ?? []).map((entry, idx) => (
+              <div key={idx} className="adv-glossary-row">
+                <span className="adv-glossary-source">{entry.source}</span>
+                <span className="adv-glossary-arrow">→</span>
+                <span className="adv-glossary-target">{entry.target}</span>
+                <button
+                  type="button"
+                  className="adv-tag-remove"
+                  onClick={() => {
+                    const terms = [...(c.glossary_terms ?? [])];
+                    terms.splice(idx, 1);
+                    onChange({ glossary_terms: terms });
+                  }}
+                  disabled={disabled}
+                  aria-label={`Удалить ${entry.source}`}
+                >×</button>
+              </div>
+            ))}
+            <GlossaryAddRow
+              disabled={disabled}
+              onAdd={(src, tgt) => {
+                if (!src || !tgt) return;
+                const terms = [...(c.glossary_terms ?? [])];
+                if (!terms.some(t => t.source === src)) {
+                  terms.push({ source: src, target: tgt });
+                  onChange({ glossary_terms: terms });
+                }
+              }}
+            />
+          </div>
+          <span className="adv-hint">
+            Задайте пары «оригинал → перевод» для брендов, имён, терминов.
+            LLM обязан использовать именно эти варианты. Пример: AI → ИИ, ChatGPT → ChatGPT.
+          </span>
+        </div>
+      </div>
 
       {/* ══ Субтитры ══════════════════════════════════════════════════════════ */}
       <div className="adv-section">
