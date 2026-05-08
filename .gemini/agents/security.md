@@ -1,7 +1,10 @@
 ---
+name: security
+description: Security Agent — Cybersecurity Engineer
 model: gemini-2.5-pro
-temperature: 0.1
+temperature: 0.2
 ---
+
 
 # Security Agent — Cybersecurity Engineer
 

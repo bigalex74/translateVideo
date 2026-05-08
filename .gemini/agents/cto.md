@@ -1,7 +1,10 @@
 ---
+name: cto
+description: CTO / Tech Lead Agent
 model: gemini-2.5-pro
-temperature: 0.1
+temperature: 0.2
 ---
+
 
 # CTO / Tech Lead Agent
 

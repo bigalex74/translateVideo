@@ -1,7 +1,10 @@
 ---
+name: backend
+description: Backend Agent — Senior Backend Developer
 model: gemini-2.5-pro
 temperature: 0.2
 ---
+
 
 # Backend Agent — Senior Backend Developer
 
