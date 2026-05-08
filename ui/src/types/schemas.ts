@@ -136,6 +136,8 @@ export interface VideoProject {
     started_at?: string | null;
     /** Сообщение об ошибке (для failed статуса) */
     error?: string | null;
+    /** Биллинг по этапам: {stage: cost_usd} */
+    billing_snapshots?: Record<string, number>;
 }
 
 export interface ProjectListResponse {

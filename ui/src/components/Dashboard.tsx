@@ -473,6 +473,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                     {Array.isArray(project.segments) ? project.segments.length : project.segments}
                   </span>
                 </div>
+                {/* И5: Стоимость запуска [Виктор#4] */}
+                {project.billing_snapshots && Object.keys(project.billing_snapshots).length > 0 && (() => {
+                  const total = Object.values(project.billing_snapshots).reduce((a, b) => a + b, 0);
+                  return total > 0 ? (
+                    <div className="meta-item">
+                      <span className="meta-label">💰 Стоимость</span>
+                      <span className="meta-value meta-value--cost" title={Object.entries(project.billing_snapshots).map(([k,v]) => `${k}: $${v.toFixed(4)}`).join('\n')}>
+                        ${total.toFixed(3)}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               <div className="stages">
