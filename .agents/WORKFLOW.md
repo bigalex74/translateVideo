@@ -37,114 +37,83 @@ git add -A && git commit -m "fix(TVIDEO-XXX): описание"
 
 ---
 
-## 🔴 ПРАВИЛО 2 — Пуш в develop только после апрува всех агентов
+## 🔴 ПРАВИЛО 2 — Двухуровневая система апрувов
 
-**Ни один merge в `develop` не выполняется** пока все агенты не дали апруv.
+### Уровень 1 — pre-push (Agent Gate v4.0) — каждый пуш в develop
 
-### Кто даёт апруv:
+Автоматически проверяется при `git push origin develop`.
+
+**8 агентов code-quality:**
 
 | Агент | Что проверяет | Файл апрува |
 |---|---|---|
-| **Designer** | Визуальная проверка (чеклист 8 пунктов) | `design-log.md` |
-| **QA Monitor** | Тесты зелёные, coverage ≥80%, деплой OK | `qa-report.md` |
-| **Tech Writer** | Changelog заполнен, версия соответствует | `user-stories.md` |
-| **Skill Modernizer** | Антипаттерны, скиллы обновлены, порог тестов актуален | `modernizer-log.md` |
+| **Designer** | PNG скриншоты + АПРУV + дата | `design-log.md` |
+| **QA Monitor** | Тесты зелёные + АПРУV + дата | `qa-report.md` |
+| **Tech Writer** | RELEASE_NOTES + АПРУV + дата | `user-stories.md` |
+| **Skill Modernizer** | Grep-фрагменты + АПРУV + дата | `modernizer-log.md` |
+| **Backend** | compileall + grep-команды + АПРУV | `review-log.md` |
+| **Frontend** | tsc/lint результаты + АПРУV | `review-log.md` |
+| **DevOps** | docker/disk данные + git push + АПРУV | `review-log.md` |
+| **Security** | shell=True/CORS/yaml.load проверки + АПРУV | `review-log.md` |
 
-### Формат апрува в output-файле:
+### Уровень 2 — make round-close v3.0 — закрытие раунда
+
+Запускается вручную перед закрытием раунда. Включает Уровень 1 + стратегических агентов.
+
+**8 стратегических агентов:**
+
+| Агент | Что анализирует | Файл апрува |
+|---|---|---|
+| **CEO** | Бизнес-ценность, монетизация, риски | `review-log.md` |
+| **CTO** | Архитектура, техдолг, масштабируемость | `review-log.md` |
+| **Project Manager** | Velocity, backlog, процесс | `review-log.md` |
+| **QA Engineer** | E2E, нагрузочные, интеграционные тесты | `review-log.md` |
+| **UX Designer** | UX паттерны, мобильный, доступность | `review-log.md` |
+| **ML Engineer** | Качество моделей, стоимость, accuracy | `review-log.md` |
+| **Business Analyst** | Бизнес-требования, user stories | `review-log.md` |
+| **System Analyst** | Системная архитектура, API, схемы | `review-log.md` |
+
+### Формат апрува (обязательный):
 
 ```markdown
-## ✅ АПРУV — Round N (YYYY-MM-DD)
-
-**Ветка:** TVIDEO-XXX-name
-**Статус:** APPROVED / BLOCKED
-
-### Проверки:
-- [ ] [конкретный пункт] — ✅ OK / ❌ БЛОК
-
-### Причина блока (если есть):
-- ...
-
-### Подпись: [Имя Агента] | [время]
-```
-
-### Процедура:
-
-```
-1. Разработчик/агент заканчивает фичу в ветке TVIDEO-XXX
-2. Запускает make round-close  ← обязательный шаг перед merge
-3. Designer → визуальная проверка (grep LS_KEY сначала!) → апруv в design-log.md
-4. QA Monitor → прогон тестов, coverage ≥80% → апруv в qa-report.md
-5. Tech Writer → проверка changelog → апруv в user-stories.md
-6. Skill Modernizer → антипаттерны, обновление скиллов → отчёт в modernizer-log.md
-7. Только при ✅ от ВСЕХ ЧЕТЫРЁХ → merge в develop + push
-8. pre-push hook автоматически проверяет тесты + coverage + апрувы агентов (48ч)
+### Подпись: [Имя Агента] АПРУV | YYYY-MM-DD vX.Y.Z
 ```
 
 ---
 
-## 🟡 ПРАВИЛО 3 — Дизайн-баги фиксятся в текущем раунде
-
-**Designer обнаружил нестыковку в вёрстке/дизайне:**
-
-1. **НЕ пишет в бэклог** (если можно починить сейчас)
-2. **НЕ ждёт следующего раунда**
-3. Создаёт ветку прямо в текущем раунде:
+## 🔴 ПРАВИЛО 3 — Правильный деплой-workflow
 
 ```bash
-git checkout develop
-git checkout -b TVIDEO-XXX-design-fix-short-desc
-```
+# НЕПРАВИЛЬНО (обходит gate):
+make deploy
+# Нет, git push не выполняется → агенты не проверяются!
 
-4. Фиксит, визуально проверяет (Chrome DevTools MCP)
-5. Добавляет в design-log.md с пометкой "исправлено в раунде N"
-6. Ждёт апрув QA + TechWriter перед merge в develop
-
-**Исключение:** Бэклог — только для улучшений (не для багов). Баги = немедленный фикс.
-
----
-
-## 🟡 ПРАВИЛО 4 — Приоритет блокеров
-
-Любой агент может поставить **БЛОК** на пуш в develop:
-
-```markdown
-## ❌ БЛОК — Round N
-
-**Причина:** [конкретная]
-**Что нужно:** [конкретное действие]
-**Кто должен исправить:** [Designer / QA / Developer]
-```
-
-Пуш в develop **невозможен** пока блок не снят. Снять блок = исправить + повторный апруv заблокировавшего агента.
-
----
-
-## Схема процесса
-
-```
-TVIDEO-XXX branch
-     │
-     ├── [разработка]
-     │
-     ├── make round-close  ← ЗАПУСТИ ПЕРЕД merge
-     │     │
-     │     ├── [Designer: grep LS_KEY → визуальная проверка]
-     │     │     ├── баг найден → немедленно fix → перепроверка
-     │     │     └── OK → ✅ апруv в design-log.md
-     │     ├── [QA Monitor: тесты + coverage]
-     │     │     ├── падает → немедленно fix → перезапуск
-     │     │     └── OK → ✅ апруv в qa-report.md
-     │     ├── [Tech Writer: changelog]
-     │     │     ├── не заполнен → немедленно fill → перепроверка
-     │     │     └── OK → ✅ апруv в user-stories.md
-     │     └── [Skill Modernizer: антипаттерны + скиллы]
-     │           └── OK → ✅ отчёт в modernizer-log.md
-     │
-     └── [ВСЕ 4 агента ✅] → merge --no-ff в develop → push
-                           ↓ pre-push hook (unit tests + coverage + AGENT GATE)
-                           ↓ блокирует если апрувы старше 48ч
+# ПРАВИЛЬНО:
+make deploy                   # ← деплой в прод
+git push origin develop       # ← запускает pre-push gate (8 агентов)
 ```
 
 ---
 
-*Последнее обновление: 2026-05-06 | v2.0 (добавлен Skill Modernizer + make round-close + pre-push Agent Gate)*
+## 🔴 ПРАВИЛО 4 — Changelog формат
+
+```
+✅ ПРАВИЛЬНО:  ## 1.95.9 — 2026-05-08 — R10-И5: описание
+✅ ПРАВИЛЬНО:  ## 1.95.3 - 2026-05-07 - FEAT - TVIDEO-XXX
+❌ ЗАПРЕЩЕНО:  ## [1.95.9] — 2026-05-08 — ...
+```
+
+Тест `test_latest_changelog_entry_matches_version_file` ищет `## X.Y.Z` (без скобок).
+
+---
+
+## Процедура полного закрытия раунда
+
+```
+1. Все итерации раунда завершены
+2. make deploy (деплой в прод)
+3. Запустить все 16 агентов (каждый выполняет реальные команды и пишет АПРУV)
+4. make round-close v3.0 → должно показать 16/16 ✅
+5. git push origin develop → pre-push gate (8 агентов из 16) → должен пройти
+6. Обновить SKILL.md (Skill Modernizer)
+```

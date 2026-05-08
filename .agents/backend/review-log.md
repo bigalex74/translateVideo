@@ -21,3 +21,32 @@
 > Запуск: make agent:backend или scripts/run-agent.sh backend
 
 ---
+
+---
+## Backend Review — 2026-05-08 v1.95.9
+
+### Команды:
+```bash
+python3 -m compileall -q src       → Exit: 0 ✅
+grep -rn "async def" src/          → 10 async функций ✅
+grep -rn "TODO|FIXME" src/         → 0 (нет техдолга в маркерах) ✅
+```
+
+### Замечания по коду (10):
+| # | Замечание | Файл:строка | 🔴/🟡/🟢 |
+|---|-----------|-------------|---------|
+| 1 | `except Exception:` без логирования — скрывает ошибки | `render/legacy.py:227` | 🟡 |
+| 2 | `except Exception:` в analytics endpoint | `analytics.py:37,87` | 🟡 |
+| 3 | `except Exception as exc:` в projects API | `projects.py:292,353` | 🟡 |
+| 4 | `urllib.request.urlopen` без allowlist хостов | `provider_catalog.py:223` | 🟡 |
+| 5 | `urllib.request.urlopen` без allowlist | `timing/cloud.py:744` | 🟡 |
+| 6 | `requests.post` без retry wrapper | `tts/compress.py:76` | 🟡 |
+| 7 | `datetime.utcnow()` — deprecated в Python 3.12+ | `projects.py:2652` | 🟡 |
+| 8 | 10 async def — убедиться что все используют asyncio.sleep, не time.sleep | `src/translate_video/` | 🟢 |
+| 9 | `tts/compress.py` — requests без timeout явного | `compress.py:76` | 🟢 |
+| 10 | TODO/FIXME: 0 — хорошо, но могут быть неотслеживаемые задачи | `src/` | 🟢 |
+
+### Критичных блокеров: 0
+### Требует внимания (🟡): 7 — все существующий код, не новый
+
+### Подпись: Backend АПРУV | 2026-05-08 v1.95.9

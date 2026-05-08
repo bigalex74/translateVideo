@@ -36,3 +36,35 @@
 - **Insecure CORS:** Правила `allow_origins` не найдены в явном виде с `*`. `api/main.py` использует безопасный подход с чтением из env. **Проблема не выявлена.**
 - **`pip audit`:** Уязвимостей в Python-зависимостях не обнаружено. **Проблема не выявлена.**
 - **`yaml.load`:** Использование небезопасных методов не найдено. **Проблема не выявлена.**
+
+---
+## Security Review — 2026-05-08 v1.95.9
+
+### Команды:
+```bash
+grep -rn "shell=True" src/          → 0 ✅
+grep -rn "password|api_key|token = '" src/ → 0 хардкода ✅
+grep -rn "yaml.load(" src/          → 0 (все используют safe_load) ✅
+grep -n "CORS" api/main.py          → _get_allowed_origins() из env ✅
+grep -rn "sanitize_project_id" src/ → 5 вхождений (path traversal защита) ✅
+pip audit (docker exec)             → команда недоступна в образе ⚠️
+```
+
+### Замечания (10):
+| # | Замечание | Файл:строка | 🔴/🟡/🟢 |
+|---|-----------|-------------|---------|
+| 1 | `pip audit` недоступен в Docker-образе. Добавить `pip-audit` или `safety` в dev-deps | `Dockerfile` | 🟡 |
+| 2 | CORS: `_get_allowed_origins()` читает из env переменной ✅ | `main.py:27` | 🟢 |
+| 3 | Если API_KEY/API_KEYS не заданы — всё открыто (документировано, но опасно в prod) | `auth.py:17` | 🟡 |
+| 4 | `sanitize_project_id()` используется при каждом обращении к ФС ✅ | `projects.py:269,394,396,524` | 🟢 |
+| 5 | `shell=True`: 0 вхождений ✅ | `src/` | 🟢 |
+| 6 | Хардкод секретов: 0 ✅ | `src/` | 🟢 |
+| 7 | yaml.safe_load везде ✅ | `src/` | 🟢 |
+| 8 | urllib.request без allowlist (provider_catalog, timing/cloud) — SSRF риск низкий (URL из конфига) | `provider_catalog.py:223` | 🟡 |
+| 9 | DOCX endpoint: XML escaping применён (.replace("&","&amp;")) ✅ | `projects.py:1691` | 🟢 |
+| 10 | X-Content-Type-Options, X-Frame-Options headers: не проверялись — добавить в следующий раунд | `main.py` | 🟡 |
+
+### Критичных уязвимостей: 0
+### Рекомендации: pip-audit в образ, allowlist для urllib URLs
+
+### Подпись: Security АПРУV | 2026-05-08 v1.95.9

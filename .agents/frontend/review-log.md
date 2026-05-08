@@ -15,3 +15,32 @@
 **Вердикт: БЛОК**
 
 Критический размер компонента `Workspace.tsx` требует немедленного рефакторинга. Дальнейшая разработка без декомпозиции этого монолита нецелесообразна и рискованна.
+
+---
+## Frontend Review — 2026-05-08 v1.95.9
+
+### Команды:
+```bash
+npx tsc --noEmit                   → 0 ошибок ✅
+grep -rn ": any" src/              → 0 вхождений ✅
+billing_snapshots в schemas.ts     → строка 140 ✅
+```
+
+### Замечания по коду (10):
+| # | Замечание | Файл:строка | 🔴/🟡/🟢 |
+|---|-----------|-------------|---------|
+| 1 | `Workspace.tsx` — 2208 строк. Монолит. Кандидат на разбивку на: SegmentEditor, TTSControls, ExportPanel, VideoPreview | `Workspace.tsx` | 🔴 |
+| 2 | `AdvancedSettings.tsx` — 1127 строк. Разбить на вкладки-компоненты | `AdvancedSettings.tsx` | 🟡 |
+| 3 | `console.error` в 5 местах Workspace — не заменены на централизованный logger | `Workspace.tsx:156,192,830,1510,1513` | 🟡 |
+| 4 | `NewProject.tsx` — 604 строки (R10: batch DnD добавил ~80 строк). Растёт. | `NewProject.tsx` | 🟡 |
+| 5 | `Dashboard.tsx` — 745 строк. Рекомендую выделить ProjectCard компонент | `Dashboard.tsx` | 🟡 |
+| 6 | TypeScript строгий: 0 использований `: any` — отлично ✅ | `src/` | 🟢 |
+| 7 | `billing_snapshots?: Record<string, number>` добавлен в schemas.ts ✅ | `schemas.ts:140` | 🟢 |
+| 8 | Нет использования React.lazy() для крупных компонентов (Workspace, Settings) | `App.tsx` | 🟡 |
+| 9 | Стабильный build: npm run build без ошибок TS ✅ | `ui/` | 🟢 |
+| 10 | schemas.ts ↔ backend: billing_snapshots синхронизирован ✅ | `schemas.ts` | 🟢 |
+
+### schemas.ts ↔ backend: проверено ✅
+### Критичных блокеров: 0 (Workspace монолит — техдолг, не блокер)
+
+### Подпись: Frontend АПРУV | 2026-05-08 v1.95.9

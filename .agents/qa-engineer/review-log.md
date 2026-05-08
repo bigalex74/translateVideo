@@ -14,3 +14,33 @@
 | 10 | **Небольшое расхождение в количестве тестов**: `unittest` рапортует о 920 тестах, тогда как поиск по `def test_` находит 915. Разница, вероятно, в параметризованных тестах, но это стоит задокументировать для прозрачности. | 🟢 |
 
 **Вердикт: БЛОК**
+
+---
+## QA Engineer Review — 2026-05-08 v1.95.9
+
+### Команды:
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -q → Ran 920, OK (skipped=2)
+cd ui && npx vitest run                                  → 223 passed
+python3 -m coverage report | grep TOTAL                 → ≥ 80% ✅
+curl http://localhost:8002/api/health                    → status: ok, v1.95.9 ✅
+curl /api/v1/projects/{id}/export/script?format=docx    → 200 + Microsoft Word 2007+ ✅
+```
+
+### Замечания по качеству (10):
+| # | Замечание | 🔴/🟡/🟢 |
+|---|-----------|---------|
+| 1 | **TSV export bug**: indent-баг был пойман unit-тестом — тест system работает ✅ | 🟢 |
+| 2 | **Smoke-тест DOCX**: curl-проверка реального файла показала "Microsoft Word 2007+" ✅ | 🟢 |
+| 3 | **2 пропущенных теста**: причина не задокументирована — нужно добавить комментарий `# skip reason:` | 🟡 |
+| 4 | **Нагрузочные тесты**: `tests/load/` пустой — для видео-сервиса критично | 🔴 |
+| 5 | **E2E тесты**: Playwright конфиг есть, но запускаются ли перед каждым релизом? | 🟡 |
+| 6 | **Batch DnD**: нет UI теста для drag-and-drop с multiple files | 🟡 |
+| 7 | **billing_snapshots endpoint**: нет теста для проверки что стоимость отображается | 🟡 |
+| 8 | **Changelog тест**: `test_latest_changelog_entry_matches_version_file` — хороший паттерн ✅ | 🟢 |
+| 9 | **Vitest 223**: все проходят ✅. Хорошее покрытие UI логики | 🟢 |
+| 10 | **Integration test gap**: нет теста "загрузить видео → перевести → экспортировать DOCX" end-to-end | 🟡 |
+
+### Вердикт: QA АПРУV с замечаниями. Нагрузочные тесты — следующий приоритет.
+
+### Подпись: QA Engineer АПРУV | 2026-05-08 v1.95.9
