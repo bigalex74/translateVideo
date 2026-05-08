@@ -61,3 +61,4 @@
 {"level":"info","message":"MCP server started successfully","service":"mcp-puppeteer","timestamp":"2026-05-08 20:49:11.576"}
 {"level":"info","message":"Starting MCP server","service":"mcp-puppeteer","timestamp":"2026-05-08 20:49:50.937"}
 {"level":"info","message":"MCP server started successfully","service":"mcp-puppeteer","timestamp":"2026-05-08 20:49:50.939"}
+{"level":"info","message":"Puppeteer MCP Server closing","service":"mcp-puppeteer","timestamp":"2026-05-08 21:47:29.529"}

@@ -173,8 +173,16 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
 
   /* ─── Drag & Drop ─────────────────────────────────────────────────────── */
 
+  const MAX_UPLOAD_MB = 2048; // совпадает с MAX_UPLOAD_MB на backend
+
   const applyFile = (f: File) => {
+    // Проверка размера ДО загрузки
+    if (f.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setError(`Файл слишком большой: ${(f.size / 1024 / 1024 / 1024).toFixed(2)} ГБ. Максимальный размер: ${MAX_UPLOAD_MB} МБ (${MAX_UPLOAD_MB / 1024} ГБ).`);
+      return;
+    }
     setFile(f);
+    setError('');
     if (!projectId) {
       const name = f.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
       setProjectId(name);
@@ -351,6 +359,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
                     <span className="drop-prompt-title">{t('newProject.dropVideo', locale)}</span>
                     <span className="text-muted text-sm">{t('newProject.clickToChoose', locale)}</span>
                     <span className="drop-prompt-formats">MP4, MKV, MOV, AVI, YouTube</span>
+                    <span className="text-muted text-sm" style={{marginTop: 4}}>До {MAX_UPLOAD_MB / 1024} ГБ · видео или аудио</span>
                   </div>
                 )}
               </div>
