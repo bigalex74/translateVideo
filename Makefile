@@ -1,4 +1,4 @@
-.PHONY: help build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:metadata test\:release ci\:quick release\:checklist release\:fix release\:finish lint ui-build ui-dev visual-check visual-check-ci css-guard
+.PHONY: help session-start build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:metadata test\:release ci\:quick release\:checklist release\:fix release\:finish lint ui-build ui-dev visual-check visual-check-ci css-guard
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -6,6 +6,51 @@ GREEN := \033[0;32m
 YELLOW := \033[0;33m
 RED   := \033[0;31m
 RESET := \033[0m
+
+## session-start: ⚡ ЗАПУСКАТЬ В НАЧАЛЕ КАЖДОЙ СЕССИИ — контекст для AI-ассистента
+session-start:
+	@echo ""
+	@echo "$(CYAN)╔══════════════════════════════════════════════════════════════════╗$(RESET)"
+	@echo "$(CYAN)║  translateVideo — SESSION START BRIEFING                        ║$(RESET)"
+	@echo "$(CYAN)╚══════════════════════════════════════════════════════════════════╝$(RESET)"
+	@echo ""
+	@echo "$(CYAN)📌 ВЕРСИЯ И ВЕТКА:$(RESET)"
+	@echo "  Версия:  $$(cat VERSION)"
+	@echo "  Ветка:   $$(git branch --show-current)"
+	@echo "  Прод:    $$(curl -s --connect-to 'localhost:8002:127.0.0.1:8002' http://localhost:8002/api/health 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); print("v"+d["version"]+" "+d["status"])' 2>/dev/null || curl -s http://127.0.0.1:8002/api/health 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); print("v"+d["version"]+" "+d["status"])' 2>/dev/null || echo 'недоступен')"
+	@echo ""
+	@echo "$(CYAN)📋 ПОСЛЕДНИЕ 5 КОММИТОВ:$(RESET)"
+	@git log --oneline -5
+	@echo ""
+	@echo "$(CYAN)🔴 БЭКЛОГ (высокий приоритет):$(RESET)"
+	@echo "  С3  — Email SMTP уведомления (Светлана ждёт)"
+	@echo "  Г7  — WebSocket вместо polling (CTO, CEO)"
+	@echo "  SA  — projects.py декомпозиция (~2700 строк)"
+	@echo "  У1  — ZIP кнопка primary button (Тимур)"
+	@echo ""
+	@echo "$(CYAN)🤖 ПРОТОКОЛ АГЕНТОВ (ОБЯЗАТЕЛЬНО перед push):$(RESET)"
+	@echo "  1. make round-close     — 8 авто-проверок (тесты, tsc, security, docker...)"
+	@echo "  2. git push origin develop  — pre-push hook"
+	@echo ""
+	@echo "  Что значит реальная работа агентов:"
+	@echo "  $(YELLOW)Designer$(RESET)     → navigate_page → click кнопки → take_screenshot + HTTP smoke"
+	@echo "  $(YELLOW)QA Monitor$(RESET)   → python3 -m unittest + результат в qa-report.md"
+	@echo "  $(YELLOW)Skill Mod.$(RESET)   → обновить AGENT.md файлы (не только лог)"
+	@echo "  $(YELLOW)BA Survey$(RESET)    → user-surveys/R{N}-survey.md с персонами"
+	@echo "  $(YELLOW)Tech Writer$(RESET)  → RELEASE_NOTES + roadmap версия совпадает"
+	@echo ""
+	@echo "$(CYAN)⚠️  D-RULE-02 (после make deploy):$(RESET)"
+	@echo "  docker exec --user root video-translator chown -R appuser:appuser /app/runs/"
+	@echo "  (без этого → PermissionError 500 на SRT/DOCX экспорте)"
+	@echo ""
+	@echo "$(CYAN)📁 КЛЮЧЕВЫЕ ФАЙЛЫ:$(RESET)"
+	@echo "  .agents/WORKFLOW.md            — правила межагентного взаимодействия"
+	@echo "  .agents/*/AGENT.md             — протоколы агентов"
+	@echo "  .agents/business-analyst/user-surveys/ — опросы пользователей"
+	@echo "  Makefile (round-close v4.0)    — gate перед push"
+	@echo ""
+	@echo "$(GREEN)✅ Брифинг завершён. Можно работать.$(RESET)"
+	@echo ""
 
 ## help: Показать все доступные команды
 help:
