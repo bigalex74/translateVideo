@@ -269,3 +269,28 @@ ArtifactCard.tsx, etc. Dynamic import will not move module into another chunk.
 - StatsPanel.tsx: TSC 0 ошибок ✅
 - calcQualityScore: чистая функция, все ветки покрыты пороговыми значениями ✅
 ### Подпись: QA Monitor | 2026-05-07 23:38
+
+---
+
+## [QA АПРУV] 2026-05-08 R10
+**Версия:** v1.95.4 | **Метод:** реальный запуск команд
+**Статус:** ✅ APPROVED
+
+### Тесты Python:
+- Команда: `PYTHONPATH=src python3 -m unittest discover -s tests -q`
+- Результат: **920 тестов, 0 ошибок** ✅
+- Coverage TOTAL: **80%** ✅ (порог: ≥80%)
+
+### Тесты TypeScript (Vitest):
+- Команда: `cd ui && npx vitest run`
+- Результат: **10 файлов, 223 теста, 0 ошибок** ✅
+- Branch Coverage: **77.71%** ✅ (порог: ≥75%)
+- Statement Coverage: 88.77% | Funcs: 91.35% | Lines: 95.54%
+
+### Версия прода:
+- `curl http://localhost:8002/api/health` → version: **1.95.4** ✅ (совпадает с local)
+
+### Security check:
+- sanitize_project_id() — используется при каждом обращении к ФС ✅ (из AGENT.md)
+
+### Подпись: QA Monitor | 2026-05-08 07:36

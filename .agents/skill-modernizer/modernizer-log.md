@@ -264,3 +264,43 @@
 4. Что изменить в AGENT.md? → Добавить в алгоритм Режима A: **явный шаг «выполнить grep+edit SKILL.md» с проверкой stat (дата изменения)**
 
 **Подпись:** Skill Modernizer | 2026-05-08 07:17
+
+---
+
+## [SKILL-MODERNIZER] РЕАЛЬНЫЙ АУДИТ КОДА R10 — 2026-05-08 07:36
+**Метод:** grep по реальному коду + stat файлов
+
+### Найденные антипаттерны (через grep):
+
+#### AP-R10-01: provider_catalog.py — urlopen без with_retry
+```
+src/translate_video/core/provider_catalog.py:223: urlopen(request, timeout=timeout)
+```
+Функция `_get_json()` используется для проверки балансов провайдеров. Без retry — при временном сбое сети проверка падает. **Приоритет: MEDIUM** (не критично, используется только в UI balance check, не в пайплайне).
+
+#### AP-R10-02: timing/cloud.py — _post_json без with_retry
+```
+src/translate_video/timing/cloud.py:712: def _post_json(...)
+```
+Функция облачного timing-провайдера. Уже обёрнута вызывающей стороной? — требует проверки. **Приоритет: LOW** (timing/cloud — вспомогательный).
+
+#### AP-R10-03: OnboardingTour.resetOnboarding() — localStorage без confirm
+```
+ui/src/components/OnboardingTour.tsx:144: localStorage.removeItem(LS_KEY);
+```
+Функция экспортируется и вызывается из Settings. В Settings.tsx вызов обёрнут в confirm() ✅. Сама функция без confirm — это норма (confirm на уровне вызывающего).
+
+#### AP-R10-04: dev-agents/SKILL.md — не обновлялся с 2026-05-06
+Последнее изменение: 2026-05-06 09:19. Нет правил из R10. **Требует обновления.**
+
+### SKILL.md обновлено:
+- translate-video/SKILL.md: ✅ обновлён сегодня (v1.95.4, 920+223 тестов, правила #8-12)
+- dev-agents/SKILL.md: ⚠️ требует обновления (в следующем раунде)
+
+### Self-Evolution:
+1. Анализ глубокий? — Да, реальный grep по коду
+2. Все антипаттерны? — 4 найдено. AP-R10-01/02 — реальные риски
+3. AP-R10-03 — false positive, правильно идентифицирован как ОК
+4. dev-agents/SKILL.md — выявлена задолженность
+
+### Подпись: Skill Modernizer | 2026-05-08 07:36
