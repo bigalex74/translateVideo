@@ -203,13 +203,22 @@ round-close:
 	@FAIL=0; \
 	TODAY=$$(date +%Y-%m-%d); \
 	YESTERDAY=$$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || echo "0000-00-00"); \
-	echo "\033[0;36m━━━ [1] QA: Python тесты — запускаем ЗДЕСЬ ━━━\033[0m"; \
+	echo "\033[0;36m━━━ [1] QA Monitor: Python тесты — запускаем ЗДЕСЬ ━━━\033[0m"; \
 	PY_RESULT=$$(PYTHONPATH=src python3 -m unittest discover -s tests -q 2>&1 | tail -2); \
 	echo "  $$PY_RESULT"; \
 	if echo "$$PY_RESULT" | grep -q "^OK"; then \
 	  echo "\033[0;32m  ✅ Python тесты: PASS\033[0m"; \
 	else \
 	  echo "\033[0;31m  ❌ Python тесты: FAIL — нельзя закрыть раунд\033[0m"; \
+	  FAIL=1; \
+	fi; \
+	QA_REPORT_DATE=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/qa-monitor/qa-report.md 2>/dev/null || echo 0); \
+	QA_REPORT_TESTS=$$(grep -cE "[0-9]+ (test|ok|passed|FAIL)|OK \(|skipped=[0-9]" .agents/qa-monitor/qa-report.md 2>/dev/null || echo 0); \
+	if [ "$$QA_REPORT_DATE" -gt 0 ] && [ "$$QA_REPORT_TESTS" -gt 0 ]; then \
+	  echo "\033[0;32m  ✅ QA Monitor: qa-report.md обновлён с реальными числами тестов\033[0m"; \
+	else \
+	  echo "\033[0;31m  ❌ QA Monitor: qa-report.md не обновлён или нет чисел тестов\033[0m"; \
+	  echo "     → Запиши результат unittest в .agents/qa-monitor/qa-report.md"; \
 	  FAIL=1; \
 	fi; \
 	echo ""; \
