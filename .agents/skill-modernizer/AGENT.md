@@ -1,5 +1,17 @@
 # 🧠 Skill Modernizer Agent — Эволюция стратегии
 
+## R14 Update (2026-05-09)
+### Новые паттерны:
+- **METRICS-ALIAS-PATTERN**: при добавлении нового endpoint — всегда добавляй alias для 
+  backward compat (`/api/metrics` → `/metrics`). Пользователи ожидают URL с `/api` prefix.
+- **PROMETHEUS-LAZY-IMPORT**: В middleware/обработчиках использовать lazy import metrics 
+  (`from ...metrics import fn` внутри try/except) чтобы избежать circular import.
+- **SCROLLINTOVIEW-MOBILE-ONLY**: `scrollIntoView` на мобильных срабатывает только при 
+  `'ontouchstart' in window`. На desktop не нужен — не мешаем пользователю.
+- **SAFARI-DRAGENETER-REQUIRED**: Safari desktop требует `e.preventDefault()` в `onDragEnter`
+  (не только в `onDragOver`). Без DragEnter Safari блокирует drop.
+### Обновлён порог тестов: 970 → 981
+
 ## R14-И1 Update (2026-05-09)
 ### Новые паттерны обнаружены:
 - **WS-RECONNECT-PATTERN**: exponential backoff в useRef-based hooks. Используй `intentionalCloseRef` 

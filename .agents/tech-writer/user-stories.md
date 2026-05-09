@@ -335,3 +335,13 @@
 | Статус | ID | Story |
 |---|---|---|
 | ✅ | WS-RECONNECT | R14-И1 WS авто-реконнект — 1.98.0 |
+
+## R14 Results — 2026-05-09 v1.98.4
+| Статус | ID | Story | Версия |
+|---|---|---|---|
+| ✅ | WS-RECONNECT | R14-И1 WS авто-реконнект | 1.98.0 |
+| ✅ | IOS-CARD-BUTTONS | R14-И2 iOS gap fallback | 1.98.1 |
+| ✅ | SAFARI-DROPZONE | R14-И2 Safari drag-and-drop | 1.98.1 |
+| ✅ | DOWNLOAD-CTA | R14-И3 Кнопка скачать | 1.98.2 |
+| ✅ | MOBILE-FORM-SCROLL | R14-И4 Автоскролл | 1.98.3 |
+| ✅ | PROMETHEUS-METRICS | R14-И5 /api/metrics + extensions | 1.98.4 |

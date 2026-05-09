@@ -277,6 +277,7 @@ def health_check():
         "auth_enabled": bool(os.getenv("API_KEY") or os.getenv("API_KEYS")),
         # Z5.1: ссылки на API документацию
         "docs": {"swagger": "/docs", "redoc": "/redoc", "openapi_json": "/openapi.json"},
+        "metrics": {"prometheus": "/metrics", "alias": "/api/metrics"},  # R14-И5
     }
     if memory_mb is not None:
         payload["memory_mb"] = memory_mb

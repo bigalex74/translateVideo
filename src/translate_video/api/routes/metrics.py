@@ -31,6 +31,25 @@ import threading as _threading
 _REQUEST_COUNTER: dict[str, int] = {"total": 0, "errors": 0}
 _COUNTER_LOCK = _threading.Lock()
 
+# R14-И5: Глобальные HTTP метрики (инкрементируются из middleware)
+_HTTP_REQUESTS: dict[str, int] = {}  # {"GET /api/health": N, ...}
+_HTTP_LOCK = _threading.Lock()
+_RATE_LIMITED_TOTAL = 0  # счётчик заблокированных rate-limit запросов
+
+
+def increment_http_request(method: str, path: str, status: int) -> None:
+    """Инкрементировать счётчик HTTP запросов по методу+пути+статусу."""
+    key = f"{method} {path} {status}"
+    with _HTTP_LOCK:
+        _HTTP_REQUESTS[key] = _HTTP_REQUESTS.get(key, 0) + 1
+
+
+def increment_rate_limited() -> None:
+    """Инкрементировать счётчик rate-limited запросов."""
+    global _RATE_LIMITED_TOTAL
+    with _HTTP_LOCK:
+        _RATE_LIMITED_TOTAL += 1
+
 
 def increment_request(error: bool = False) -> None:
     """Увеличить счётчик запросов."""
@@ -120,4 +139,35 @@ def prometheus_metrics(request: Request) -> str:
         ),
     ]
 
+    # R14-И5: HTTP request counters per method+path+status
+    with _HTTP_LOCK:
+        http_snap = dict(_HTTP_REQUESTS)
+        rate_limited = _RATE_LIMITED_TOTAL
+
+    if http_snap:
+        parts = ["# HELP translate_video_http_requests_total Total HTTP requests by method+path+status_code",
+                 "# TYPE translate_video_http_requests_total counter"]
+        for key, val in sorted(http_snap.items()):
+            method, path, status = key.rsplit(" ", 2) if key.count(" ") >= 2 else (key, "/", "200")
+            parts.append(
+                f'translate_video_http_requests_total{{method="{method}",path="{path}",status_code="{status}"}} {val}'
+            )
+        lines.append("\n".join(parts))
+
+    # R14-И5: Rate limit counter
+    lines.append(
+        _text_gauge(
+            "translate_video_rate_limited_requests_total",
+            rate_limited,
+            "Total requests blocked by rate limiter (GlobalRateLimitMiddleware)",
+        )
+    )
+
     return "\n\n".join(lines) + "\n"
+
+
+# R14-И5: Alias /api/metrics → /metrics для совместимости
+@router.get("/api/metrics", response_class=PlainTextResponse, include_in_schema=False)
+async def metrics_api_alias(request: Request) -> PlainTextResponse:
+    """Алиас /api/metrics → /metrics (backward compat для Артём FBA R14)."""
+    return PlainTextResponse(content=prometheus_metrics(request), media_type="text/plain; charset=utf-8")

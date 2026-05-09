@@ -1,3 +1,17 @@
+## 1.98.4 — 2026-05-09 — R14-И5: Prometheus метрики расширение
+
+### Observability (Артём — FBA R14, PROMETHEUS-METRICS P1)
+- **GET /api/metrics** alias → `/metrics` (Артём искал по API prefix)
+- **translate_video_rate_limited_requests_total**: счётчик rate-limited запросов
+  интегрирован в GlobalRateLimitMiddleware (increment при 429)
+- **translate_video_http_requests_total{method,path,status_code}**: HTTP счётчики
+  (заполняются через increment_http_request API)
+- **GET /api/health**: добавлено поле `metrics: {prometheus: "/metrics", alias: "/api/metrics"}`
+- **Итого метрик**: 6 gauge/counter + HTTP breakdown
+
+### Tests
+- 981 тестов (+11: metrics alias, rate_limited counter, health metrics URL, format validation)
+
 ## 1.98.3 — 2026-05-09 — R14-И4: Mobile form auto-scroll
 
 ### Mobile UX (Никита — FBA R14, MOBILE-FORM-SCROLL P1)

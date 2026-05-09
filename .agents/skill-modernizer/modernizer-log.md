@@ -503,3 +503,13 @@ VISIBILITY-WS: immediate reconnect on visibilitychange visible
 Test threshold: 958 → 970 (+12)
 ```
 ### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.98.0
+
+## SM — 2026-05-09 v1.98.4
+```
+METRICS-ALIAS: always add /api/ prefix alias for backward compat
+PROMETHEUS-LAZY-IMPORT: use try/except lazy import in middleware
+SCROLLINTOVIEW-MOBILE-ONLY: ontouchstart guard required
+SAFARI-DRAGENETER-REQUIRED: preventDefault in onDragEnter
+Test threshold: 970 → 981 (+11)
+```
+### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.98.4

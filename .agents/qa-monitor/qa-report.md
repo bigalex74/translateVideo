@@ -1,17 +1,20 @@
-## QA Monitor — R14-И1 | 2026-05-09 v1.98.0
+## QA Monitor — R14-И5 | 2026-05-09 v1.98.4
 
 ### Результаты
-- **Тестов:** 970 (+12 от R13-И5 958) ✅
-- **Build:** ✅ JS=130.56 KB gzip (+0.81 KB — WS hook увеличился на reconnect логику)
-- **Deploy:** v1.98.0 ok ✅
-- **WS тесты:** 12 новых (backend + logic unit) — все GREEN
+- **Тестов:** 981 (+11 от И5, 970 было) ✅
+- **Build:** ✅ JS=130.81 KB, CSS=21.16 KB (стабильно)
+- **Deploy:** v1.98.4 ok ✅
+- **Metrics alias:** /api/metrics → 200 ✅
+- **/api/health:** содержит metrics.prometheus="/metrics" ✅
 
-### Замечания
-- JS bundle вырос на 0.81 KB — ожидаемо (reconnect логика + visibilitychange)
-- Порог 200 KB gzip не достигнут (130.56 KB) ✅
+### QA замечания И1-И5:
+- И1: WS реконнект — тестируется структурно через grep (нет JS unit test runner)
+- И2: Safari drag-and-drop — нет browser test, только CSS/JSX grep
+- И3: Download CTA — нет e2e click test (нужен browser agent)
+- И4: Mobile scroll — только `'ontouchstart' in window` проверка через grep
 
-### Следующий раунд QA
-- Проверить Safari drag-and-drop (И2) — mock test недостаточен, нужен browser test
-- Prometheus /metrics endpoint (И5) — тестировать парсинг формата
+### Рекомендации R15:
+- [ ] Playwright/Cypress для Safari drag-and-drop E2E test
+- [ ] Мобильный браузер тест через puppeteer --viewport mobile
 
-### Подпись: QA Monitor АПРУV | 2026-05-09 v1.98.0
+### Подпись: QA Monitor АПРУV | 2026-05-09 v1.98.4

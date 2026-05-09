@@ -132,6 +132,12 @@ class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
 
         allowed, remaining = limiter.check(ip)
         if not allowed:
+            # R14-И5: Prometheus counter
+            try:
+                from translate_video.api.routes.metrics import increment_rate_limited  # noqa: PLC0415
+                increment_rate_limited()
+            except Exception:  # noqa: BLE001
+                pass
             return JSONResponse(
                 status_code=429,
                 content={
