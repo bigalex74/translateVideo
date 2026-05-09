@@ -1087,12 +1087,17 @@ def export_project_zip(
             zf.writestr(f"{safe_id}_script.tsv", "\n".join(tsv_lines))
     buf.seek(0)
 
+    # ZIP-NAME R12-И5: имя файла = имя видео без расширения
+    import os as _os  # noqa: PLC0415
+    _video_stem = _os.path.splitext(_os.path.basename(project.input_video or safe_id))[0]
+    _zip_name = f"{_video_stem}_translated.zip" if _video_stem else f"{safe_id}.zip"
+
     from fastapi.responses import StreamingResponse  # noqa: PLC0415
     return StreamingResponse(
         buf,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{safe_id}.zip"',
+            "Content-Disposition": f'attachment; filename="{_zip_name}"',
         },
     )
 

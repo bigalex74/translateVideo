@@ -1,3 +1,31 @@
+## 1.97.0 — 2026-05-09 — R12: WebSocket, Mobile, Email, UX polish
+
+### R12-И1: WebSocket + dynamic import fix
+- useProjectWebSocket хук заменяет setInterval(3000) polling в Dashboard
+- Backend WS endpoint /api/v1/projects/{id}/ws уже существовал (R7) — активирован
+- QA-001: INEFFECTIVE_DYNAMIC_IMPORT устранён (AnalyticsDashboard, Dashboard, Workspace)
+- Чистая сборка: 0 ошибок, 0 предупреждений
+
+### R12-И2: Mobile fixes + API states
+- MOBILE-UPLOAD: явная кнопка «Выбрать файл» для тач-устройств (@media 768px)
+- MOBILE-OVERFLOW: overflow-x hidden в Dashboard, touch targets 36px+
+- API-STATES: статус queued в backend + frontend (ikonka Clock, i18n ru+en)
+- WS хук активен для queued статуса
+
+### R12-И3: Email уведомления
+- pipeline.py: вызов _send_email при completed и failed (non-blocking thread)
+- Settings.tsx: секция «📧 Email уведомления» с инструкцией по env
+- 5 новых unit-тестов (test_email_notifications.py)
+
+### R12-И4: UX polish
+- RETRY-BTN: «Попробовать снова» прямо под блоком ошибки failed
+- DOUBLE-CLICK: кнопка «Запустить» disabled={loading}
+- FILE-PREVIEW: имя исходного видеофайла в заголовке карточки проекта
+
+### R12-И5: ZIP-NAME + round-close
+- ZIP архив называется {video_name}_translated.zip вместо {project_id}.zip
+- 925 тестов. D-RULE-02 на всех итерациях.
+
 ## 1.96.0 — 2026-05-08 — R11: ExportPanel, textarea auto-resize, timezone-aware, docker-compose fix
 
 ### R11-И1: Workspace.tsx декомпозиция

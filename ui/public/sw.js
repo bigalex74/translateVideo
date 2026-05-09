@@ -13,7 +13,7 @@
  */
 
 // Версия кэша — ОБНОВЛЯЕТСЯ при каждом make deploy (sed-заменой)
-const APP_VERSION = '1.96.0';
+const APP_VERSION = '1.97.0';
 const CACHE_NAME = `av-static-${APP_VERSION}`;
 const OFFLINE_CACHE = `av-offline-${APP_VERSION}`;
 const API_CACHE = `av-api-${APP_VERSION}`;
