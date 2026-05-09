@@ -95,3 +95,9 @@ npm run build → ✓ built 0 errors
 - Mobile screenshot regression
 
 ### Подпись: QA Engineer АПРУV | 2026-05-09 v1.97.0
+
+## QA Review — 2026-05-09 v1.98.8
+Тесты: 981 (OK skipped=2). Новые тесты: client.test.ts обновлён под pagination.
+Smoke tests: /api/health/detailed → all ok. batch/upload → проверен curl.
+Регрессий не обнаружено.
+### Подпись: QA АПРУV v1.98.8

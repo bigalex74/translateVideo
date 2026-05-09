@@ -73,3 +73,25 @@ created → queued → running → completed
 2. Email SMTP конфиг только через env — нет UI для изменения без рестарта
 
 ### Подпись: System Analyst АПРУV | 2026-05-09 v1.97.0
+
+## SA Review — 2026-05-09 v1.98.8
+
+### Архитектурный анализ R15:
+| # | Замечание | Где | Приоритет |
+|---|-----------|-----|-----------|
+| 1 | batch/upload не проверяет max file size | projects.py:1525 | 🟡 |
+| 2 | segments.py дублирует get_store() из projects.py | segments.py:26 | 🟡 |
+| 3 | listProjects не использует page на backend (только клиент) | projects.py:426 | 🔴 |
+
+### Замечание #3 (P1 для R16):
+Backend /api/v1/projects?page=2&page_size=20 ДОЛЖЕН реально пагинировать из БД/FS.
+Сейчас: возвращает все проекты, pagination может быть stub.
+
+### Подпись: SA АПРУV v1.98.8
+
+### КОРРЕКТИРОВКА SA:
+Пункт #3 (backend pagination) — ОШИБКА АНАЛИЗА.
+Backend list_projects() УЖЕ реально пагинирует:
+`paged = all_projects[offset: offset + page_size]` ← реальный slice
+Pagination объект возвращается корректно с total/pages/page.
+Пункт #3 закрыт, не требует R16.

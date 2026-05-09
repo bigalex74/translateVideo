@@ -86,3 +86,9 @@ git log --oneline TVIDEO-R11-workspace-decompose | wc -l → задачи R11
 5. 🟡 P2: BATCH-UI полноценный
 
 ### Подпись: Project Manager АПРУV | 2026-05-09 v1.97.0
+
+## PM Review — 2026-05-09 v1.98.8
+Velocity R15: 5 итераций, 5 деплоев, 1.98.5→1.98.8.
+Закрыто: BATCH-UPLOAD P1, PAGINATION P1, ERROR-MESSAGES P2.
+В R16: batch/upload max_size limit, segments.py get_store() de-dup.
+### Подпись: PM АПРУV v1.98.8

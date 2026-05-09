@@ -57,3 +57,9 @@ grep -rn "billing_snapshots\|cost_usd" src/translate_video/ | grep -v "__pycache
 | 7 | Billing snapshots для ML стоимости — уже есть с R10. Хорошая база | 🟢 |
 
 ### Подпись: ML Engineer АПРУV | 2026-05-09 v1.97.0
+
+## ML Review — 2026-05-09 v1.98.8
+R15 не содержит ML-изменений (провайдеры, модели, промты без изменений).
+batch/upload auto_run=true → pipeline запускает тот же ML стек.
+readError(): технические сообщения LLM-провайдеров (timeout, rate-limit) корректно маппируются.
+### Подпись: ML АПРУV v1.98.8

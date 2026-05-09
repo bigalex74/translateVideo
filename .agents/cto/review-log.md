@@ -113,3 +113,13 @@ npm run build: ✓ 1772 modules, 0 errors
 - Auth на WS endpoint (X-API-Key через query param)
 
 ### Подпись: CTO АПРУV | 2026-05-09 v1.97.0
+
+## CTO Review — 2026-05-09 v1.98.8
+### Архитектурные замечания:
+| # | Замечание | Где | 🔴/🟡/🟢 |
+|---|-----------|-----|---------|
+| 1 | segments.py дублирует get_store() | segments.py:26 | 🟡 |
+| 2 | batch/upload нет max_file_size | projects.py:1525 | 🟡 |
+| 3 | projects.py всё ещё 2753 строк | projects.py | 🟡 |
+Compile: 0 ошибок. Тесты: 981 OK. Долг: снижается постепенно.
+### Подпись: CTO АПРУV v1.98.8
