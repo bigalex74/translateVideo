@@ -1,3 +1,9 @@
+## 1.98.10 — 2026-05-09 — R16-И2: segments.py DEDUP
+
+### Refactor (SEGMENTS-DEDUP)
+- segments.py: get_store() дублирование убрано → import из projects.py (ADR-001)
+- Единая точка DI: dependency_overrides теперь работают корректно
+
 ## 1.98.9 — 2026-05-09 — R16-И1: batch/upload file size limit
 
 ### Backend (BATCH-UPLOAD-MAXSIZE)

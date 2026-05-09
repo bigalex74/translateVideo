@@ -101,3 +101,9 @@ grep -rn "^export \* from\|export { .* } from" ui/src/ --include="*.ts" | head -
 - [1.98.9] Bundle: JS=127,3 KB gzip, CSS=20,7 KB gzip. Порог: JS < 200 KB. /health: 0.004585s
 
 > Обновлено Skill Modernizer | 2026-05-09 v1.98.9
+
+## [SM-1.98.10] Уроки раунда | 2026-05-09
+
+- [1.98.10] Bundle: JS=127,3 KB gzip, CSS=20,7 KB gzip. Порог: JS < 200 KB. /health: 0.003375s
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.10

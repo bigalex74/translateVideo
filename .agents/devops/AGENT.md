@@ -81,3 +81,9 @@ deploy:
 - [1.98.9] D-RULE-02: после make deploy → docker exec --user root video-translator chown -R appuser:appuser /app/runs/
 
 > Обновлено Skill Modernizer | 2026-05-09 v1.98.9
+
+## [SM-1.98.10] Уроки раунда | 2026-05-09
+
+- [1.98.10] D-RULE-02: после make deploy → docker exec --user root video-translator chown -R appuser:appuser /app/runs/
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.10

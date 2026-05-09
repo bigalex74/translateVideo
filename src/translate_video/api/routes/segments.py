@@ -9,7 +9,6 @@ Endpoints:
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -19,16 +18,11 @@ from pydantic import BaseModel
 from translate_video.core.config import PipelineConfig
 from translate_video.core.schemas import Segment
 from translate_video.core.store import ProjectStore, sanitize_project_id
+from translate_video.api.routes.projects import get_store  # ADR-001: единая точка DI
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/projects", tags=["segments"])
-
-
-def get_store() -> ProjectStore:
-    """Зависимость для получения хранилища проектов."""
-    work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
-    return ProjectStore(work_root)
 
 
 def _project_payload_light(project) -> dict:
