@@ -1,4 +1,4 @@
-.PHONY: help session-start build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:metadata test\:release ci\:quick release\:checklist release\:fix release\:finish lint ui-build ui-dev visual-check visual-check-ci css-guard
+.PHONY: help session-start improve build deploy restart logs status test test\:unit test\:ui test\:e2e test\:e2e-fullstack test\:load test\:all test\:coverage test\:metadata test\:release ci\:quick release\:checklist release\:fix release\:finish lint ui-build ui-dev visual-check visual-check-ci css-guard
 
 # Цвета для вывода
 CYAN  := \033[0;36m
@@ -55,6 +55,39 @@ help:
 	@echo "  $(CYAN)translateVideo — команды управления$(RESET)"
 	@echo ""
 	@grep -E '^## ' Makefile | sed 's/## /  /' | column -t -s ':'
+	@echo ""
+
+## improve: 🚀 СТРАТЕГИЯ НЕПРЕРЫВНОГО УЛУЧШЕНИЯ — запустить раунд улучшений
+improve:
+	@echo ""
+	@echo "\033[0;36m╔══════════════════════════════════════════════════════════════════╗\033[0m"
+	@echo "\033[0;36m║  CONTINUOUS IMPROVEMENT STRATEGY v3.6                          ║\033[0m"
+	@echo "\033[0;36m╚══════════════════════════════════════════════════════════════════╝\033[0m"
+	@echo ""
+	@$(MAKE) session-start
+	@echo "\033[0;36m━━━ ИНСТРУКЦИЯ ЗАПУСКА РАУНДА ━━━\033[0m"
+	@echo ""
+	@echo "  Запусти скилл: continuous-improvement (уже загружен выше)"
+	@echo ""
+	@echo "  Параметры раунда:"
+	@echo "    - Итераций: 5"
+	@echo "    - Пользователей: 5 персон (FBA)"
+	@echo "    - Замечаний/пользователь: 10 (4 крит / 3 мажор / 3 минор)"
+	@echo "    - Проблем к закрытию: 5-7 на пользователя"
+	@echo ""
+	@echo "  Порядок каждой итерации:"
+	@echo "    1. FBA: 5 пользователей → 50 замечаний → CEO-отчёт"
+	@echo "    2. CEO: стратегия + распределение по 16 агентам"
+	@echo "    3. 16 агентов: реализация (см. .agents/WORKFLOW.md)"
+	@echo "    4. make iteration  ← тесты + деплой + верификация"
+	@echo "    5. Агенты: реальная работа (Designer кликает, QA запускает тесты)"
+	@echo "    6. make round-close  ← 8 авто-проверок, нельзя подделать"
+	@echo "    7. git push origin develop"
+	@echo ""
+	@echo "  Полный протокол агентов: cat .agents/WORKFLOW.md"
+	@echo "  Протоколы каждого агента: cat .agents/*/AGENT.md"
+	@echo ""
+	@echo "\033[0;32m✅ Брифинг готов. Начинай итерацию.\033[0m"
 	@echo ""
 
 ## build: Пересобрать Docker-образ (UI + Backend)

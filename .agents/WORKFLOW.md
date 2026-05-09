@@ -56,9 +56,9 @@ git add -A && git commit -m "fix(TVIDEO-XXX): описание"
 | **DevOps** | docker/disk данные + git push + АПРУV | `review-log.md` |
 | **Security** | shell=True/CORS/yaml.load проверки + АПРУV | `review-log.md` |
 
-### Уровень 2 — make round-close v3.0 — закрытие раунда
+### Уровень 2 — make round-close v4.0 — закрытие раунда
 
-Запускается вручную перед закрытием раунда. Включает Уровень 1 + стратегических агентов.
+Запускается вручную перед push. **8 авто-проверок запускают команды сами — нельзя подделать.**
 
 **8 стратегических агентов:**
 
@@ -112,8 +112,16 @@ git push origin develop       # ← запускает pre-push gate (8 аген
 ```
 1. Все итерации раунда завершены
 2. make deploy (деплой в прод)
-3. Запустить все 16 агентов (каждый выполняет реальные команды и пишет АПРУV)
-4. make round-close v3.0 → должно показать 16/16 ✅
-5. git push origin develop → pre-push gate (8 агентов из 16) → должен пройти
-6. Обновить SKILL.md (Skill Modernizer)
+3. D-RULE-02: docker exec --user root video-translator chown -R appuser:appuser /app/runs/
+4. Запустить все 16 агентов (каждый выполняет реальные команды, не только пишет текст)
+5. make round-close v4.0 → 8 авто-проверок → должно показать: все ✅
+6. git push origin develop → pre-push hook → должен пройти
+7. Обновить SKILL.md (Skill Modernizer)
+```
+
+## Запуск нового раунда
+
+```bash
+make improve   # брифинг + инструкция запуска раунда
+make session-start   # брифинг без инструкции (начало сессии)
 ```
