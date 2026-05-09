@@ -1,3 +1,9 @@
+## 1.98.11 — 2026-05-09 — R16-И3: FBA R16 survey + coverage boost
+
+### Business Analysis (FBA)
+- R16-survey.md: 5 персон, топ P1: EMAIL-SMTP, BATCH-PROGRESS
+- Coverage: segments.py unit тесты расширены
+
 ## 1.98.10 — 2026-05-09 — R16-И2: segments.py DEDUP
 
 ### Refactor (SEGMENTS-DEDUP)

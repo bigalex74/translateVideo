@@ -64,3 +64,9 @@ grep -rn "max_tokens\|context_window\|chunk_size\|split" src/translate_video/ | 
 - [1.98.9] Segment editor: source_text должен быть виден при редактировании. Label 'Оригинал:' помогает переводчику
 
 > Обновлено Skill Modernizer | 2026-05-09 v1.98.9
+
+## [SM-1.98.11] Уроки раунда | 2026-05-09
+
+- [1.98.11] Segment editor: source_text должен быть виден при редактировании. Label 'Оригинал:' помогает переводчику
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.11

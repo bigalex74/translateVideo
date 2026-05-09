@@ -367,3 +367,11 @@ n = EmailNotifier(); print('enabled:', n.is_enabled())
 - [1.98.10] Smoke test новых endpoints после каждого деплоя: curl -s http://localhost:8002/api/health + все новые пути
 
 > Обновлено Skill Modernizer | 2026-05-09 v1.98.10
+
+## [SM-1.98.11] Уроки раунда | 2026-05-09
+
+- [1.98.11] Порог тестов: 1019. Любой PR не должен снижать этот счётчик
+- [1.98.11] Правило #11: новый routes/X.py → минимум 5 тестов В ТОЙ ЖЕ итерации. Не в финальной gate-итерации
+- [1.98.11] Smoke test новых endpoints после каждого деплоя: curl -s http://localhost:8002/api/health + все новые пути
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.11
