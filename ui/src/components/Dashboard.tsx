@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { getProjectStatus, listProjects, runPipeline, artifactDownloadUrl, renameProject, deleteProject } from '../api/client';
+import { getProjectStatus, listProjects, runPipeline, uploadProject, artifactDownloadUrl, renameProject, deleteProject } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
 import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
+import { useProjectWebSocket } from '../hooks/useProjectWebSocket';
 import { ConfirmRunModal } from './ConfirmRunModal';
 import { CompletionToast } from './CompletionToast';
 import { DashboardStats } from './DashboardStats';
@@ -154,12 +155,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
     return () => { cancelled = true; };
   }, []);
 
-  // Автопобновление статуса открытого проекта
-  useEffect(() => {
-    if (!project?.project_id || project.status !== 'running') return;
-    const interval = setInterval(() => loadStatus(project.project_id), 3000);
-    return () => clearInterval(interval);
-  }, [loadStatus, project?.project_id, project?.status]);
+  // WS-FE R12-И1: WebSocket вместо polling для статуса проекта во время обработки.
+  // setInterval(3000) заменён на WS-соединение к /api/v1/projects/{id}/ws.
+  useProjectWebSocket({
+    projectId: project?.project_id,
+    enabled: project?.status === 'running',
+    onUpdate: (data) => {
+      if (data.error) return;
+      setProject(prev => prev ? ({
+        ...prev,
+        status: data.status as VideoProject['status'],
+        progress_percent: data.progress_percent,
+        eta_seconds: data.eta_seconds,
+      }) : prev);
+    },
+    onDone: () => {
+      // WS закрылся (перевод завершён/упал) — обновляем полный статус
+      if (project?.project_id) loadStatus(project.project_id);
+    },
+  });
 
   // C-13/C-19: Stale detection — если >5 мин работает без завершения → предупреждение
   const [staleWarning, setStaleWarning] = useState(false);
@@ -204,7 +218,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
         if (files.length === 1) {
           setLoading(true);
           try {
-            const { uploadProject, runPipeline } = await import('../api/client');
             const created = await uploadProject(files[0]);
             if (autoRun) await runPipeline(created.project_id, false, getPersistedProvider());
             onOpenProject(created.project_id);
@@ -217,7 +230,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
         const queue = files.map(f => ({ name: f.name, status: 'pending' as const }));
         setBatchQueue(queue);
         setBatchActive(true);
-        const { uploadProject, runPipeline } = await import('../api/client');
+        // uploadProject и runPipeline импортированы статически (QA-001 fix)
         for (let i = 0; i < files.length; i++) {
           setBatchQueue(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'uploading' } : item));
           try {

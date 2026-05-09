@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { apiHeaders, artifactDownloadUrl, getProjectDoctor, getProjectSnapshots, getProjectStatus, rebuildSubtitles, runPipeline, runSegmentAction, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl, safariSafeDownload, withApiKeyQuery } from '../api/client';
+import { apiHeaders, preflightVideo, artifactDownloadUrl, getProjectDoctor, getProjectSnapshots, getProjectStatus, rebuildSubtitles, runPipeline, runSegmentAction, saveProjectSegments, patchProjectConfig, cancelPipeline, previewTTS, subtitleExportUrl, subtitleExportZipUrl, safariSafeDownload, withApiKeyQuery } from '../api/client';
 import type { ArtifactRecord, CostEstimate, ProjectDoctorReport, ProjectSnapshot, VideoProject, Segment, PipelineConfig } from '../types/schemas';
 import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
@@ -139,8 +139,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
         // Запрашиваем preflight для получения cost_estimate / ETA
         // Ошибки — некритичны, просто не показываем оценку
         if (data.input_video && data.config?.professional_translation_provider) {
-          import('../api/client').then(({ preflightVideo }) => {
-            preflightVideo(data.input_video, data.config!.professional_translation_provider || 'fake')
+          preflightVideo(data.input_video, data.config!.professional_translation_provider || 'fake')
               .then(report => {
                 if (!cancelled) {
                   setPreflightCost({
@@ -150,7 +149,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 }
               })
               .catch(() => {/* silent */});
-          });
         }
       })
       .catch(e => console.error(e));

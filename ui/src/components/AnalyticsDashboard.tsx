@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchAnalytics } from '../api/client'; // QA-001: static import (no dynamic import needed)
 
 interface AnalyticsSummary {
   total_projects: number;
@@ -30,7 +31,6 @@ export function AnalyticsDashboard() {
     const load = async () => {
       setLoading(true);
       try {
-        const { fetchAnalytics } = await import('../api/client');
         const summary = await fetchAnalytics();
         setData(summary);
       } catch {
