@@ -1,3 +1,12 @@
+## 1.98.2 — 2026-05-09 — R14-И3: Download CTA
+
+### UX (Дмитрий FBA R14 — DOWNLOAD-CTA P1)
+- **Кнопка "⬇️ Скачать результат"** в больших карточках completed проектов
+- **Кнопка "⬇️ Скачать"** в списке мини-карточек (completed only)
+- **btn-success**: зелёный gradient #16a34a + hover + pulse animation (1 раз при появлении)
+- Скачивает ZIP (субтитры SRT/VTT/ASS + скрипт TXT/TSV + project.json)
+- Использует export_router v2 (/api/v1/projects/{id}/export/zip)
+
 ## 1.98.1 — 2026-05-09 — R14-И2: iOS gap fix + Safari drag-and-drop
 
 ### Cross-browser Compatibility (Карина iOS + Мария Safari — FBA R14)

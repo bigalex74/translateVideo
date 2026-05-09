@@ -387,6 +387,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                     <Trash2 size={16} />
                   </button>
                 )}
+                {/* R14-И3: Download CTA (Дмитрий FBA — DOWNLOAD-CTA P1) */}
+                {project.status === 'completed' && (
+                  <a
+                    href={`/api/v1/projects/${project.project_id}/export/zip`}
+                    className="btn-success btn-download-cta"
+                    id={`btn-card-download-zip-${project.project_id}`}
+                    download
+                    title="Скачать всё: субтитры (SRT/VTT/ASS), скрипт, project.json"
+                  >
+                    <Download size={16} /> ⬇️ Скачать результат
+                  </a>
+                )}
                 <button
                   id="btn-open-workspace"
                   onClick={() => onOpenProject(project.project_id)}
@@ -727,6 +739,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                       >
                         <Search size={14} /> {t('dashboard.status', locale)}
                       </button>
+                      {/* R14-И3: Дмитрий FBA — очевидный CTA скачать для completed */}
+                      {item.status === 'completed' && (
+                        <a
+                          href={`/api/v1/projects/${item.project_id}/export/zip`}
+                          className="btn-success btn-download-cta"
+                          download
+                          id={`btn-download-zip-${item.project_id}`}
+                          title="Скачать результат перевода (ZIP: субтитры + скрипт)"
+                          aria-label={`Скачать результат проекта ${item.project_id}`}
+                        >
+                          <Download size={14} /> ⬇️ Скачать
+                        </a>
+                      )}
                       <button
                         className="btn-primary"
                         onClick={() => onOpenProject(item.project_id)}

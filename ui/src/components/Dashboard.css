@@ -606,3 +606,36 @@
     width: 100% !important;
   }
 }
+
+/* R14-И3: Download CTA — выделенная кнопка скачать для completed проектов (Дмитрий FBA) */
+.btn-success {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff;
+  border: 1px solid #15803d;
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #15803d, #166534);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.35);
+}
+
+.btn-download-cta {
+  animation: download-pulse 2s ease-in-out 1;
+}
+
+@keyframes download-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(21, 128, 61, 0.5); }
+  50%  { box-shadow: 0 0 0 6px rgba(21, 128, 61, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(21, 128, 61, 0); }
+}
