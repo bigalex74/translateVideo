@@ -1,3 +1,23 @@
+## 1.97.4 — 2026-05-09 — R13-И4: Редактор переводов
+
+### UX переводчика (Мария — FBA R13)
+- **Метка "Оригинал:"**: чёткая метка над оригинальным текстом в каждом сегменте
+- **Кнопка "✅ Принять всё"**: mark-reviewed для всех видимых сегментов в 1 клик
+- **Существующий side-by-side**: кнопка в тулбаре для режима оригинал|перевод рядом
+
+## 1.97.3 — 2026-05-09 — R13-И3: WS Auth + Rate Limiting
+
+### Security (Артём — FBA R13, AP-WS-AUTH P1)
+- **WS auth**: /{project_id}/ws проверяет api_key через query param (?api_key=)
+  При включённом API_KEY и неверном ключе: {error: unauthorized}, WS close(4401)
+  Frontend useProjectWebSocket: читает localStorage['tv_api_key'] → ?api_key=...
+- **GlobalRateLimitMiddleware**: POST /upload → 10/60с, DELETE → 20/60с, PATCH → 30/60с
+  GET readonly не лимитируется; DISABLE_RATE_LIMIT=1 отключает
+  X-RateLimit-Limit/Remaining заголовки во всех ответах
+
+### Tests
+- 945 тестов (+13: IPRateLimiter unit, middleware integration, WSAuth logic)
+
 ## 1.97.2 — 2026-05-09 — R13-И2: Мобильный UX
 
 ### UX мобильный (Карина, Никита — FBA R13)

@@ -1394,6 +1394,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                 >✕ Снять выбор</button>
               </div>
             )}
+            {/* R13-И4: Мария — кнопка "Принять всё" для mark all reviewed */}
+            {filteredSegments.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                <button
+                  className="btn-secondary btn-xs"
+                  id="btn-mark-all-reviewed"
+                  title="Отметить все видимые сегменты как проверенные (R13-И4)"
+                  disabled={segmentActionLoading !== null}
+                  onClick={async () => {
+                    // Выбираем все видимые и запускаем mark-reviewed
+                    const ids = new Set(filteredSegments.map(s => s.id));
+                    setSelectedSegIds(ids);
+                    // После выбора сразу запускаем action
+                    setTimeout(() => runSelectedSegmentAction('mark-reviewed', 'Все сегменты приняты ✅'), 50);
+                  }}
+                >
+                  ✅ Принять всё ({filteredSegments.length})
+                </button>
+              </div>
+            )}
             <div className={`segments-list${sideBySide ? ' seg-side-by-side' : ''}`}>
               {filteredSegments
                 // eslint-disable-next-line react-hooks/refs
@@ -1473,8 +1493,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
                       </button>
                     )}
                   </div>
+                  {/* R13-И4: Мария — оригинал с явной меткой для переводчиков */}
                   <div className="seg-source-row">
-                    <div className="seg-source">{seg.source_text}</div>
+                    <div className="seg-source">
+                      <span className="seg-source-label">📖 Оригинал:</span>
+                      {seg.source_text}
+                    </div>
                     {/* Z4.11: diff — кол-во символов до/после */}
                     {seg.translated_text && seg.source_text && (
                       <span className={`seg-diff-badge ${
