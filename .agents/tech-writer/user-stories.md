@@ -319,3 +319,19 @@
 | 🔴 P1 | PROJECTS-SPLIT-P2 | ADR-001 Фаза 2: pipeline_ext | → R14 |
 | 🟡 P2 | WEBHOOK-CB | Webhook callback API | → R14 |
 | 🟡 P2 | HISTORY-SEARCH | Поиск по истории | → R14 |
+
+---
+## R14 Backlog (из FBA R13 + session)
+| Приоритет | ID | Story | Источник |
+|---|---|---|---|
+| 🔴 P1 | WS-RECONNECT | WS авто-реконнект exponential backoff | Никита FBA |
+| 🔴 P1 | IOS-CARD-BUTTONS | Gap между кнопками на iOS Safari | Карина FBA |
+| 🔴 P1 | SAFARI-DROPZONE | Safari drag-and-drop NewProject | Мария FBA |
+| 🔴 P1 | DOWNLOAD-CTA | Кнопка скачать результат | Дмитрий FBA |
+| 🔴 P1 | MOBILE-FORM-SCROLL | Скролл к кнопке после выбора файла | Никита FBA |
+| 🔴 P1 | PROMETHEUS-METRICS | /api/metrics Prometheus endpoint | Артём FBA |
+
+## R14-И1 Tech Writer — 2026-05-09 v1.98.0
+| Статус | ID | Story |
+|---|---|---|
+| ✅ | WS-RECONNECT | R14-И1 WS авто-реконнект — 1.98.0 |

@@ -1,3 +1,16 @@
+## 1.98.0 — 2026-05-09 — R14-И1: WS Авто-реконнект
+
+### Reliability (Никита — FBA R14, мобильный потеря WS)
+- **useProjectWebSocket**: exponential backoff реконнект (1s→30s, макс 10 попыток)
+  Аномальное закрытие (code ≠1000, ≠4401) → авто-реконнект
+  Нормальное закрытие (code 1000 сервер завершил, 4401 auth) → onDone(), нет реконнекта
+- **visibilitychange**: реконнект сразу при возврате вкладки (фон→передний план)
+- **RECONNECT_DELAYS**: [1000,2000,4000,8000,15000,30000]ms
+- **MAX_RECONNECT_ATTEMPTS**: 10 (после 10 → onDone())
+- Auth: unauthorized → intentionalClose=true, нет реконнекта
+
+### Tests
+- 970 тестов (+12: WS reconnect backend + logic unit)
 ## 1.97.5 — 2026-05-09 — R13-И5: Декомпозиция projects.py (ADR-001 Фаза 1)
 
 ### Architecture (SA/CTO P1 backlog)

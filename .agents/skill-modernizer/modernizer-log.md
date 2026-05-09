@@ -495,3 +495,11 @@ await import ui/: 4 (AP-DYNIMPORT)
 AGENT.md обновлено за 2 дня: 5
 ```
 ### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.97.0
+
+## SM — 2026-05-09 v1.98.0
+```
+WS-RECONNECT: intentionalCloseRef pattern → use for onclose disambiguation
+VISIBILITY-WS: immediate reconnect on visibilitychange visible
+Test threshold: 958 → 970 (+12)
+```
+### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.98.0
