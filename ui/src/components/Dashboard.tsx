@@ -331,6 +331,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
             <div className="card-header">
               <div className="card-title">
                 <h3>{project.project_id}</h3>
+                {/* FILE-PREVIEW R12-И4: имя исходного файла */}
+                {project.input_video && (
+                  <span className="card-filename" title={project.input_video}>
+                    📎 {project.input_video.split('/').pop()?.split('\\').pop()}
+                  </span>
+                )}
                 <span className={`badge ${project.status}`}>
                   {getStatusIcon(project.status)}
                     {statusLabel(project.status, locale)}
@@ -350,6 +356,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                     id="btn-run-pipeline"
                     onClick={() => setConfirm({ id: project.project_id, force: false })}
                     className="btn-primary"
+                    disabled={loading} // DOUBLE-CLICK R12-И4
                     title="Продолжить или начать перевод с первого незавершённого этапа"
                   >
                     <Play size={16} />
@@ -456,7 +463,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                   </button>
                 </div>
               )}
-              {/* C-17: человекочитаемые ошибки */}
+              {/* C-17 + RETRY-BTN R12-И4: человекочитаемые ошибки + кнопка повтора */}
               {project.status === 'failed' && project.error && (
                 <div className="error-human" role="alert">
                   <AlertCircle size={16} />
@@ -470,6 +477,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                        project.error.slice(0, 120)}
                     </span>
                   </div>
+                  {/* RETRY-BTN: кнопка повтора прямо под ошибкой */}
+                  <button
+                    className="btn-primary btn-xs"
+                    style={{ marginTop: 8 }}
+                    disabled={loading}
+                    onClick={() => handleRunConfirmed(project.project_id, false)}
+                  >
+                    <RefreshCw size={13} /> Попробовать снова
+                  </button>
                 </div>
               )}
               <div className="meta-info">
