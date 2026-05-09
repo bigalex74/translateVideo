@@ -222,3 +222,9 @@ ls .agents/tech-writer/RELEASE_NOTES_v$(cat VERSION).md
 - [1.98.4] Новый alias endpoint → задокументировать ОБА URL в README/docs
 
 > Обновлено Skill Modernizer | 2026-05-09 v1.98.4
+
+## [SM-1.98.8] Уроки раунда | 2026-05-09
+
+- [1.98.8] После деплоя: версия в VERSION = версия в RELEASE_NOTES.md = версия в продакшн /api/health. Расхождение блокирует round-close
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.8
