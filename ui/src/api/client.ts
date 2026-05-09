@@ -34,14 +34,45 @@ export function withApiKeyQuery(url: string): string {
     return `${url}${separator}api_key=${encodeURIComponent(apiKey)}`;
 }
 
+// R15-И3: Маппинг HTTP ошибок → понятные пользователю сообщения
+const HTTP_ERROR_MESSAGES: Record<number, string> = {
+    400: 'Некорректный запрос. Проверьте введённые данные.',
+    401: 'Доступ запрещён. Проверьте API-ключ в настройках.',
+    403: 'Нет прав для этого действия.',
+    404: 'Проект не найден. Возможно, он был удалён.',
+    409: 'Конфликт данных. Обновите страницу и попробуйте снова.',
+    413: 'Файл слишком большой для загрузки.',
+    422: 'Ошибка валидации данных. Проверьте формат файла или параметры.',
+    429: 'Слишком много запросов. Подождите немного и попробуйте снова.',
+    500: 'Внутренняя ошибка сервера. Попробуйте позже или обратитесь в поддержку.',
+    502: 'Сервер временно недоступен. Попробуйте через несколько секунд.',
+    503: 'Сервис временно недоступен. Ведутся технические работы.',
+};
+
 async function readError(res: Response): Promise<string> {
     const text = await res.text();
+    let detail: string | undefined;
     try {
-        const payload = JSON.parse(text) as { detail?: string };
-        return payload.detail || text;
+        const payload = JSON.parse(text) as { detail?: string | { msg: string }[] };
+        if (Array.isArray(payload.detail)) {
+            // FastAPI validation errors array → берём первое сообщение
+            detail = payload.detail.map(e => e.msg).join('; ');
+        } else {
+            detail = payload.detail;
+        }
     } catch {
-        return text;
+        detail = text;
     }
+    // Если ошибка технически-сырая (содержит HTTP слова или пустая) — подменяем
+    const isTechnical = !detail
+        || detail.includes('Unprocessable')
+        || detail.includes('Internal Server')
+        || detail.includes('value is not a valid')
+        || detail.length < 5;
+    if (isTechnical) {
+        return HTTP_ERROR_MESSAGES[res.status] ?? `Ошибка сервера (HTTP ${res.status})`;
+    }
+    return detail ?? `Ошибка сервера (HTTP ${res.status})`;
 }
 
 export async function createProject(input_video: string, project_id?: string, config?: PipelineConfigDraft): Promise<VideoProject> {
