@@ -152,6 +152,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [urlDownloading, setUrlDownloading] = useState(false);  // NC-01 yt-dlp
   const [error, setError]           = useState('');
+  const [isDragging, setIsDragging] = useState(false); // R14-И2: Safari drag visual
 
   const currentProviderWarning = providerWarning(provider, locale);
 
@@ -340,9 +341,11 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
 
             {inputType === 'upload' ? (
               <div
-                className={`drop-zone ${file ? 'has-file' : ''}`}
-                onDragOver={e => e.preventDefault()}
-                onDrop={handleDrop}
+                className={`drop-zone ${file ? 'has-file' : ''} ${isDragging ? 'drag-active' : ''}`}
+                onDragEnter={e => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                onDragLeave={e => { e.preventDefault(); setIsDragging(false); }}
+                onDrop={e => { e.preventDefault(); setIsDragging(false); handleDrop(e); }}
                 onClick={() => fileInputRef.current?.click()}
               >
                 {/* R13-И2: на мобильном не добавляем capture чтобы позволить выбор из галереи И камеры */}

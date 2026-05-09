@@ -553,3 +553,11 @@
     justify-content: center;
   }
 }
+
+/* R14-И2: Safari drag-and-drop — визуальное состояние перетаскивания */
+.drop-zone.drag-active {
+  border-color: var(--accent-color, #6366f1);
+  background: rgba(99, 102, 241, 0.08);
+  transform: scale(1.01);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+}
