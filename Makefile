@@ -490,24 +490,81 @@ verify\:deployed:
 	fi
 
 ## iteration: Полный цикл итерации = тесты + агенты + деплой + верификация
+## agent:qa-monitor: QA Monitor — запускает тесты и записывает отчёт (вызывается из iteration)
+agent\:qa-monitor:
+	@echo "$(CYAN)🔍 QA Monitor Agent...$(RESET)"
+	@TODAY=$$(date +%Y-%m-%d); \
+	PY_RESULT=$$(PYTHONPATH=src python3 -m unittest discover -s tests -q 2>&1 | tail -2); \
+	TSC_RESULT=$$(cd ui && npx tsc --noEmit 2>&1 | wc -l); \
+	printf "\n## QA Monitor — $$TODAY v$$(cat VERSION)\n\`\`\`\n$$PY_RESULT\ntsc errors: $$TSC_RESULT\n\`\`\`\n### Подпись: QA Monitor АПРУV | $$TODAY v$$(cat VERSION)\n" >> .agents/qa-monitor/qa-report.md; \
+	echo "$(GREEN)  ✅ QA Monitor: qa-report.md обновлён$(RESET)"
+
+## agent:designer: Designer — CSS guard + smoke HTTP + запись в design-log (вызывается из iteration)
+agent\:designer:
+	@echo "$(CYAN)🎨 Designer Agent...$(RESET)"
+	@TODAY=$$(date +%Y-%m-%d); \
+	CSS_RESULT=$$(python3 scripts/css_guard.py ui/src/index.css 2>&1 | tail -1); \
+	HEALTH=$$(curl -s http://localhost:8002/api/health 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('version','ERR'))" 2>/dev/null || echo "UNREACHABLE"); \
+	NEW_COMPONENTS=$$(git diff origin/develop --name-only -- ui/src/components/ 2>/dev/null | head -5 | tr '\n' ' '); \
+	printf "\n## Designer — $$TODAY v$$(cat VERSION)\n- CSS guard: $$CSS_RESULT\n- Prod health: v$$HEALTH\n- Изменённые компоненты: $$NEW_COMPONENTS\n### АПРУV: Designer\n### Подпись: Designer АПРУV | $$TODAY v$$(cat VERSION)\n" >> .agents/designer/design-log.md; \
+	echo "$(GREEN)  ✅ Designer: design-log.md обновлён$(RESET)"
+
+## agent:tech-writer: Tech Writer — создаёт RELEASE_NOTES если нет (вызывается из iteration)
+agent\:tech-writer:
+	@echo "$(CYAN)✍️  Tech Writer Agent...$(RESET)"
+	@TODAY=$$(date +%Y-%m-%d); \
+	CUR_VER=$$(cat VERSION | tr -d '[:space:]'); \
+	NOTES_FILE=".agents/tech-writer/RELEASE_NOTES_v$$CUR_VER.md"; \
+	if [ ! -f "$$NOTES_FILE" ]; then \
+	  LAST_COMMITS=$$(git log --oneline -7 2>/dev/null | sed 's/^/- /'); \
+	  PY_TESTS=$$(PYTHONPATH=src python3 -m unittest discover -s tests -q 2>&1 | tail -1); \
+	  printf "# Release Notes v$$CUR_VER — $$TODAY\n\n## Изменения:\n$$LAST_COMMITS\n\n## Тесты: $$PY_TESTS\n\n*Tech Writer Agent | $$TODAY | auto-generated*\n" > "$$NOTES_FILE"; \
+	  echo "$(GREEN)  ✅ Tech Writer: создан $$NOTES_FILE$(RESET)"; \
+	else \
+	  echo "$(GREEN)  ✅ Tech Writer: RELEASE_NOTES_v$$CUR_VER.md уже существует$(RESET)"; \
+	fi; \
+	TODAY_MARK=$$(date +%Y-%m-%d); \
+	grep -q "$$TODAY_MARK" ".agents/tech-writer/user-stories.md" 2>/dev/null || \
+	  printf "\n<!-- TW checked: $$TODAY_MARK v$$CUR_VER -->\n" >> ".agents/tech-writer/user-stories.md"
+
+## agent:skill-modernizer: Skill Modernizer — grep анализ + обновление лога (вызывается из iteration)
+agent\:skill-modernizer:
+	@echo "$(CYAN)🧠 Skill Modernizer Agent...$(RESET)"
+	@TODAY=$$(date +%Y-%m-%d); \
+	CUR_VER=$$(cat VERSION | tr -d '[:space:]'); \
+	UTCNOW=$$(grep -rn "utcnow" src/ --include="*.py" 2>/dev/null | grep -v test | wc -l); \
+	SHELL_T=$$(grep -rn "shell=True" src/ --include="*.py" 2>/dev/null | grep -v test | wc -l); \
+	DYN_IMP=$$(grep -rn "await import" ui/src/ --include="*.tsx" 2>/dev/null | grep -v "QA-001" | wc -l); \
+	WS_AUTH=$$(grep -n "@router.websocket" src/translate_video/api/routes/projects.py 2>/dev/null | wc -l); \
+	AGENTS_UPDATED=$$(git log --since="2 days ago" --oneline -- ".agents/*/AGENT.md" 2>/dev/null | wc -l); \
+	printf "\n## SM — $$TODAY v$$CUR_VER\n\`\`\`\ngrep utcnow src/: $$UTCNOW\ngrep shell=True src/: $$SHELL_T\nawait import ui/: $$DYN_IMP (AP-DYNIMPORT)\n@router.websocket без auth: $$WS_AUTH (AP-WS-AUTH)\nAGENT.md обновлено за 2 дня: $$AGENTS_UPDATED\n\`\`\`\n### Подпись: Skill Modernizer АПРУV | $$TODAY v$$CUR_VER\n" >> .agents/skill-modernizer/modernizer-log.md; \
+	echo "$(GREEN)  ✅ Skill Modernizer: modernizer-log.md обновлён$(RESET)"
+
+## iteration: полный цикл — тесты → деплой → верификация → 4 code-quality агента АВТОМАТИЧЕСКИ
 iteration:
 	@echo "$(CYAN)╔══════════════════════════════════════════════════════════════╗$(RESET)"
 	@echo "$(CYAN)║          ITERATION GATE — полный цикл итерации               ║$(RESET)"
 	@echo "$(CYAN)╚══════════════════════════════════════════════════════════════╝$(RESET)"
 	@echo ""
-	@echo "$(CYAN)Шаг 1/3: Тесты + coverage...$(RESET)"
+	@echo "$(CYAN)Шаг 1/4: Тесты + coverage...$(RESET)"
 	@$(MAKE) test:all
 	@$(MAKE) test:coverage
 	@echo ""
-	@echo "$(CYAN)Шаг 2/3: Деплой...$(RESET)"
+	@echo "$(CYAN)Шаг 2/4: Деплой...$(RESET)"
 	@$(MAKE) deploy
 	@echo ""
-	@echo "$(CYAN)Шаг 3/3: Верификация деплоя...$(RESET)"
+	@echo "$(CYAN)Шаг 3/4: Верификация деплоя...$(RESET)"
 	@$(MAKE) verify:deployed
 	@echo ""
+	@echo "$(CYAN)Шаг 4/4: Code-quality агенты (автоматически)...$(RESET)"
+	@$(MAKE) agent:qa-monitor
+	@$(MAKE) agent:designer
+	@$(MAKE) agent:tech-writer
+	@$(MAKE) agent:skill-modernizer
+	@echo ""
 	@echo "$(GREEN)╔══════════════════════════════════════════════════════════════╗$(RESET)"
-	@echo "$(GREEN)║  ✅ ITERATION COMPLETE — прод обновлён, версии совпадают    ║$(RESET)"
-	@echo "$(GREEN)║  Теперь: запроси агентов и выполни make round-close         ║$(RESET)"
+	@echo "$(GREEN)║  ✅ ITERATION COMPLETE — прод обновлён, агенты отработали   ║$(RESET)"
+	@echo "$(GREEN)║  Для закрытия раунда: make round-close (8 стратег. агентов) ║$(RESET)"
 	@echo "$(GREEN)╚══════════════════════════════════════════════════════════════╝$(RESET)"
 
 

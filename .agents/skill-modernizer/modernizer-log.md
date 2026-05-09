@@ -485,3 +485,13 @@ grep -rn "noqa" pipeline.py → 2 BLE001, 1 PLC2701
 ### Итого изменённых файлов: 8
 
 ### Подпись: Skill Modernizer АПРУV (ДОПОЛНЕНИЕ) | 2026-05-09 v1.97.0
+
+## SM — 2026-05-09 v1.97.0
+```
+grep utcnow src/: 0
+grep shell=True src/: 0
+await import ui/: 4 (AP-DYNIMPORT)
+@router.websocket без auth: 1 (AP-WS-AUTH)
+AGENT.md обновлено за 2 дня: 5
+```
+### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.97.0

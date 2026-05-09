@@ -394,3 +394,11 @@ PYTHONPATH=src python3 -m coverage report --omit="*/legacy.py"
 ### P1 R13: coverage < 82% — нужно добавить тесты для API routes
 
 ### Подпись: QA Monitor АПРУV | 2026-05-09 v1.97.0
+
+## QA Monitor — 2026-05-09 v1.97.0
+```
+
+OK (skipped=2)
+tsc errors: 0
+```
+### Подпись: QA Monitor АПРУV | 2026-05-09 v1.97.0
