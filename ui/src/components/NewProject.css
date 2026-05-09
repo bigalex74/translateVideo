@@ -497,3 +497,20 @@
   pointer-events: none;
   line-height: 1.5;
 }
+
+/* MOBILE-UPLOAD R12-И2: кнопка загрузки только на мобильных */
+.mobile-upload-btn {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-upload-btn {
+    display: inline-flex;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    min-height: 44px; /* touch target */
+  }
+  /* Уменьшаем иконку в drop-zone на мобильном */
+  .drop-zone .text-muted svg { width: 40px; height: 40px; }
+  /* drop-zone не слишком высокая */
+  .drop-zone { min-height: 160px; padding: 24px 16px; }
+}

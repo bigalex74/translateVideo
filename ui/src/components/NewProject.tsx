@@ -360,6 +360,15 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
                     <span className="text-muted text-sm">{t('newProject.clickToChoose', locale)}</span>
                     <span className="drop-prompt-formats">MP4, MKV, MOV, AVI, YouTube</span>
                     <span className="text-muted text-sm" style={{marginTop: 4}}>До {MAX_UPLOAD_MB / 1024} ГБ · видео или аудио</span>
+                    {/* MOBILE-UPLOAD R12-И2: явная кнопка для тач-устройств */}
+                    <button
+                      type="button"
+                      className="btn-primary mobile-upload-btn"
+                      onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                      style={{marginTop: 12}}
+                    >
+                      📁 Выбрать файл
+                    </button>
                   </div>
                 )}
               </div>

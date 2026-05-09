@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1778309687918" clover="3.2.0">
-  <project timestamp="1778309687918" name="All files">
+<coverage generated="1778310436316" clover="3.2.0">
+  <project timestamp="1778310436316" name="All files">
     <metrics statements="247" coveredstatements="236" conditionals="175" coveredconditionals="136" methods="81" coveredmethods="74" elements="503" coveredelements="446" complexity="0" loc="247" ncloc="247" packages="4" files="7" classes="7"/>
     <package name="src">
       <metrics statements="35" coveredstatements="35" conditionals="34" coveredconditionals="27" methods="15" coveredmethods="15"/>
@@ -8,26 +8,26 @@
         <metrics statements="22" coveredstatements="22" conditionals="20" coveredconditionals="14" methods="10" coveredmethods="10"/>
         <line num="12" count="2" type="stmt"/>
         <line num="17" count="2" type="stmt"/>
-        <line num="428" count="2" type="stmt"/>
-        <line num="439" count="16" type="stmt"/>
-        <line num="443" count="89" type="cond" truecount="1" falsecount="2"/>
-        <line num="447" count="11" type="stmt"/>
-        <line num="448" count="11" type="stmt"/>
-        <line num="449" count="11" type="cond" truecount="1" falsecount="1"/>
-        <line num="453" count="8" type="stmt"/>
-        <line num="454" count="8" type="stmt"/>
-        <line num="455" count="8" type="cond" truecount="1" falsecount="1"/>
-        <line num="459" count="5" type="stmt"/>
-        <line num="463" count="4" type="stmt"/>
-        <line num="464" count="4" type="cond" truecount="1" falsecount="1"/>
-        <line num="468" count="2" type="stmt"/>
-        <line num="475" count="2" type="stmt"/>
-        <line num="482" count="2" type="stmt"/>
-        <line num="483" count="2" type="stmt"/>
-        <line num="487" count="8" type="stmt"/>
-        <line num="488" count="20" type="cond" truecount="1" falsecount="1"/>
-        <line num="489" count="20" type="stmt"/>
-        <line num="490" count="20" type="cond" truecount="2" falsecount="0"/>
+        <line num="430" count="2" type="stmt"/>
+        <line num="442" count="16" type="stmt"/>
+        <line num="446" count="89" type="cond" truecount="1" falsecount="2"/>
+        <line num="450" count="11" type="stmt"/>
+        <line num="451" count="11" type="stmt"/>
+        <line num="452" count="11" type="cond" truecount="1" falsecount="1"/>
+        <line num="456" count="8" type="stmt"/>
+        <line num="457" count="8" type="stmt"/>
+        <line num="458" count="8" type="cond" truecount="1" falsecount="1"/>
+        <line num="462" count="5" type="stmt"/>
+        <line num="466" count="4" type="stmt"/>
+        <line num="467" count="4" type="cond" truecount="1" falsecount="1"/>
+        <line num="471" count="2" type="stmt"/>
+        <line num="478" count="2" type="stmt"/>
+        <line num="485" count="2" type="stmt"/>
+        <line num="486" count="2" type="stmt"/>
+        <line num="490" count="8" type="stmt"/>
+        <line num="491" count="20" type="cond" truecount="1" falsecount="1"/>
+        <line num="492" count="20" type="stmt"/>
+        <line num="493" count="20" type="cond" truecount="2" falsecount="0"/>
       </file>
       <file name="progress.ts" path="/home/user/translateVideo/ui/src/progress.ts">
         <metrics statements="7" coveredstatements="7" conditionals="8" coveredconditionals="7" methods="1" coveredmethods="1"/>

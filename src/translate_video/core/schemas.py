@@ -26,6 +26,7 @@ class ProjectStatus(StrEnum):
     """Состояния жизненного цикла одного проекта перевода."""
 
     CREATED = "created"
+    QUEUED = "queued"   # API-STATES R12-И2: в очереди перед запуском
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"

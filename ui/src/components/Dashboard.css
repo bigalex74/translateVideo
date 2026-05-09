@@ -488,3 +488,21 @@
 .batch-queue-item--done .batch-queue-name { color: var(--success); }
 .batch-queue-item--error .batch-queue-name { color: var(--danger); opacity: 0.8; }
 .batch-queue-item--uploading .batch-queue-name { color: var(--warning); }
+
+/* MOBILE-OVERFLOW R12-И2: предотвращаем горизонтальный скролл на мобильных */
+@media (max-width: 768px) {
+  .dashboard-content,
+  .project-list,
+  .project-card,
+  .batch-progress {
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+  /* Увеличиваем touch-target кнопок в карточке */
+  .project-card .btn-icon,
+  .project-card button {
+    min-height: 36px;
+    min-width: 36px;
+  }
+}

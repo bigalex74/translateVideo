@@ -159,7 +159,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   // setInterval(3000) заменён на WS-соединение к /api/v1/projects/{id}/ws.
   useProjectWebSocket({
     projectId: project?.project_id,
-    enabled: project?.status === 'running',
+    enabled: project?.status === 'running' || project?.status === 'queued',
     onUpdate: (data) => {
       if (data.error) return;
       setProject(prev => prev ? ({
@@ -193,6 +193,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
       case 'failed':    return <AlertCircle  size={16} className="text-danger" />;
       case 'cancelled': return <XCircle      size={16} className="text-muted" />;
       case 'running':   return <Loader2      size={16} className="text-warning animate-spin" />;
+      case 'queued':    return <Clock        size={16} className="text-muted" />; // API-STATES R12-И2
       default: return null;
     }
   };

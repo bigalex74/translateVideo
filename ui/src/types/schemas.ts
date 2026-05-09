@@ -1,5 +1,5 @@
 export type SegmentStatus = "draft" | "transcribed" | "translated" | "tts_ready" | "failed";
-export type ProjectStatus = "created" | "running" | "completed" | "failed" | "cancelled";
+export type ProjectStatus = "created" | "queued" | "running" | "completed" | "failed" | "cancelled"; // API-STATES R12-И2: queued added
 export type JobStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 export type Stage = "init" | "probe" | "extract_audio" | "transcribe" | "regroup" | "translate" | "voice_cast" | "tts" | "timing_fit" | "mix" | "render" | "qa" | "export" | "embed_subtitles";
 

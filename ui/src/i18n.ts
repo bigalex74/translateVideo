@@ -208,6 +208,7 @@ const TEXT: LocaleMap = {
     'stage.review': '🔍 Ревью',
     'stage.postprocess': '⚙️ Постобработка',
     'status.created': 'Создан',
+    'status.queued': 'В очереди',
     'status.running': 'Выполняется',
     'status.completed': 'Завершён',
     'status.failed': 'Ошибка',
@@ -412,6 +413,7 @@ const TEXT: LocaleMap = {
     'stage.review': '🔍 Review',
     'stage.postprocess': '⚙️ Post-processing',
     'status.created': 'Created',
+    'status.queued': 'Queued',
     'status.running': 'Running',
     'status.completed': 'Completed',
     'status.failed': 'Error',
@@ -427,6 +429,7 @@ const TEXT: LocaleMap = {
 
 export const STATUS_EMOJI: Record<string, string> = {
   created: '🕐',
+  queued: '⏳',   // API-STATES R12-И2
   running: '⚙️',
   completed: '✅',
   failed: '❌',
