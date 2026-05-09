@@ -12,6 +12,7 @@ import { ExportPanel } from './ExportPanel';
 import { StatsPanel } from './StatsPanel';
 import { DevLogPanel } from './DevLogPanel';
 import { SSMLToolbar, renderTtsMarkup } from './SSMLToolbar';
+import { VideoPlayerSection } from './workspace/VideoPlayerSection';
 import { getPersistedProvider } from '../store/settings';
 import {
   ArrowLeft, Download, RefreshCw, Save, CheckCircle2,
@@ -1155,63 +1156,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ projectId, onBack, locale 
         <div className="workspace-left">
 
           {/* Видеоплеер */}
-          <div className="panel video-panel glass-panel">
-            <div className="panel-tabs">
-              <button
-                className={videoTab === 'source' ? 'active' : ''}
-                onClick={() => setVideoTab('source')}
-              >
-                <Film size={14} /> {t('workspace.original', locale)}
-              </button>
-              <button
-                className={videoTab === 'translated' ? 'active' : ''}
-                onClick={() => setVideoTab('translated')}
-                disabled={!findArtifact('output_video')}
-                title={!findArtifact('output_video') ? t('workspace.outputNotReady', locale) : ''}
-              >
-                <Film size={14} /> {t('workspace.aiTranslation', locale)}
-              </button>
-            </div>
-            <div className={`video-container${isPortraitVideo ? ' is-portrait' : ''}`}>
-              <video
-                ref={videoRef}
-                controls
-                src={getVideoUrl()}
-                key={getVideoUrl()}
-                onLoadedMetadata={(event) => {
-                  const video = event.currentTarget;
-                  setIsPortraitVideo(Boolean(video.videoWidth && video.videoHeight && video.videoWidth < video.videoHeight));
-                }}
-                onTimeUpdate={() => {
-                  const t = videoRef.current?.currentTime ?? 0;
-                  const active = segments.find(s => t >= s.start && t < s.end);
-                  setActiveSegId(active?.id ?? null);
-                }}
-              >
-                {/* WebVTT-субтитры — браузер понимает только VTT, не SRT */}
-                {project.artifacts['subtitles_vtt'] && (
-                  <track
-                    kind="subtitles"
-                    src={withApiKeyQuery(`${API_VIDEO}/${projectId}/${project.artifacts['subtitles_vtt']}`)}
-                    srcLang={project.config?.target_language ?? 'ru'}
-                    label="Субтитры"
-                    default
-                  />
-                )}
-              </video>
-              {/* I5: Кастомный оверлей субтитров (если нет VTT или при редактировании)
-                  Показывает переведённый текст текущего активного сегмента поверх видео */}
-              {activeSegId && !project.artifacts['subtitles_vtt'] && (() => {
-                const activeSeg = segments.find(s => s.id === activeSegId);
-                const subText = activeSeg?.translated_text || activeSeg?.source_text;
-                return subText ? (
-                  <div className="subtitle-overlay" aria-live="polite">
-                    {subText}
-                  </div>
-                ) : null;
-              })()}
-            </div>
-          </div>
+          <VideoPlayerSection
+            project={project}
+            projectId={projectId}
+            locale={locale}
+            videoTab={videoTab}
+            setVideoTab={setVideoTab}
+            isPortraitVideo={isPortraitVideo}
+            setIsPortraitVideo={setIsPortraitVideo}
+            videoRef={videoRef}
+            getVideoUrl={getVideoUrl}
+            findArtifact={findArtifact}
+            segments={segments}
+            activeSegId={activeSegId}
+            setActiveSegId={setActiveSegId}
+          />
 
           {/* Редактор сегментов */}
           <div className="panel segments-panel glass-panel">
