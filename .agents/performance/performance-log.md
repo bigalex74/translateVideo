@@ -135,3 +135,23 @@ dist/assets/index-*.js:     450.11 kB │ gzip: 129.75 kB
 | /projects | 0.004785 s | 0.007s |
 
 ### Подпись: Performance АПРУV | 2026-05-09 v1.98.8
+
+## Performance — 2026-05-09 v1.98.8
+| Метрика | Значение | Baseline R12 |
+|---------|----------|-------------|
+| JS gzip | 127,3 KB | 129.75 KB |
+| CSS gzip | 20,7 KB | 20.73 KB |
+| /health | 0.002829 s | 0.004s |
+| /projects | 0.003908 s | 0.007s |
+
+### Подпись: Performance АПРУV | 2026-05-09 v1.98.8
+
+## Performance — 2026-05-09 v1.98.8
+| Метрика | Значение | Baseline R12 |
+|---------|----------|-------------|
+| JS gzip | 127,3 KB | 129.75 KB |
+| CSS gzip | 20,7 KB | 20.73 KB |
+| /health | 0.002705 s | 0.004s |
+| /projects | 0.004383 s | 0.007s |
+
+### Подпись: Performance АПРУV | 2026-05-09 v1.98.8

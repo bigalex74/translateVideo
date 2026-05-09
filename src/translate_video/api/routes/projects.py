@@ -1546,6 +1546,8 @@ async def batch_upload_projects(
 
     MAX_BATCH_UPLOAD = 10
     ALLOWED_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".mp3", ".wav", ".m4a", ".aac", ".ogg"}
+    MAX_BATCH_FILE_MB = int(os.getenv("MAX_BATCH_FILE_MB", "500"))
+    MAX_BATCH_FILE_BYTES = MAX_BATCH_FILE_MB * 1024 * 1024
 
     if len(files) > MAX_BATCH_UPLOAD:
         raise HTTPException(
@@ -1571,7 +1573,19 @@ async def batch_upload_projects(
             safe_filename = sanitize_filename(filename)
             project_id = f"batch-{_uuid.uuid4().hex[:12]}"
 
-            content = await upload.read()
+            content = await upload.read(MAX_BATCH_FILE_BYTES + 1)
+            if len(content) > MAX_BATCH_FILE_BYTES:
+                size_mb = len(content) / 1024 / 1024
+                results.append({
+                    "filename": filename,
+                    "status": "error",
+                    "error": (
+                        f"Файл '{filename}' слишком большой: {size_mb:.1f} МБ. "
+                        f"Максимум: {MAX_BATCH_FILE_MB} МБ. "
+                        f"Используйте переменную окружения MAX_BATCH_FILE_MB для изменения лимита."
+                    ),
+                })
+                continue
 
             project = store.create_project(
                 input_video=safe_filename,

@@ -290,6 +290,40 @@ class TestBatchUpload(unittest.TestCase):
 
 
 
+    def test_batch_upload_file_too_large(self):
+        """batch/upload отклоняет файлы > MAX_BATCH_FILE_MB (500MB по умолчанию)."""
+        import os
+        # Ставим лимит 1 байт чтобы не генерировать 500MB в тесте
+        os.environ["MAX_BATCH_FILE_MB"] = "0"
+        try:
+            resp = self.client.post(
+                "/api/v1/projects/batch/upload",
+                files=[("files", ("big.mp4", b"x" * 2, "video/mp4"))],
+            )
+            self.assertEqual(resp.status_code, 207)
+            data = resp.json()
+            # Файл должен попасть в errors (слишком большой)
+            self.assertEqual(data["errors"], 1)
+            self.assertEqual(data["created"], 0)
+            error_msg = data["results"][0]["error"]
+            self.assertIn("слишком большой", error_msg)
+        finally:
+            del os.environ["MAX_BATCH_FILE_MB"]
+
+    def test_batch_upload_file_size_limit_env(self):
+        """MAX_BATCH_FILE_MB переменная меняет лимит."""
+        import os
+        os.environ["MAX_BATCH_FILE_MB"] = "1000"
+        try:
+            resp = self.client.post(
+                "/api/v1/projects/batch/upload",
+                files=[("files", ("v.mp4", b"content", "video/mp4"))],
+            )
+            # С лимитом 1000MB файл проходит (не size error)
+            self.assertEqual(resp.status_code, 207)
+        finally:
+            del os.environ["MAX_BATCH_FILE_MB"]
+
 
 class TestSegmentsUnit(unittest.TestCase):
     """R15-И2: Unit тесты для segments.py хелперов (прямой вызов)."""

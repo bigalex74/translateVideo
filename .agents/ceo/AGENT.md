@@ -55,3 +55,9 @@ git diff origin/develop --name-only -- .agents/*/AGENT.md
 - [1.98.8] FBA правило: каждый раунд минимум 5 персон → инсайты → P1 бэклог. Без survey round-close блокируется
 
 > Обновлено Skill Modernizer | 2026-05-09 v1.98.8
+
+## [SM-1.98.9] Уроки раунда | 2026-05-09
+
+- [1.98.9] FBA правило: каждый раунд минимум 5 персон → инсайты → P1 бэклог. Без survey round-close блокируется
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.9
