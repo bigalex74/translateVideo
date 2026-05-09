@@ -1,3 +1,18 @@
+## 1.98.5 — 2026-05-09 — R15-И1/И2: Dashboard пагинация + ADR-001 Фаза 2 segments router
+
+### UX (FBA R15 — Алексей, Мария, Дмитрий)
+- **Dashboard пагинация**: `listProjects` возвращает `{projects, pagination}` с total/pages
+- **PAGE_SIZE=20**: при >20 проектах отображаются controls ← Назад | N/M | Вперёд →
+- **Reset page** при смене сортировки или поиска
+- **Счётчик**: «Показано N из M» / «Всего проектов: N»
+
+### Архитектура — ADR-001 Фаза 2 (CTO)
+- Создан `src/translate_video/api/routes/segments.py`
+- Вынесено из монолитного `projects.py` (2753→~2640 строк):
+  `PUT /{id}/segments`, `PUT /{id}/config`, `GET /{id}/devlog`, `GET /{id}/stats`
+- Зарегистрирован в `main.py` как `segments_router`
+
+---
 ## 1.98.4 — 2026-05-09 — R14-И5: Prometheus метрики расширение
 
 ### Observability (Артём — FBA R14, PROMETHEUS-METRICS P1)
