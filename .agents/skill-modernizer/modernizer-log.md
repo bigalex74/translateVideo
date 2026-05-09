@@ -423,3 +423,40 @@ wc -l ui/src/components/*.tsx | sort -rn | head -5:
 - Добавлено: docker-compose.yml без version: атрибута
 
 ### Подпись: Skill Modernizer АПРУV | 2026-05-08 v1.96.0
+
+---
+## Skill Modernizer — 2026-05-09 v1.97.0 R12
+
+### Обязательные grep-команды (запущены реально):
+```bash
+grep -rn "utcnow" src/ → 0 результатов ✅
+grep -rn "shell=True" src/ → 0 результатов ✅
+grep -rn "except:" src/ → 0 bare except ✅
+grep -rn "TODO|FIXME|DEPRECATED" src/ → 0 результатов ✅
+grep -rn "await import" ui/src/ → 3 файла (Anti-pattern)
+grep -rn "noqa" pipeline.py → 2 BLE001, 1 PLC2701
+```
+
+### Найденные Anti-patterns R12:
+| ID | Тип | Файл | Строки | Приоритет |
+|---|---|---|---|---|
+| AP-DYNIMPORT-01 | dynamic import в async функции | HintDropdown.tsx:42 | `await import('../api/client')` | 🟡 P2 |
+| AP-DYNIMPORT-02 | dynamic import в async функции | ShareModal.tsx:28,43,57 | `await import('../api/client')` | 🟡 P2 |
+| AP-WS-AUTH | WS endpoint без auth | projects.py:2110+ | `@router.websocket("/{project_id}/ws")` | 🔴 P1 |
+| AP-IMPORT-INLINE | import внутри функции | pipeline.py:56,709 | `from fastapi.responses import` | 🟡 P2 |
+
+### Исправлено в R12:
+- AP-DYNIMPORT-ANALYTICS: AnalyticsDashboard.tsx → static import ✅
+- AP-DYNIMPORT-DASHBOARD: Dashboard.tsx → uploadProject static ✅
+- AP-DYNIMPORT-WORKSPACE: Workspace.tsx → static import ✅
+
+### SKILL обновления R12:
+- AGENT.md designer: добавлен D-RULE-01 (onboarding localStorage key)
+- R12 урок: round-close v4.0 не проверял 4 code-quality агентов жёстко → исправлено в v5.0
+
+### R13 рекомендации Skill Modernizer:
+1. HintDropdown + ShareModal: заменить dynamic import на static (AP-DYNIMPORT)
+2. WS auth: добавить query param X-API-Key (AP-WS-AUTH — критично)
+3. Pipeline.py: вынести inline import наружу
+
+### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.97.0

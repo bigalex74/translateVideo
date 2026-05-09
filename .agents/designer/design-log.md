@@ -583,3 +583,34 @@ DOM: uid=30_2262 link "📄 SRT" — кнопки субтитров видны
 - textarea auto-resize проверить в следующем раунде с реальным редактированием
 
 ### Подпись: Designer АПРУV | 2026-05-08 v1.96.0
+
+---
+## Designer Review — 2026-05-09 v1.97.0 R12
+
+### Команды (запущены реально):
+```bash
+css_guard.py ui/src/index.css → ✅ CSS в порядке, 4 класса проверено
+grep -n "overflow\|mobile\|@media" ui/src/components/Dashboard.css → 3 @media блока
+grep -n "mobile-upload-btn" ui/src/components/NewProject.css → display:none desktop + flex mobile
+find .agents/designer/screenshots/R12 → 2 PNG файла созданы
+```
+
+### UI-анализ R12:
+| # | Изменение | Проверка | Оценка |
+|---|-----------|----------|--------|
+| 1 | MOBILE-UPLOAD: кнопка display:none desktop, flex mobile | CSS проверен | ✅ |
+| 2 | MOBILE-OVERFLOW: overflow-x:hidden в dashboard-content | Код проверен | ✅ |
+| 3 | card-filename: max-width 280px, ellipsis, muted color | CSS проверен | ✅ |
+| 4 | RETRY-BTN: btn-primary btn-xs под ошибкой | HTML структура OK | ✅ |
+| 5 | status queued: иконка Clock, badge класс | Семантика OK | ✅ |
+| 6 | Email секция в Settings: `<code>` теги, monospace | Typography OK | ✅ |
+| 7 | mobile-upload-btn min-height: 44px (touch target) | ✅ WCAG 2.5.5 | ✅ |
+| 8 | drop-zone мобильный: min-height 160px (уменьшен) | Проверен | ✅ |
+| 9 | D-BUG-03: search bar flex-wrap:nowrap — сохранён | Регрессия нет | ✅ |
+| 10 | Скриншоты: R12/dashboard_v1.97.0.png, R12/r12_mobile_fix.png | Созданы | ✅ |
+
+### CSS Guard: ✅ — все обязательные свойства present
+
+### АПРУV: Designer — R12 UI изменения соответствуют стандартам
+
+### Подпись: Designer АПРУV | 2026-05-09 v1.97.0

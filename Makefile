@@ -391,17 +391,78 @@ round-close:
 	  FAIL=1; \
 	fi; \
 	echo ""; \
-	echo "\033[0;36m━━━ СТРАТЕГИЧЕСКИЕ АГЕНТЫ (CEO, CTO, PM...) — документация ━━━\033[0m"; \
-	echo "  (Только документация — механически не проверить. Доверие к процессу.)"; \
+	echo "\033[0;36m━━━ [9] QA Monitor Agent — qa-report.md сегодня/вчера ━━━\033[0m"; \
+	QA_FRESH=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/qa-monitor/qa-report.md 2>/dev/null || echo 0); \
+	QA_NUMS=$$(grep -cE "Ran [0-9]+ test|OK \(|[0-9]+ (passed|ok)" .agents/qa-monitor/qa-report.md 2>/dev/null || echo 0); \
+	echo "  qa-report.md: $$QA_FRESH строк с датой, $$QA_NUMS строк с числами тестов"; \
+	if [ "$$QA_FRESH" -gt 0 ] && [ "$$QA_NUMS" -gt 0 ]; then \
+	  echo "\033[0;32m  ✅ QA Monitor: qa-report.md обновлён сегодня/вчера с числами тестов\033[0m"; \
+	else \
+	  echo "\033[0;31m  ❌ QA Monitor: qa-report.md НЕ обновлён ($$QA_FRESH дат, $$QA_NUMS чисел)\033[0m"; \
+	  echo "     → Агент ОБЯЗАН записать результат в .agents/qa-monitor/qa-report.md"; \
+	  FAIL=1; \
+	fi; \
+	echo ""; \
+	echo "\033[0;36m━━━ [10] Designer Agent — design-log.md + скриншоты ━━━\033[0m"; \
+	DESIGN_FRESH=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/designer/design-log.md 2>/dev/null || echo 0); \
+	DESIGN_APRUV=$$(grep -c "АПРУV\|БЛОК" .agents/designer/design-log.md 2>/dev/null || echo 0); \
+	SCR_TOTAL=$$(find .agents/designer/screenshots -name "*.png" 2>/dev/null | wc -l); \
+	echo "  design-log.md: $$DESIGN_FRESH строк с датой, $$DESIGN_APRUV АПРУV/БЛОК. Скриншоты: $$SCR_TOTAL png"; \
+	if [ "$$DESIGN_FRESH" -gt 0 ] && [ "$$DESIGN_APRUV" -gt 0 ] && [ "$$SCR_TOTAL" -gt 0 ]; then \
+	  echo "\033[0;32m  ✅ Designer: design-log.md обновлён, скриншоты есть\033[0m"; \
+	else \
+	  echo "\033[0;31m  ❌ Designer: design-log.md не обновлён ($$DESIGN_FRESH дат) или нет скриншотов ($$SCR_TOTAL)\033[0m"; \
+	  echo "     → Агент ОБЯЗАН: open browser → screenshot → записать в design-log.md"; \
+	  FAIL=1; \
+	fi; \
+	echo ""; \
+	echo "\033[0;36m━━━ [11] Tech Writer Agent — RELEASE_NOTES текущей версии ━━━\033[0m"; \
+	CUR_VER=$$(cat VERSION 2>/dev/null | tr -d '[:space:]'); \
+	TW_NOTES=$$(find .agents/tech-writer -name "RELEASE_NOTES_v$$CUR_VER.md" 2>/dev/null | wc -l); \
+	TW_LOG_FRESH=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/tech-writer/user-stories.md 2>/dev/null || echo 0); \
+	echo "  RELEASE_NOTES_v$$CUR_VER.md: $$TW_NOTES файл(а). user-stories.md обновлён: $$TW_LOG_FRESH строк"; \
+	if [ "$$TW_NOTES" -gt 0 ]; then \
+	  echo "\033[0;32m  ✅ Tech Writer: RELEASE_NOTES_v$$CUR_VER.md существует\033[0m"; \
+	else \
+	  echo "\033[0;31m  ❌ Tech Writer: нет RELEASE_NOTES_v$$CUR_VER.md\033[0m"; \
+	  echo "     → Агент ОБЯЗАН создать .agents/tech-writer/RELEASE_NOTES_v$$CUR_VER.md"; \
+	  FAIL=1; \
+	fi; \
+	echo ""; \
+	echo "\033[0;36m━━━ [12] Skill Modernizer Agent — modernizer-log.md сегодня/вчера ━━━\033[0m"; \
+	SM_FRESH=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/skill-modernizer/modernizer-log.md 2>/dev/null || echo 0); \
+	SM_CODE=$$(grep -cE "utcnow|shell=True|except:|TODO|DEPRECATED|Anti-pattern|AP-[A-Z]|\\bgrep\b" .agents/skill-modernizer/modernizer-log.md 2>/dev/null || echo 0); \
+	echo "  modernizer-log.md: $$SM_FRESH строк с датой сегодня/вчера, $$SM_CODE строк анализа кода"; \
+	if [ "$$SM_FRESH" -gt 0 ] && [ "$$SM_CODE" -gt 0 ]; then \
+	  echo "\033[0;32m  ✅ Skill Modernizer: лог обновлён сегодня с реальным анализом кода\033[0m"; \
+	else \
+	  echo "\033[0;31m  ❌ Skill Modernizer: modernizer-log.md не обновлён ($$SM_FRESH дат, $$SM_CODE анализ)\033[0m"; \
+	  echo "     → Агент ОБЯЗАН: grep → анализ → запись в modernizer-log.md"; \
+	  FAIL=1; \
+	fi; \
+	echo ""; \
+	echo "\033[0;36m━━━ [13] Стратегические агенты — подпись с текущей версией ━━━\033[0m"; \
+	CUR_VER=$$(cat VERSION 2>/dev/null | tr -d '[:space:]'); \
+	STRAT_FAIL=0; \
 	for AGENT in ceo cto project-manager qa-engineer ux-designer ml-engineer business-analyst system-analyst; do \
-	  LINES=$$(wc -l < .agents/$$AGENT/review-log.md 2>/dev/null || echo 0); \
-	  AGENT_UPPER=$$(echo $$AGENT | tr '[:lower:]' '[:upper:]'); \
-	  echo "  $$AGENT_UPPER: $$LINES строк в review-log.md"; \
+	  HAS_SIG=$$(grep -c "АПРУV.*v$$CUR_VER\|v$$CUR_VER.*АПРУV" .agents/$$AGENT/review-log.md 2>/dev/null || echo 0); \
+	  if [ "$$HAS_SIG" -gt 0 ]; then \
+	    echo "  ✅ $$AGENT: подписан v$$CUR_VER"; \
+	  else \
+	    echo "  ❌ $$AGENT: НЕТ подписи v$$CUR_VER в review-log.md"; \
+	    STRAT_FAIL=1; \
+	  fi; \
 	done; \
+	if [ "$$STRAT_FAIL" -eq 0 ]; then \
+	  echo "\033[0;32m  ✅ Все 8 стратегических агентов подписали v$$CUR_VER\033[0m"; \
+	else \
+	  echo "\033[0;31m  ❌ Не все стратегические агенты подписали v$$CUR_VER — запустить всех\033[0m"; \
+	  FAIL=1; \
+	fi; \
 	echo ""; \
 	if [ $$FAIL -eq 0 ]; then \
 	  echo "\033[0;32m╔══════════════════════════════════════════════════════════════════╗\033[0m"; \
-	  echo "\033[0;32m║  ✅ ROUND CLOSE v4.0 ПРОЙДЕН (8 авто-проверок)                ║\033[0m"; \
+	  echo "\033[0;32m║  ✅ ROUND CLOSE v5.0 ПРОЙДЕН (13 авто-проверок)               ║\033[0m"; \
 	  echo "\033[0;32m║  Можно делать: git push origin develop                          ║\033[0m"; \
 	  echo "\033[0;32m╚══════════════════════════════════════════════════════════════════╝\033[0m"; \
 	else \
