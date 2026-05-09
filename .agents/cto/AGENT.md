@@ -41,3 +41,9 @@ grep -n "@router.websocket\|WebSocket" src/translate_video/api/routes/projects.p
 
 ### [CTO-R12-02] projects.py монолит — 2400+ строк → декомпозиция в R13
 Порог тревоги: `wc -l src/translate_video/api/routes/projects.py` > 2000 строк → блок новых фичей до разбивки.
+
+## [SM-1.98.4] Уроки раунда | 2026-05-09
+
+- [1.98.4] Архитектурный принцип: новый роутер = новый файл = ADR запись. Монолитный projects.py (>1500 строк) — красный флаг
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.4

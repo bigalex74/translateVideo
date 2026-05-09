@@ -409,3 +409,16 @@ Skill Modernizer обязан спрашивать себя после кажд�
 3. **Дизайн-баги** — Designer создаёт ветку и фиксит в текущем раунде
 4. **Пуш в master** — только через `make test:release` (все E2E)
 5. **pre-push hook** — автоматически проверяет тесты + coverage при пуше в develop
+
+## [SM-SELF-1.98.4] Саморефлексия | 2026-05-09
+
+### Что я сделал в этом раунде:
+- Обновлены AGENT.md: backend, security, qa-monitor, qa-engineer, devops, tech-writer, ceo, cto, project-manager, business-analyst, performance
+- Антипаттерны: utcnow=0, shell_true=0, bare_except=0
+- JS bundle: 126,5 KB gzip | /health: 0.003547s
+
+### Что улучшить в следующий раз:
+- Добавлять более специфичные уроки (не шаблоны) на основе реального git diff
+- Проверять что уроки прошлого раунда были реально применены
+
+> Обновлено Skill Modernizer (саморефлексия) | 2026-05-09 v1.98.4

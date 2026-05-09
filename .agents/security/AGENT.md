@@ -78,3 +78,9 @@ grep -rn "@router\.(get\|post\|delete)" src/translate_video/api/ --include="*.py
 
 ### Подпись: Security АПРУV | YYYY-MM-DD vX.Y.Z
 ```
+
+## [SM-1.98.4] Уроки раунда | 2026-05-09
+
+- [1.98.4] Rate limit: exemptировать 127.0.0.1/testclient НЕМЕДЛЕННО при создании — иначе тесты падают после N-го запроса
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.4

@@ -61,3 +61,11 @@ deploy:
   @curl -s http://localhost:8002/api/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['version'])"
 ```
 
+
+## [SM-1.98.4] Уроки раунда | 2026-05-09
+
+- [1.98.4] /metrics: доступен на localhost без auth (METRICS_ALLOW_LOCALHOST=1). Prometheus scrape: добавь job 'translatevideo' target localhost:8002
+- [1.98.4] /api/metrics alias добавлен для backward compat. Оба URL работают, используй /metrics в prometheus.yml
+- [1.98.4] D-RULE-02: после make deploy → docker exec --user root video-translator chown -R appuser:appuser /app/runs/
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.4

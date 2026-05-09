@@ -83,3 +83,9 @@ grep -rn "^export \* from\|export { .* } from" ui/src/ --include="*.ts" | head -
 
 ### Подпись: Performance АПРУV | YYYY-MM-DD vX.Y.Z
 ```
+
+## [SM-1.98.4] Уроки раунда | 2026-05-09
+
+- [1.98.4] Bundle: JS=126,5 KB gzip, CSS=20,6 KB gzip. Порог: JS < 200 KB. /health: 0.003547s
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.4

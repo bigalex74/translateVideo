@@ -215,3 +215,10 @@ ls .agents/tech-writer/RELEASE_NOTES_v$(cat VERSION).md
 ### [TW-R12-02] user-stories.md — обновлять статусы при каждой итерации
 При каждой итерации которая закрывает story — немедленно обновить статус `🔴 P1` → `✅ Done` в user-stories.md.
 Не копить до конца раунда.
+
+## [SM-1.98.4] Уроки раунда | 2026-05-09
+
+- [1.98.4] После деплоя: версия в VERSION = версия в RELEASE_NOTES.md = версия в продакшн /api/health. Расхождение блокирует round-close
+- [1.98.4] Новый alias endpoint → задокументировать ОБА URL в README/docs
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.4

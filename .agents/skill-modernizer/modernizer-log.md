@@ -513,3 +513,23 @@ SAFARI-DRAGENETER-REQUIRED: preventDefault in onDragEnter
 Test threshold: 970 → 981 (+11)
 ```
 ### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.98.4
+
+## SM — 2026-05-09 v1.98.4
+```
+utcnow: 0 | shell=True: 0 | bare_except: 0
+hardcoded_secrets: 0 | ws_auth: 1
+JS gzip: 126,5 KB | CSS gzip: 20,6 KB | /health: 0.003547s
+tests: 981
+Обновлены AGENT.md (11): backend, security, qa-monitor, qa-engineer, devops, tech-writer, ceo, cto, project-manager, business-analyst, performance
+```
+### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.98.4
+
+## SM — 2026-05-09 v1.98.4
+```
+utcnow: 0 | shell=True: 0 | bare_except: 0
+hardcoded_secrets: 0 | ws_auth: 1
+JS gzip: 126,5 KB | CSS gzip: 20,6 KB | /health: 0.003092s
+tests: 981
+Обновлены AGENT.md (0): нет
+```
+### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.98.4

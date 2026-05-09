@@ -44,3 +44,10 @@ text = (value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&g
 | # | Замечание | Файл:строка | 🔴/🟡/🟢 |
 ### Подпись: Backend АПРУV
 ```
+
+## [SM-1.98.4] Уроки раунда | 2026-05-09
+
+- [1.98.4] RateLimitMiddleware: lazy import в try/except избегает circular import (`from ...metrics import fn` внутри if-блока)
+- [1.98.4] Middleware: проверяй что `await call_next(request)` вызывается во ВСЕХ путях — иначе 500 без traceback
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.4

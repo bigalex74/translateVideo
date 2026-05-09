@@ -528,18 +528,11 @@ agent\:tech-writer:
 	grep -q "$$TODAY_MARK" ".agents/tech-writer/user-stories.md" 2>/dev/null || \
 	  printf "\n<!-- TW checked: $$TODAY_MARK v$$CUR_VER -->\n" >> ".agents/tech-writer/user-stories.md"
 
-## agent:skill-modernizer: Skill Modernizer — grep анализ + обновление лога (вызывается из iteration)
+## agent:skill-modernizer: Skill Modernizer — реальный тюнинг ВСЕХ агентов (вызывается из iteration)
+## Обновляет AGENT.md каждого агента уроками раунда + SKILL.md порог тестов + саморефлексия
 agent\:skill-modernizer:
-	@echo "$(CYAN)🧠 Skill Modernizer Agent...$(RESET)"
-	@TODAY=$$(date +%Y-%m-%d); \
-	CUR_VER=$$(cat VERSION | tr -d '[:space:]'); \
-	UTCNOW=$$(grep -rn "utcnow" src/ --include="*.py" 2>/dev/null | grep -v test | wc -l); \
-	SHELL_T=$$(grep -rn "shell=True" src/ --include="*.py" 2>/dev/null | grep -v test | wc -l); \
-	DYN_IMP=$$(grep -rn "await import" ui/src/ --include="*.tsx" 2>/dev/null | grep -v "QA-001" | wc -l); \
-	WS_AUTH=$$(grep -n "@router.websocket" src/translate_video/api/routes/projects.py 2>/dev/null | wc -l); \
-	AGENTS_UPDATED=$$(git log --since="2 days ago" --oneline -- ".agents/*/AGENT.md" 2>/dev/null | wc -l); \
-	printf "\n## SM — $$TODAY v$$CUR_VER\n\`\`\`\ngrep utcnow src/: $$UTCNOW\ngrep shell=True src/: $$SHELL_T\nawait import ui/: $$DYN_IMP (AP-DYNIMPORT)\n@router.websocket без auth: $$WS_AUTH (AP-WS-AUTH)\nAGENT.md обновлено за 2 дня: $$AGENTS_UPDATED\n\`\`\`\n### Подпись: Skill Modernizer АПРУV | $$TODAY v$$CUR_VER\n" >> .agents/skill-modernizer/modernizer-log.md; \
-	echo "$(GREEN)  ✅ Skill Modernizer: modernizer-log.md обновлён$(RESET)"
+	@echo "$(CYAN)🧠 Skill Modernizer Agent — тюнинг всех агентов...$(RESET)"
+	@python3 scripts/skill_modernizer.py
 
 ## agent:performance: Performance Agent — bundle size + API time (вызывается из round-close)
 agent\:performance:
