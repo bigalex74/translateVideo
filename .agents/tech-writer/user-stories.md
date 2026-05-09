@@ -302,3 +302,20 @@
 | 🔴 P1 | PROJECTS-SPLIT | Декомпозиция projects.py | → И5 |
 
 ### Изменения в change.log: v1.97.1 ✅
+
+---
+## R13-И2..И5 Tech Writer — 2026-05-09 v1.97.5
+
+### Закрытые в И2..И5:
+| Приоритет | ID | Story | Статус |
+|---|---|---|---|
+| 🔴 P1 | MOBILE-UPLOAD | Загрузка/Dashboard на мобильном 480px | ✅ R13-И2 |
+| 🔴 P1 | WS-AUTH | Auth на WS endpoint | ✅ R13-И3 |
+| 🔴 P1 | RATE-LIMIT-API | Rate limiting upload/delete/patch | ✅ R13-И3 |
+| 🔴 P1 | SEGMENT-EDITOR | Оригинал рядом + Accept All | ✅ R13-И4 |
+| 🔴 P1 | PROJECTS-SPLIT | ADR-001 Фаза 1: export_router | ✅ R13-И5 |
+
+### Открыто на R14:
+| 🔴 P1 | PROJECTS-SPLIT-P2 | ADR-001 Фаза 2: pipeline_ext | → R14 |
+| 🟡 P2 | WEBHOOK-CB | Webhook callback API | → R14 |
+| 🟡 P2 | HISTORY-SEARCH | Поиск по истории | → R14 |

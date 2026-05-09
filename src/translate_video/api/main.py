@@ -15,6 +15,7 @@ from translate_video import __version__
 from translate_video.api.middleware.auth import APIKeyMiddleware
 from translate_video.api.middleware.rate_limit import GlobalRateLimitMiddleware  # R13-И3
 from translate_video.api.routes import admin, analytics, metrics, pipeline, preflight, projects, providers, video
+from translate_video.api.routes.export import export_router  # ADR-001 Фаза 1
 from translate_video.core.env import load_env_file
 from translate_video.core.log import configure_from_env, get_logger
 
@@ -193,6 +194,7 @@ class TraceIDMiddleware(BaseHTTPMiddleware):
 app.add_middleware(TraceIDMiddleware)
 
 app.include_router(projects.router)
+app.include_router(export_router, prefix="/api/v1/projects")  # ADR-001 Фаза 1
 app.include_router(pipeline.router)
 app.include_router(pipeline.tts_router)
 app.include_router(preflight.router)

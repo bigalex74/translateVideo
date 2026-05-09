@@ -1,3 +1,17 @@
+## 1.97.5 — 2026-05-09 — R13-И5: Декомпозиция projects.py (ADR-001 Фаза 1)
+
+### Architecture (SA/CTO P1 backlog)
+- **ADR-001 создан**: docs/adr/ADR-001-projects-router-decomposition.md
+  Фаза 1: export.py | Фаза 2 (R14): pipeline | Фаза 3 (R15): analytics
+- **export_router** (src/translate_video/api/routes/export.py): 4 endpoints
+  GET /{id}/export/zip, /{id}/export/subtitles-all, /{id}/export/script, /{id}/export-audio
+  Зарегистрирован в main.py с prefix /api/v1/projects
+- **X-Export-Router: v2** header: трекинг миграции по заголовку
+- projects.py: 2753 строк → план сокращения до <1500 в R14-R15
+
+### Tests
+- 958 тестов (+26: rate_limit 13 + export_router 13)
+
 ## 1.97.4 — 2026-05-09 — R13-И4: Редактор переводов
 
 ### UX переводчика (Мария — FBA R13)
