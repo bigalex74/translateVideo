@@ -1,3 +1,12 @@
+## 1.97.2 — 2026-05-09 — R13-И2: Мобильный UX
+
+### UX мобильный (Карина, Никита — FBA R13)
+- **Dashboard список**: 1 колонка на 480px, кнопки stretch + min-height 44px (WCAG)
+- **card-header**: vertical stack на мобильном, кнопки полная ширина
+- **status-filter**: горизонтальный скролл без переноса
+- **section-header**: vertical на узком экране, поиск 100%
+- **NewProject form**: mobile CSS — drop-zone 140px, btn полная ширина 48px
+- **File input**: aria-label добавлен (a11y)
 ## 1.97.1 — 2026-05-09 — R13-И1: UX понятности, ETA, безопасность
 
 ### UX улучшения (Дмитрий, Мария, Никита — FBA R13)

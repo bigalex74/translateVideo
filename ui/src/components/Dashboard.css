@@ -526,6 +526,69 @@
 /* R13-И1: ETA в progress bar */
 .card-progress-eta {
   font-size: 0.78rem;
-  opacity: 0.8;
-  font-weight: 400;
+  opacity: 0.9;
+  font-weight: 500;  /* лучше читается на мобильном: R13-И1 Designer */
+}
+
+/* R13-И2: Мобильный UX — список проектов (Карина, Никита) */
+@media (max-width: 480px) {
+  /* Одна колонка на телефоне */
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+  /* Кнопки действий в карточке — стека (не row) */
+  .mini-card-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+  .mini-card-actions .btn-secondary,
+  .mini-card-actions .btn-primary {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    min-height: 44px; /* WCAG touch target */
+    font-size: 0.85rem;
+  }
+  /* Заголовок карточки — убираем overflow */
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .card-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .card-actions .btn-primary,
+  .card-actions .btn-secondary {
+    flex: 1;
+    min-height: 44px;
+    justify-content: center;
+  }
+  /* Фильтры статусов — скролл */
+  .status-filter {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filter-pill {
+    white-space: nowrap;
+    min-height: 36px;
+  }
+  /* section-header — вертикально */
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .section-header-right {
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+  /* Поиск растягивается */
+  #project-list-search-input {
+    width: 100% !important;
+  }
 }

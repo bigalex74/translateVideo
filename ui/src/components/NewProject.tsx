@@ -345,7 +345,15 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <input type="file" accept="video/*,audio/*" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
+                {/* R13-И2: на мобильном не добавляем capture чтобы позволить выбор из галереи И камеры */}
+                <input
+                  type="file"
+                  accept="video/*,audio/*"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                  aria-label="Выберите видео или аудио файл"
+                />
                 {file ? (
                   <div className="file-info">
                     <FileVideo size={48} className="text-accent" />

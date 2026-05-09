@@ -514,3 +514,42 @@
   /* drop-zone не слишком высокая */
   .drop-zone { min-height: 160px; padding: 24px 16px; }
 }
+
+/* R13-И2: Мобильный UX — форма создания проекта (Никита, Android Chrome) */
+@media (max-width: 480px) {
+  /* NewProject форма — полная ширина */
+  .new-project-page {
+    padding: 12px 8px;
+  }
+  .new-project-form.glass-panel {
+    padding: 16px 12px;
+  }
+  /* drop-zone — видимая область на мобильном */
+  .drop-zone {
+    min-height: 140px;
+    padding: 20px 12px;
+    cursor: pointer;
+  }
+  /* Кнопка выбора файла — полная ширина */
+  .mobile-upload-btn {
+    width: 100%;
+    margin-top: 12px;
+    min-height: 48px;
+    font-size: 1rem;
+  }
+  /* drop-prompt текст */
+  .drop-prompt-title {
+    font-size: 0.95rem;
+  }
+  /* Кнопки формы — полная ширина */
+  .form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .form-actions .btn-primary,
+  .form-actions .btn-secondary {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+}

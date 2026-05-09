@@ -284,3 +284,21 @@
 | 🟡 P2 | QUEUED-ANIM | Анимация перехода queued→running | UX |
 | 🟡 P2 | E2E-RETRY | E2E тест кнопки RETRY | QA |
 | 🟡 P2 | WS-TEST | Интеграционный тест WS hook | QA |
+
+---
+## R13-И1 Tech Writer — 2026-05-09 v1.97.1
+
+### Закрытые в И1:
+| Приоритет | ID | Story | Статус |
+|---|---|---|---|
+| 🔴 P1 | UX-STATUS-CLARITY | Понятные статусы (Дмитрий, Никита) | ✅ R13-И1 |
+| 🔴 P1 | ETA-DASHBOARD | ETA в прогресс-баре Dashboard | ✅ R13-И1 |
+| 🔴 P1 | SEC-URL-ENCODE | sanitize_project_id: %2F bypass | ✅ R13-И1 |
+
+### Ещё открыто для R13:
+| 🔴 P1 | MOBILE-UPLOAD | Загрузка на мобильном | → И2 |
+| 🔴 P1 | WS-AUTH | Auth на WS endpoint | → И3 |
+| 🔴 P1 | SEGMENT-EDITOR | Редактор переводов (оригинал рядом) | → И4 |
+| 🔴 P1 | PROJECTS-SPLIT | Декомпозиция projects.py | → И5 |
+
+### Изменения в change.log: v1.97.1 ✅
