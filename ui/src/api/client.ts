@@ -74,19 +74,21 @@ export async function listProjects(params?: {
     sort_by?: 'created_at' | 'name' | 'status';
     sort_dir?: 'asc' | 'desc';
     tag?: string;
+    page?: number;
     page_size?: number;
-}): Promise<VideoProject[]> {
+}): Promise<{ projects: VideoProject[]; pagination: { page: number; page_size: number; total: number; pages: number } }> {
     const q = new URLSearchParams();
-    if (params?.search)   q.set('search', params.search);
-    if (params?.sort_by)  q.set('sort_by', params.sort_by);
-    if (params?.sort_dir) q.set('sort_dir', params.sort_dir);
-    if (params?.tag)      q.set('tag', params.tag);
+    if (params?.search)    q.set('search', params.search);
+    if (params?.sort_by)   q.set('sort_by', params.sort_by);
+    if (params?.sort_dir)  q.set('sort_dir', params.sort_dir);
+    if (params?.tag)       q.set('tag', params.tag);
+    if (params?.page)      q.set('page', String(params.page));
     if (params?.page_size) q.set('page_size', String(params.page_size));
     const url = q.toString() ? `${API_BASE}/projects?${q}` : `${API_BASE}/projects`;
     const res = await fetch(url, { headers: apiHeaders() });
     if (!res.ok) throw new Error(await readError(res));
-    const data = await res.json() as { projects: VideoProject[] };
-    return data.projects;
+    const data = await res.json() as { projects: VideoProject[]; pagination: { page: number; page_size: number; total: number; pages: number } };
+    return data;
 }
 
 export async function getProjectStatus(project_id: string): Promise<VideoProject> {

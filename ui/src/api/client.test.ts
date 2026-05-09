@@ -188,11 +188,12 @@ describe('uploadProject', () => {
 // ── listProjects ──────────────────────────────────────────────────────────────
 
 describe('listProjects', () => {
-  it('возвращает массив из data.projects', async () => {
-    mockFetch(okResponse({ projects: [{ id: 'p1' }, { id: 'p2' }] }));
+  it('возвращает объект {projects, pagination} из data', async () => {
+    mockFetch(okResponse({ projects: [{ id: 'p1' }, { id: 'p2' }], pagination: { page: 1, page_size: 20, total: 2, pages: 1 } }));
     const result = await listProjects();
-    expect(result).toHaveLength(2);
-    expect((result[0] as unknown as { id: string }).id).toBe('p1');
+    expect(result.projects).toHaveLength(2);
+    expect((result.projects[0] as unknown as { id: string }).id).toBe('p1');
+    expect(result.pagination.total).toBe(2);
   });
 
   it('бросает ошибку при сбое', async () => {

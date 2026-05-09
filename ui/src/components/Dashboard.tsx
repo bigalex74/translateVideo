@@ -44,6 +44,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [project, setProject] = useState<VideoProject | null>(null);
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [initialLoading, setInitialLoading] = useState(true); // R8-И3: skeleton loader
+  // R15-И1: Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<{ page: number; page_size: number; total: number; pages: number } | null>(null);
+  const PAGE_SIZE = 20;
   const [searchInput, setSearchInput] = useState('');
   const [projectSearch, setProjectSearch] = useState('');  // K3: поиск по списку проектов
   // А9: Сортировка с persist через localStorage
@@ -70,20 +74,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
 
   const refreshProjects = useCallback(async () => {
     try {
-      const data = await listProjects({ search: projectSearch || undefined, sort_by: sortBy, sort_dir: sortDir });
-      setProjects(data);
+      const result = await listProjects({ search: projectSearch || undefined, sort_by: sortBy, sort_dir: sortDir, page: currentPage, page_size: PAGE_SIZE });
+      setProjects(result.projects);
+      setPagination(result.pagination);
     } catch (e) {
       console.error(e);
     }
-  }, [projectSearch, sortBy, sortDir]);
+  }, [projectSearch, sortBy, sortDir, currentPage]);
 
   // А9: Persist sort preferences
   const handleSortBy = (v: 'created_at'|'name'|'status') => {
     setSortBy(v);
+    setCurrentPage(1);
     localStorage.setItem('tv_sort_by', v);
   };
   const handleSortDir = (v: 'asc'|'desc') => {
     setSortDir(v);
+    setCurrentPage(1);
     localStorage.setItem('tv_sort_dir', v);
   };
 
@@ -145,9 +152,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   useEffect(() => {
     let cancelled = false;
     void listProjects()
-      .then(data => {
+      .then(result => {
         if (!cancelled) {
-          setProjects(data);
+          setProjects(result.projects);
+          setPagination(result.pagination);
           setInitialLoading(false); // R8-И3: скрываем skeleton
         }
       })
@@ -768,6 +776,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
               </>
             )}
           </div>
+          {/* R15-И1: Pagination controls */}
+          {pagination && pagination.pages > 1 && (
+            <div className="pagination-controls" aria-label="Навигация по страницам">
+              <span className="pagination-info">
+                Показано {projects.length} из {pagination.total}
+              </span>
+              <div className="pagination-buttons">
+                <button
+                  id="btn-pagination-prev"
+                  className="btn-sm btn-outline"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  aria-label="Предыдущая страница"
+                >← Назад</button>
+                <span className="pagination-page">
+                  {currentPage} / {pagination.pages}
+                </span>
+                <button
+                  id="btn-pagination-next"
+                  className="btn-sm btn-outline"
+                  disabled={currentPage >= pagination.pages}
+                  onClick={() => setCurrentPage(p => Math.min(pagination.pages, p + 1))}
+                  aria-label="Следующая страница"
+                >Вперёд →</button>
+              </div>
+            </div>
+          )}
+          {pagination && pagination.total > 0 && pagination.pages === 1 && (
+            <p className="pagination-info" style={{textAlign:'center', marginTop:'8px'}}>
+              Всего проектов: {pagination.total}
+            </p>
+          )}
         </section>
       </main>
 
