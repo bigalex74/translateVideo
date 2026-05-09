@@ -210,7 +210,7 @@ const TEXT: LocaleMap = {
     'status.created': 'Готов к запуску',
     'status.queued': 'В очереди',
     'status.running': 'Переводится…',
-    'status.completed': 'Готово',
+    'status.completed': 'Завершён',
     'status.failed': 'Ошибка',
     'status.cancelled': 'Остановлен',
     'status.skipped': 'Пропущен',
