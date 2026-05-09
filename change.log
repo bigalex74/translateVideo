@@ -1,3 +1,13 @@
+## 1.98.3 — 2026-05-09 — R14-И4: Mobile form auto-scroll
+
+### Mobile UX (Никита — FBA R14, MOBILE-FORM-SCROLL P1)
+- **submitBtnRef**: useRef<HTMLButtonElement> на кнопку "Создать проект"
+- **applyFile()**: `scrollIntoView({ behavior: 'smooth', block: 'center' })`
+  срабатывает только на touch-устройствах (`'ontouchstart' in window`)
+  задержка 300ms для ожидания рендера file-info блока
+- Пользователь выбрал файл на мобильном → страница автоматически
+  скроллится к кнопке "Создать" — больше не нужно искать
+
 ## 1.98.2 — 2026-05-09 — R14-И3: Download CTA
 
 ### UX (Дмитрий FBA R14 — DOWNLOAD-CTA P1)

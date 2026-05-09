@@ -136,6 +136,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
   const [checking, setChecking]     = useState(false);
   const [preflight, setPreflight]   = useState<PreflightReport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const submitBtnRef = useRef<HTMLButtonElement>(null); // R14-И4: scroll to submit on mobile
 
   // Шаг 1
   const [sourceLang, setSourceLang] = useState('auto');
@@ -189,6 +190,12 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
       setProjectId(name);
     }
     setPreflight(null);
+    // R14-И4: Никита — автоскролл к кнопке Создать на мобильном
+    if ('ontouchstart' in window && submitBtnRef.current) {
+      setTimeout(() => {
+        submitBtnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300); // ждём рендер file-info
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -595,6 +602,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onProjectCreated, locale
               id="btn-create-project"
               type="button"
               className="btn-primary"
+              ref={submitBtnRef}
               onClick={handleSubmit}
               disabled={loading || (inputType === 'upload' && !file)}
             >
