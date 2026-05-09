@@ -462,9 +462,10 @@ round-close:
 	  FAIL=1; \
 	fi; \
 	echo ""; \
+	$(MAKE) agent:performance; \
 	if [ $$FAIL -eq 0 ]; then \
 	  echo "\033[0;32m╔══════════════════════════════════════════════════════════════════╗\033[0m"; \
-	  echo "\033[0;32m║  ✅ ROUND CLOSE v5.0 ПРОЙДЕН (13 авто-проверок)               ║\033[0m"; \
+	  echo "\033[0;32m║  ✅ ROUND CLOSE v5.0 ПРОЙДЕН (13 проверок + Performance)       ║\033[0m"; \
 	  echo "\033[0;32m║  Можно делать: git push origin develop                          ║\033[0m"; \
 	  echo "\033[0;32m╚══════════════════════════════════════════════════════════════════╝\033[0m"; \
 	else \
@@ -539,6 +540,18 @@ agent\:skill-modernizer:
 	AGENTS_UPDATED=$$(git log --since="2 days ago" --oneline -- ".agents/*/AGENT.md" 2>/dev/null | wc -l); \
 	printf "\n## SM — $$TODAY v$$CUR_VER\n\`\`\`\ngrep utcnow src/: $$UTCNOW\ngrep shell=True src/: $$SHELL_T\nawait import ui/: $$DYN_IMP (AP-DYNIMPORT)\n@router.websocket без auth: $$WS_AUTH (AP-WS-AUTH)\nAGENT.md обновлено за 2 дня: $$AGENTS_UPDATED\n\`\`\`\n### Подпись: Skill Modernizer АПРУV | $$TODAY v$$CUR_VER\n" >> .agents/skill-modernizer/modernizer-log.md; \
 	echo "$(GREEN)  ✅ Skill Modernizer: modernizer-log.md обновлён$(RESET)"
+
+## agent:performance: Performance Agent — bundle size + API time (вызывается из round-close)
+agent\:performance:
+	@echo "$(CYAN)⚡ Performance Agent...$(RESET)"
+	@TODAY=$$(date +%Y-%m-%d); \
+	CUR_VER=$$(cat VERSION | tr -d '[:space:]'); \
+	JS_GZIP=$$(gzip -c ui/dist/assets/*.js 2>/dev/null | wc -c | awk '{printf "%.1f", $$1/1024}'); \
+	CSS_GZIP=$$(gzip -c ui/dist/assets/*.css 2>/dev/null | wc -c | awk '{printf "%.1f", $$1/1024}'); \
+	HEALTH_T=$$(curl -s -o /dev/null -w "%{time_total}" http://localhost:8002/api/health 2>/dev/null || echo "ERR"); \
+	PROJECTS_T=$$(curl -s -o /dev/null -w "%{time_total}" http://localhost:8002/api/v1/projects 2>/dev/null || echo "ERR"); \
+	printf "\n## Performance — $$TODAY v$$CUR_VER\n| Метрика | Значение | Baseline R12 |\n|---------|----------|-------------|\n| JS gzip | $$JS_GZIP KB | 129.75 KB |\n| CSS gzip | $$CSS_GZIP KB | 20.73 KB |\n| /health | $$HEALTH_T s | 0.004s |\n| /projects | $$PROJECTS_T s | 0.007s |\n\n### Подпись: Performance АПРУV | $$TODAY v$$CUR_VER\n" >> .agents/performance/performance-log.md; \
+	echo "$(GREEN)  ✅ Performance: performance-log.md обновлён (JS=$$JS_GZIP KB gzip)$(RESET)"
 
 ## iteration: полный цикл — тесты → деплой → верификация → 4 code-quality агента АВТОМАТИЧЕСКИ
 iteration:

@@ -336,9 +336,13 @@ class ProjectStore:
 
 
 def sanitize_project_id(value: str) -> str:
-    """Вернуть безопасный идентификатор проекта для имени папки."""
+    """Вернуть безопасный идентификатор проекта для имени папки.
 
-    raw = value.strip()
+    SEC-R12: декодирует URL-encoded символы (%2F → /) перед проверкой
+    чтобы предотвратить обход защиты через percent-encoding.
+    """
+    from urllib.parse import unquote  # noqa: PLC0415
+    raw = unquote(value.strip())
     if "/" in raw or "\\" in raw or raw in {".", ".."}:
         raise ValueError("идентификатор проекта содержит недопустимый путь")
     cleaned = re.sub(r"[^\w.-]+", "-", raw).strip(".-_")
