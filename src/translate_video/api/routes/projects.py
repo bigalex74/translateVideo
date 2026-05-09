@@ -1523,6 +1523,95 @@ def batch_create_projects(
         "errors": sum(1 for r in results if r["status"] == "error"),
     }
 
+# ─── R15-И5: Batch Upload файлов (FBA Мария — BATCH API P1) ───────────────
+
+@router.post(
+    "/batch/upload",
+    summary="R15-И5: Пакетная загрузка файлов (до 10) — multipart/form-data",
+    status_code=207,
+)
+async def batch_upload_projects(
+    files: list[UploadFile] = File(..., description="Видео/аудио файлы для перевода"),
+    auto_run: bool = Form(False, description="Сразу запустить пайплайн после загрузки"),
+    store: ProjectStore = Depends(get_store),
+):
+    """Загрузить несколько файлов за один запрос и создать проекты.
+
+    Принимает: multipart/form-data с полями files[] и опциональным auto_run.
+    Возвращает: 207 Multi-Status со списком результатов (created/error).
+    Ограничение: максимум 10 файлов за запрос.
+    """
+    import uuid as _uuid   # noqa: PLC0415
+    import tempfile         # noqa: PLC0415
+
+    MAX_BATCH_UPLOAD = 10
+    ALLOWED_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".mp3", ".wav", ".m4a", ".aac", ".ogg"}
+
+    if len(files) > MAX_BATCH_UPLOAD:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Максимум {MAX_BATCH_UPLOAD} файлов за один запрос. Получено: {len(files)}",
+        )
+
+    results = []
+
+    for upload in files:
+        filename = upload.filename or f"upload_{_uuid.uuid4().hex[:8]}"
+        ext = Path(filename).suffix.lower()
+
+        if ext not in ALLOWED_EXTENSIONS:
+            results.append({
+                "filename": filename,
+                "status": "error",
+                "error": f"Неподдерживаемый формат '{ext}'. Допустимо: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+            })
+            continue
+
+        try:
+            safe_filename = sanitize_filename(filename)
+            project_id = f"batch-{_uuid.uuid4().hex[:12]}"
+
+            content = await upload.read()
+
+            project = store.create_project(
+                input_video=safe_filename,
+                project_id=project_id,
+            )
+            dest = project.work_dir / safe_filename
+            dest.write_bytes(content)
+            project.input_video = str(dest)
+            store.save_project(project)
+
+            result: dict = {
+                "filename": filename,
+                "project_id": project.id,
+                "status": "created",
+                "size_bytes": len(content),
+            }
+
+            if auto_run:
+                try:
+                    from translate_video.api.routes import pipeline as pm  # noqa: PLC0415
+                    from translate_video.api.routes.pipeline import RunRequest as RR  # noqa: PLC0415
+                    run_result = pm.run_pipeline(project_id=project.id, req=RR(), store=store)
+                    result["run"] = run_result
+                except Exception as run_err:
+                    result["run_error"] = str(run_err)[:200]
+
+            results.append(result)
+
+        except Exception as exc:
+            logger.exception("batch_upload: ошибка для файла %s", filename)
+            results.append({"filename": filename, "status": "error", "error": str(exc)[:200]})
+
+    return {
+        "results": results,
+        "total": len(results),
+        "created": sum(1 for r in results if r.get("status") == "created"),
+        "errors": sum(1 for r in results if r.get("status") == "error"),
+    }
+
+
 # ─── NC6-01: Импорт субтитров из SRT/VTT/ASS ──────────────────────────────
 
 @router.post(

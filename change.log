@@ -1,3 +1,13 @@
+## 1.98.8 — 2026-05-09 — R15-И5: Batch Upload API
+
+### Backend (FBA Мария — BATCH API P1)
+- **POST /api/v1/projects/batch/upload** — multipart/form-data
+- Принимает до 10 файлов, ALLOWED_EXTENSIONS: mp4/avi/mov/mkv/webm/mp3/wav/m4a/aac/ogg
+- Возвращает 207 Multi-Status: {results, total, created, errors}
+- auto_run=true — сразу запускает пайплайн
+- Валидация расширений: status 'error' с понятным сообщением
+
+---
 ## 1.98.7 — 2026-05-09 — R15-И4: /api/health/detailed
 
 ### DevOps (Артём — FBA R15)
