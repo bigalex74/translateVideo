@@ -64,3 +64,34 @@ npx tsc --noEmit → 0 errors
 - E2E: проверить ExportPanel кнопки доступны
 
 ### Подпись: QA Engineer АПРУV | 2026-05-08 v1.96.0
+
+---
+## QA Engineer Review — 2026-05-09 v1.97.0 R12
+
+### Команды:
+```
+PYTHONPATH=src python3 -m unittest discover -s tests -q
+→ Ran 925 tests in 60.7s — OK (skipped=2)
+npm run build → ✓ built 0 errors
+```
+
+### QA-анализ R12:
+| # | Проверка | Статус | Замечание |
+|---|----------|--------|-----------|
+| 1 | Unit тесты 925 OK | ✅ | +5 новых (email) |
+| 2 | Build TS 0 ошибок | ✅ | INEFFECTIVE_DYNAMIC_IMPORT устранён |
+| 3 | WS endpoint HTTP 404 (правильно — нужен WS протокол) | ✅ | |
+| 4 | API /projects HTTP 200 | ✅ | |
+| 5 | Health v1.97.0 | ✅ | |
+| 6 | version-consistency тесты | ✅ | 3 теста пройдены |
+| 7 | Email: is_enabled() без env → False | ✅ | non-breaking |
+| 8 | **НЕТ**: E2E тест для RETRY-BTN | ❌ | R13 backlog |
+| 9 | **НЕТ**: мобильный скриншот-тест | ❌ | R13 backlog |
+| 10 | **НЕТ**: WS интеграционный тест | ❌ | R13 backlog |
+
+### R13 QA задачи:
+- E2E тест: кнопка "Попробовать снова" при failed
+- WS integration test: mock server → hook
+- Mobile screenshot regression
+
+### Подпись: QA Engineer АПРУV | 2026-05-09 v1.97.0

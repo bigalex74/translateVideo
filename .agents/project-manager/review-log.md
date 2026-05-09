@@ -56,3 +56,33 @@ git log --oneline TVIDEO-R11-workspace-decompose | wc -l → задачи R11
 - Email notifications (С3)
 
 ### Подпись: PM АПРУV | 2026-05-08 v1.96.0
+
+---
+## Project Manager Review — 2026-05-09 v1.97.0 R12
+
+### Velocity R12:
+- 5 итераций за 1 сессию
+- Закрыто P1 задач: WS-FE, QA-001, MOBILE-UPLOAD, MOBILE-OVERFLOW, API-STATES, EMAIL(С3), RETRY-BTN, DOUBLE-CLICK, FILE-PREVIEW, ZIP-NAME
+- Новых задач в бэклог: WEBHOOK, HISTORY-SEARCH, MOBILE-OVERFLOW(API), projects.py декомпозиция
+- 925 тестов (было 920, +5)
+
+### DoD Check:
+| Критерий | ✅/❌ |
+|---|---|
+| Все тесты проходят | ✅ 925 OK |
+| Build чистый | ✅ 0 ошибок |
+| Деплой выполнен | ✅ v1.97.0 в проде |
+| D-RULE-02 применён | ✅ все итерации |
+| change.log обновлён | ✅ |
+| VERSION файлы синхронизированы | ✅ 5 файлов |
+| User survey проведён | ✅ R12-survey.md (5 персон) |
+| round-close пройден | ✅ 8 проверок |
+
+### Бэклог R13 (топ):
+1. 🔴 P1: Декомпозиция projects.py (CTO)
+2. 🔴 P1: Auth на WS endpoint
+3. 🟡 P2: WEBHOOK callback API (Риккардо)
+4. 🟡 P2: HISTORY-SEARCH (Лейла)
+5. 🟡 P2: BATCH-UI полноценный
+
+### Подпись: Project Manager АПРУV | 2026-05-09 v1.97.0

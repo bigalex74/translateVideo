@@ -42,3 +42,34 @@ wc -l src/translate_video/api/routes/projects.py → 2700+
 - 920 Python тестов OK
 
 ### АПРУV | 2026-05-08 v1.96.0
+
+---
+## System Analyst Review — 2026-05-09 v1.97.0 R12
+
+### API-контракты R12:
+| Изменение | Совместимость |
+|-----------|--------------|
+| ProjectStatus: добавлен "queued" | ✅ Backward compatible (новое значение) |
+| GET /export/zip: Content-Disposition изменён | ✅ Семантика та же, имя другое |
+| WS /{project_id}/ws: уже существовал (R7) | ✅ Без изменений |
+| Email: только env vars, нет нового API | ✅ |
+
+### Схема состояний ProjectStatus (обновлённая):
+```
+created → queued → running → completed
+                ↘ failed
+                ↘ cancelled
+```
+
+### Трассируемость требований:
+- R12-REQ-01 (WS) → useProjectWebSocket.ts → backend /ws → ✅
+- R12-REQ-02 (mobile) → NewProject.tsx + .css → ✅
+- R12-REQ-03 (email) → pipeline.py → notifications/__init__.py → ✅
+- R12-REQ-04 (retry) → Dashboard.tsx → ✅
+- R12-REQ-05 (zip-name) → projects.py:1095 → ✅
+
+### Риски:
+1. WS endpoint без авторизации — любой знающий project_id может подключиться (CTO отметил)
+2. Email SMTP конфиг только через env — нет UI для изменения без рестарта
+
+### Подпись: System Analyst АПРУV | 2026-05-09 v1.97.0

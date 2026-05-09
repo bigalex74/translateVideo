@@ -60,7 +60,7 @@
 
 | Приоритет | ID | Задача | Пользователи |
 |---|---|---|---|
-| 🔴 P1 | WS-FE | WebSocket frontend hook (замена поллинга) | Г7 |
+| ✅ Done | WS-FE | WebSocket frontend hook (замена поллинга) — R12-И1 | Г7 |
 | 🔴 P1 | BATCH | Batch API UX интерфейс | Т1 |
 | 🟡 P2 | ONE-CLICK | Режим «один клик» (загрузить → перевести без шагов) | В1-R6 |
 | 🟡 P2 | EMAIL | E-mail уведомления (SMTP) | С3 |
@@ -87,8 +87,8 @@
 
 | Приоритет | ID | Задача |
 |---|---|---|
-| 🔴 P1 | DYNAMIC-IMPORT | Убрать ineffective dynamic import в client.ts (QA-001) |
-| 🔴 P1 | EMAIL | E-mail уведомления (SMTP) — Светлана С3 |
+| ✅ Done | DYNAMIC-IMPORT | Убрать ineffective dynamic import — R12-И1 |
+| ✅ Done | EMAIL | E-mail уведомления (SMTP) — R12-И3 |
 | 🟡 P2 | BATCH-UI | Полноценный UI для Batch (не только DnD, но и список URL) |
 | 🟡 P2 | A11Y | Доступность — aria-labels, screen reader тестирование |
 | 🟢 P3 | BATCH-MULTI-DND | Множественный DnD (несколько файлов одновременно) |
@@ -272,3 +272,15 @@
 | Н4 | Кнопки ≥44px на планшете | ✅ R11-И2 |
 
 ### RELEASE_NOTES R11 создан:
+
+---
+## R13 Backlog (добавлен 2026-05-09):
+| Приоритет | ID | Story | Персона |
+|---|---|---|---|
+| 🔴 P1 | WS-AUTH | Auth на WS endpoint (X-API-Key) | Security |
+| 🔴 P1 | PROJECTS-SPLIT | Декомпозиция projects.py (>2400 строк) | CTO |
+| 🟡 P2 | WEBHOOK-CB | Webhook callback API для интеграций | Риккардо |
+| 🟡 P2 | HISTORY-SEARCH | Поиск по истории переводов | Лейла |
+| 🟡 P2 | QUEUED-ANIM | Анимация перехода queued→running | UX |
+| 🟡 P2 | E2E-RETRY | E2E тест кнопки RETRY | QA |
+| 🟡 P2 | WS-TEST | Интеграционный тест WS hook | QA |

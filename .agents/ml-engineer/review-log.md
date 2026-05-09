@@ -41,3 +41,19 @@ grep -rn "billing_snapshots\|cost_usd" src/translate_video/ | grep -v "__pycache
 - 920 Python тестов OK
 
 ### АПРУV | 2026-05-08 v1.96.0
+
+---
+## ML Engineer Review — 2026-05-09 v1.97.0 R12
+
+### ML-анализ R12:
+| # | Наблюдение | 🔴/🟡/🟢 |
+|---|---|---|
+| 1 | R12 не затрагивал LLM/TTS/Whisper — риска регрессии нет | 🟢 |
+| 2 | Email non-blocking thread: не влияет на inference latency | 🟢 |
+| 3 | WS endpoint проксирует status — не добавляет LLM calls | 🟢 |
+| 4 | ProjectStatus.QUEUED — полезен для будущей queue-based обработки (batch LLM) | 🟢 |
+| 5 | SMTP конфиг через env — правильная практика, нет хардкода credentials | 🟢 |
+| 6 | R13 предложение: QUEUED → реальная очередь задач (asyncio.Queue или Celery) для параллельной обработки нескольких видео | 🟡 |
+| 7 | Billing snapshots для ML стоимости — уже есть с R10. Хорошая база | 🟢 |
+
+### Подпись: ML Engineer АПРУV | 2026-05-09 v1.97.0

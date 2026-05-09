@@ -82,3 +82,34 @@ grep -rn "utcnow()" src/             → 0 (исправлено)
 3. WebSocket: заменить polling в useProjectStatus hook
 
 ### Подпись: CTO АПРУV | 2026-05-08 v1.96.0
+
+---
+## CTO Review — 2026-05-09 v1.97.0 R12
+
+### Команды:
+```
+cat VERSION: 1.97.0
+git diff origin/develop --stat: 5 коммитов, ~600 изменений
+PYTHONPATH=src python3 -m unittest: 925 OK
+npm run build: ✓ 1772 modules, 0 errors
+```
+
+### Технический анализ R12:
+| # | Замечание | Где | 🔴/🟡/🟢 |
+|---|-----------|-----|---------|
+| 1 | **WS хук** правильно архитектурно: useRef для WS, cleanup в useEffect, refs для callbacks — нет stale closure | hooks/useProjectWebSocket.ts | 🟢 |
+| 2 | **QA-001 INEFFECTIVE_DYNAMIC_IMPORT** устранён полностью — 3 файла исправлены, 0 предупреждений | Dashboard/Workspace/Analytics | 🟢 |
+| 3 | **ProjectStatus.QUEUED** добавлен в оба места (backend + frontend) — синхронизация типов | schemas.py + schemas.ts | 🟢 |
+| 4 | **Email non-blocking**: daemon thread, исключения поглощаются — пайплайн не прерывается | pipeline.py | 🟢 |
+| 5 | **ZIP-NAME**: os.path.splitext корректно обрабатывает путь — нет path traversal риска | projects.py | 🟢 |
+| 6 | **Техдолг**: projects.py 2400+ строк — монолит. R13 нужна декомпозиция | projects.py | 🔴 |
+| 7 | **WS backend**: нет auth на WS endpoint /{project_id}/ws — любой может подключиться | projects.py:2106 | 🟡 |
+| 8 | **mobile-upload-btn**: display:none на десктопе — правильный подход, не ломает DnD | NewProject.css | 🟢 |
+| 9 | **Version sync**: 5 файлов обновлены (VERSION, pyproject, __init__, sw.js, PUBLIC_ROADMAP) | R12-И5 | 🟢 |
+| 10 | **925 тестов**: рост +5 (email tests) — coverage нарастает | test_email_notifications.py | 🟢 |
+
+### CTO решения для R13:
+- Декомпозиция projects.py (>2400 строк) на модули
+- Auth на WS endpoint (X-API-Key через query param)
+
+### Подпись: CTO АПРУV | 2026-05-09 v1.97.0
