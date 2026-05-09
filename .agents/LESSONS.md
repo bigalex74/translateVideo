@@ -1,0 +1,27 @@
+# 🧠 LESSONS — Дистиллированные уроки агентов
+
+> Обновлено Skill Modernizer | 2026-05-09 v1.98.4 | Тестов: 981
+
+> JS=126,5 KB | /health=0.003571s | utcnow=0 shell=True=0
+
+
+## Критические правила (читать ВСЕГДА)
+
+- **Тестов:** 981 — не снижать никогда
+- **D-RULE-02:** после `make deploy` → chown -R appuser:appuser /app/runs/
+- **Правило #11:** новый роутер = тесты В ТОЙ ЖЕ итерации
+- **FBA:** каждый раунд минимум 5 персон → R{N}-survey.md → блокирует round-close
+- **ИДЕМПОТЕНТНОСТЬ:** проверяй EXISTS перед INSERT везде
+
+## 🔍 QA
+- [1.98.4] Порог тестов: 981. Любой PR не должен снижать этот счётчик
+- [1.98.4] Smoke test новых endpoints после каждого деплоя: curl -s http://localhost:8002/api/health + все новые пути
+
+## 🚀 DevOps
+- [1.98.4] D-RULE-02: после make deploy → docker exec --user root video-translator chown -R appuser:appuser /app/runs/
+
+## 🏗️ CTO/Arch
+- [1.98.4] Архитектурный принцип: новый роутер = новый файл = ADR запись. Монолитный projects.py (>1500 строк) — красный флаг
+
+## ⚡ Performance
+- [1.98.4] Bundle: JS=126,5 KB gzip, CSS=20,6 KB gzip. Порог: JS < 200 KB. /health: 0.003571s

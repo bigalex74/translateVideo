@@ -24,6 +24,9 @@ AGENTS_DIR = ROOT / ".agents"
 SKILL_MD = Path("/home/user/.gemini/skills/continuous-improvement/SKILL.md")
 SM_LOG = AGENTS_DIR / "skill-modernizer" / "modernizer-log.md"
 SM_AGENT = AGENTS_DIR / "skill-modernizer" / "AGENT.md"
+LESSONS_MD = AGENTS_DIR / "LESSONS.md"  # Канал 3: session-start читает этот файл
+KI_ARTIFACT = Path("/home/user/.gemini/antigravity/knowledge/translateVideo/artifacts/project_overview.md")
+KI_METADATA = Path("/home/user/.gemini/antigravity/knowledge/translateVideo/metadata.json")
 
 TODAY = date.today().isoformat()
 
@@ -388,6 +391,138 @@ tests: {test_count}
     print(f"  ✅ modernizer-log.md обновлён")
 
 
+def update_lessons_md(all_lessons: dict, version: str, test_count: int, ap: dict) -> None:
+    """
+    Канал 3: .agents/LESSONS.md — дистиллированный файл топ-уроков.
+    Читается make session-start → попадает в контекст каждой сессии.
+    Формат: короткий, по ролям, только самое важное.
+    """
+    lines = [f"# 🧠 LESSONS — Дистиллированные уроки агентов\n"]
+    lines.append(f"> Обновлено Skill Modernizer | {TODAY} v{version} | Тестов: {test_count}\n")
+    lines.append(f"> JS={ap['js_bundle_kb']} KB | /health={ap['health_ms']}s | "
+                 f"utcnow={ap['utcnow']} shell=True={ap['shell_true']}\n")
+    lines.append("")
+    lines.append("## Критические правила (читать ВСЕГДА)\n")
+    lines.append(f"- **Тестов:** {test_count} — не снижать никогда")
+    lines.append("- **D-RULE-02:** после `make deploy` → chown -R appuser:appuser /app/runs/")
+    lines.append("- **Правило #11:** новый роутер = тесты В ТОЙ ЖЕ итерации")
+    lines.append("- **FBA:** каждый раунд минимум 5 персон → R{N}-survey.md → блокирует round-close")
+    lines.append("- **ИДЕМПОТЕНТНОСТЬ:** проверяй EXISTS перед INSERT везде")
+    lines.append("")
+
+    # Уроки по ролям — только непустые
+    role_labels = {
+        "backend": "🔧 Backend", "frontend": "⚛️ Frontend", "security": "🔒 Security",
+        "qa-monitor": "🔍 QA", "designer": "🎨 Designer", "ux-designer": "👤 UX",
+        "devops": "🚀 DevOps", "cto": "🏗️ CTO/Arch", "performance": "⚡ Performance",
+    }
+    for agent, label in role_labels.items():
+        lessons = all_lessons.get(agent, [])
+        if lessons:
+            lines.append(f"## {label}")
+            for lesson in lessons[:3]:  # топ-3 на роль чтобы не раздувать
+                lines.append(f"- {lesson}")
+            lines.append("")
+
+    LESSONS_MD.write_text("\n".join(lines))
+    print(f"  ✅ .agents/LESSONS.md обновлён ({len([l for l in lines if l.startswith('-')])} правил)")
+
+
+def update_ki_artifact(version: str, test_count: int, all_lessons: dict, ap: dict) -> None:
+    """
+    Канал 1: KI (Knowledge Item) — загружается автоматически при КАЖДОМ разговоре.
+    Обновляем project_overview.md: версия, тест-порог, топ-уроки раунда.
+    """
+    import re, json
+    if not KI_ARTIFACT.exists():
+        print(f"  ⚠️  KI artifact не найден: {KI_ARTIFACT}")
+        return
+
+    content = KI_ARTIFACT.read_text()
+
+    # Обновляем шапку версии
+    content = re.sub(
+        r'> ⚠️ \*\*KI обновлён: [^*]+\*\*',
+        f'> ⚠️ **KI обновлён: {TODAY} | v{version} | {test_count} тестов Python**',
+        content
+    )
+
+    # Собираем топ-уроки для KI (короткий блок)
+    top_lessons = []
+    for agent in ["backend", "frontend", "security", "qa-monitor", "devops", "cto"]:
+        for lesson in all_lessons.get(agent, [])[:1]:  # по 1 на агента
+            top_lessons.append(f"- [{agent}] {lesson}")
+
+    # Заменяем или добавляем секцию SM уроков
+    sm_section = f"""\n## 🎓 Уроки последнего раунда (SM {TODAY} v{version})
+
+{chr(10).join(top_lessons) if top_lessons else '- Нет новых уроков'}
+
+> Метрики: JS={ap['js_bundle_kb']} KB gzip | tests={test_count} | /health={ap['health_ms']}s
+"""
+    # Удаляем старую секцию если есть
+    content = re.sub(r'\n## 🎓 Уроки последнего раунда.*?(?=\n## |\Z)', '', content, flags=re.DOTALL)
+    content = content.rstrip() + "\n" + sm_section
+
+    KI_ARTIFACT.write_text(content)
+
+    # Обновляем metadata.json (summary + updated_at)
+    if KI_METADATA.exists():
+        try:
+            meta = json.loads(KI_METADATA.read_text())
+            old_summary = meta.get("summary", "")
+            # Обновляем версию и тест-счётчик в summary
+            new_summary = re.sub(r'Версия: [\d.]+', f'Версия: {version}', old_summary)
+            new_summary = re.sub(r'\d+ unit-тестов', f'{test_count} unit-тестов', new_summary)
+            meta["summary"] = new_summary
+            meta["updated_at"] = f"{TODAY}T12:00:00+03:00"
+            KI_METADATA.write_text(json.dumps(meta, ensure_ascii=False, indent=4))
+        except Exception as e:
+            print(f"  ⚠️  metadata.json не обновлён: {e}")
+
+    print(f"  ✅ KI artifact обновлён: v{version}, {test_count} тестов, {len(top_lessons)} уроков")
+
+
+def update_skill_md_lessons(all_lessons: dict, version: str, test_count: int) -> None:
+    """
+    Канал 2: добавляет секцию 'Уроки раундов' в SKILL.md.
+    Читается при триггерах 'сделай N итераций'.
+    """
+    import re
+    if not SKILL_MD.exists():
+        return
+    content = SKILL_MD.read_text()
+    marker = f"SM-SKILL-{version}"
+    if marker in content:
+        print(f"  ⏭  SKILL.md: уроки для {version} уже добавлены")
+        return
+
+    # Собираем только критические уроки для разработки
+    dev_lessons = []
+    for agent in ["backend", "frontend", "security", "qa-monitor"]:
+        for lesson in all_lessons.get(agent, [])[:2]:
+            dev_lessons.append(f"- [{agent}] {lesson}")
+
+    if not dev_lessons:
+        print(f"  ⏭  SKILL.md: нет уроков для добавления")
+        return
+
+    section = f"\n\n<!-- {marker} -->\n## Уроки раунда v{version} ({TODAY})\n\n"
+    section += "\n".join(dev_lessons)
+    section += f"\n\n> Tests: {test_count} | SM автоматически | {TODAY}\n"
+
+    # Ищем раздел антипаттернов и добавляем перед ним, или в конец
+    insert_before = "## Round "
+    idx = content.rfind(insert_before)
+    if idx > 0:
+        content = content[:idx] + section + "\n" + content[idx:]
+    else:
+        content = content.rstrip() + section
+
+    SKILL_MD.write_text(content)
+    print(f"  ✅ SKILL.md: {len(dev_lessons)} уроков добавлено (канал 2)")
+
+
 # ── Список всех агентов ────────────────────────────────────────────────
 
 ALL_AGENTS = [
@@ -440,10 +575,19 @@ def main() -> None:
         if append_lessons_to_agent(agent_name, version, lessons):
             changed_agents.append(agent_name)
 
-    # Обновляем SKILL.md
-    print("\n📊 Обновление SKILL.md:")
+    # Обновляем SKILL.md (тест-порог)
+    print("\n📊 Канал 2 — SKILL.md (читается при итерациях):")
     if test_count > 0:
         update_skill_md(test_count, version)
+    update_skill_md_lessons(all_lessons, version, test_count)
+
+    # Канал 1: KI artifact (читается при КАЖДОМ разговоре)
+    print("\n🌐 Канал 1 — KI artifact (авто-загрузка при старте разговора):")
+    update_ki_artifact(version, test_count, all_lessons, ap)
+
+    # Канал 3: LESSONS.md (читается session-start)
+    print("\n📖 Канал 3 — .agents/LESSONS.md (читается session-start):")
+    update_lessons_md(all_lessons, version, test_count, ap)
 
     # Саморефлексия SM
     print("\n🔄 Саморефлексия Skill Modernizer:")
@@ -456,6 +600,11 @@ def main() -> None:
     print(f"\n✅ Skill Modernizer завершён: {len(changed_agents)}/{len(ALL_AGENTS)} агентов обновлены")
     if changed_agents:
         print(f"   Обновлены: {', '.join(changed_agents)}")
+    print(f"\n📡 Каналы доставки уроков:")
+    print(f"   KI artifact  → авто при старте разговора (/antigravity/knowledge/)")
+    print(f"   SKILL.md     → при триггерах 'сделай N итераций'")
+    print(f"   LESSONS.md   → make session-start (начало каждой сессии)")
+    print(f"   AGENT.md ×{len(ALL_AGENTS)}  → справочник по ролям (явный просмотр)")
 
 
 if __name__ == "__main__":

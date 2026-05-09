@@ -40,14 +40,24 @@ session-start:
 	@echo "  docker exec --user root video-translator chown -R appuser:appuser /app/runs/"
 	@echo "  (без этого → PermissionError 500 на SRT/DOCX экспорте)"
 	@echo ""
+	@echo "$(CYAN)🧠 УРОКИ АГЕНТОВ (Skill Modernizer — последний раунд):$(RESET)"
+	@if [ -f .agents/LESSONS.md ]; then \
+	  grep -E "^- \*\*|^- \[" .agents/LESSONS.md | head -12 | sed 's/^/  /'; \
+	  echo "  (полный файл: cat .agents/LESSONS.md)"; \
+	else \
+	  echo "  (нет файла — запусти: python3 scripts/skill_modernizer.py)"; \
+	fi
+	@echo ""
 	@echo "$(CYAN)📁 КЛЮЧЕВЫЕ ФАЙЛЫ:$(RESET)"
 	@echo "  .agents/WORKFLOW.md            — правила межагентного взаимодействия"
-	@echo "  .agents/*/AGENT.md             — протоколы агентов"
+	@echo "  .agents/LESSONS.md             — ⬅️  уроки всех агентов (SM дистиллят)"
+	@echo "  .agents/*/AGENT.md             — протоколы агентов по ролям"
 	@echo "  .agents/business-analyst/user-surveys/ — опросы пользователей"
 	@echo "  Makefile (round-close v4.0)    — gate перед push"
 	@echo ""
 	@echo "$(GREEN)✅ Брифинг завершён. Можно работать.$(RESET)"
 	@echo ""
+
 
 ## help: Показать все доступные команды
 help:
