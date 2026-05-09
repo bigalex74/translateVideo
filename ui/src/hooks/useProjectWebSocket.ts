@@ -45,7 +45,11 @@ export function useProjectWebSocket({
             wsRef.current.close();
         }
 
-        const url = `${WS_BASE}/projects/${projectId}/ws`;
+        // R13-И3: передаём api_key через query param (WS не поддерживает заголовки в браузере)
+        const apiKey = localStorage.getItem('tv_api_key') || '';
+        const url = apiKey
+            ? `${WS_BASE}/projects/${projectId}/ws?api_key=${encodeURIComponent(apiKey)}`
+            : `${WS_BASE}/projects/${projectId}/ws`;
         const ws = new WebSocket(url);
         wsRef.current = ws;
 

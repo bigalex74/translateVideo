@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from translate_video import __version__
 from translate_video.api.middleware.auth import APIKeyMiddleware
+from translate_video.api.middleware.rate_limit import GlobalRateLimitMiddleware  # R13-И3
 from translate_video.api.routes import admin, analytics, metrics, pipeline, preflight, projects, providers, video
 from translate_video.core.env import load_env_file
 from translate_video.core.log import configure_from_env, get_logger
@@ -85,6 +86,7 @@ app = FastAPI(
 )
 
 app.add_middleware(APIKeyMiddleware)
+app.add_middleware(GlobalRateLimitMiddleware)  # R13-И3: rate limiting upload/delete/patch
 
 app.add_middleware(
     CORSMiddleware,

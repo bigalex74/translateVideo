@@ -2112,14 +2112,38 @@ def delete_project(
 async def project_status_ws(
     websocket: WebSocket,
     project_id: str = FastAPIPath(...),
+    api_key: str | None = None,  # R13-И3: WS auth через query param (?api_key=)
     store: ProjectStore = Depends(get_store),
 ):
     """WebSocket endpoint: real-time статус проекта.
 
     Шлёт JSON {status, progress_percent, eta_seconds} каждые 2с пока running,
     потом финальный статус и закрывается. Frontend переходит на WS при running статусе.
+
+    **Авторизация (R13-И3):** если ``API_KEY`` или ``API_KEYS`` заданы — передайте ключ
+    через query param: ``ws://host/api/v1/projects/{id}/ws?api_key=YOUR_KEY``
+    Альтернатива: заголовок ``Sec-WebSocket-Protocol: api_key.YOUR_KEY`` (ограничения браузера).
     """
     import asyncio, json as _json
+    # R13-И3: WS авторизация — BaseHTTPMiddleware не обрабатывает WS scope
+    from translate_video.api.middleware.auth import get_key_store  # noqa: PLC0415
+    _ks = get_key_store()
+    if _ks.is_enabled():
+        # Пробуем query param ?api_key=..., потом заголовок Sec-WebSocket-Protocol
+        _provided = api_key or ""
+        if not _provided:
+            # Нестандартный способ передачи ключа через протокол WS
+            _proto = websocket.headers.get("sec-websocket-protocol", "")
+            if _proto.startswith("api_key."):
+                _provided = _proto[len("api_key."):]
+        if not _ks.authenticate(_provided):
+            await websocket.accept()
+            await websocket.send_text(_json.dumps({
+                "error": "unauthorized",
+                "detail": "Invalid or missing API key. Add ?api_key=YOUR_KEY to the WS URL.",
+            }))
+            await websocket.close(code=4401)
+            return
     await websocket.accept()
     safe_id = sanitize_project_id(project_id)
     try:
