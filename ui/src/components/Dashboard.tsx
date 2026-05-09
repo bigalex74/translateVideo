@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getProjectStatus, listProjects, runPipeline, uploadProject, artifactDownloadUrl, renameProject, deleteProject } from '../api/client';
 import type { VideoProject, Segment } from '../types/schemas';
-import { stageLabel, statusLabel, STATUS_EMOJI, t } from '../i18n';
+import { stageLabel, statusLabel, t } from '../i18n';
 import type { AppLocale } from '../store/settings';
 import { useProjectWebSocket } from '../hooks/useProjectWebSocket';
 import { ConfirmRunModal } from './ConfirmRunModal';
@@ -11,9 +10,15 @@ import { DashboardStats } from './DashboardStats';
 import { InstallPWABanner } from './InstallPWABanner';
 import { DiskUsageWarning } from './DiskUsageWarning';
 import { getPersistedProvider } from '../store/settings';
+import { BatchQueue } from './dashboard/BatchQueue';
+import type { BatchItem } from './dashboard/BatchQueue';
+import { EmptyState } from './dashboard/EmptyState';
+import { DashboardFilters } from './dashboard/DashboardFilters';
+import { ProjectCard } from './dashboard/ProjectCard';
+import { ConfirmDeleteModal } from './dashboard/ConfirmDeleteModal';
 import {
-  Play, FolderOpen, AlertCircle, CheckCircle2, Loader2, Filter,
-  ArrowRight, RefreshCw, Clock, Search, BookOpen, Download, Pencil, Check, X, Trash2, XCircle
+  Play, FolderOpen, AlertCircle, CheckCircle2, Loader2,
+  ArrowRight, RefreshCw, Clock, Search, Download, Trash2, XCircle
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -64,12 +69,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dragOver, setDragOver] = useState(false);  // Z4.15: DnD upload
   const [autoRun, setAutoRun] = useState(false);    // R8-И5: «Один клик» — запуск сразу после загрузки
-  // О1: Inline rename состояние
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
-  const renameInputRef = useRef<HTMLInputElement>(null);
   // R10-ИГГ (Batch): Очередь загрузки нескольких файлов
-  const [batchQueue, setBatchQueue] = useState<{name: string; status: 'pending'|'uploading'|'done'|'error'; projectId?: string; error?: string}[]>([]);
+  const [batchQueue, setBatchQueue] = useState<BatchItem[]>([]);
   const [batchActive, setBatchActive] = useState(false);
 
   const refreshProjects = useCallback(async () => {
@@ -92,21 +93,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
     setSortDir(v);
     setCurrentPage(1);
     localStorage.setItem('tv_sort_dir', v);
-  };
-
-  // О1: Переименование проекта
-  const handleRenameStart = (id: string, current: string) => {
-    setRenamingId(id);
-    setRenameValue(current);
-    setTimeout(() => renameInputRef.current?.focus(), 50);
-  };
-  const handleRenameSubmit = async (id: string) => {
-    if (!renameValue.trim()) { setRenamingId(null); return; }
-    try {
-      await renameProject(id, renameValue.trim());
-      setRenamingId(null);
-      refreshProjects();
-    } catch (e) { console.error(e); setRenamingId(null); }
   };
 
   const loadStatus = useCallback(async (id: string) => {
@@ -271,30 +257,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
         </div>
       )}
       {/* R10-ИГГ: Batch очередь загрузки нескольких файлов */}
-      {batchQueue.length > 0 && (
-        <div className="batch-queue glass-panel" role="status" aria-live="polite">
-          <div className="batch-queue-header">
-            <span>📦 Батч-загрузка: {batchQueue.filter(i => i.status === 'done').length}/{batchQueue.length}</span>
-            {!batchActive && (
-              <button className="btn-secondary btn-xs" onClick={() => setBatchQueue([])}>× Скрыть</button>
-            )}
-          </div>
-          {batchQueue.map((item, idx) => (
-            <div key={idx} className={`batch-queue-item batch-queue-item--${item.status}`}>
-              <span className="batch-queue-status">
-                {item.status === 'pending'   ? '⏳' :
-                 item.status === 'uploading' ? '🔄' :
-                 item.status === 'done'      ? '✅' : '❌'}
-              </span>
-              <span className="batch-queue-name">{item.name}</span>
-              {item.projectId && (
-                <button className="btn-secondary btn-xs" onClick={() => onOpenProject(item.projectId!)}>Открыть</button>
-              )}
-              {item.error && <span className="batch-queue-error">{item.error.slice(0, 60)}</span>}
-            </div>
-          ))}
-        </div>
-      )}
+      <BatchQueue
+        queue={batchQueue}
+        active={batchActive}
+        onHide={() => setBatchQueue([])}
+        onOpenProject={onOpenProject}
+      />
       <header className="page-header">
         <h2>{t('dashboard.title', locale)}</h2>
         <p className="subtitle">{t('dashboard.subtitle', locale)}</p>
@@ -570,105 +538,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
           </div>
         )}
 
-        {!project && (
-          <div className="empty-state glass-panel">
-            <div className="onboarding-hero">
-              <div className="onboarding-icon">🎬</div>
-              <h3>{t('dashboard.noProjectTitle', locale)}</h3>
-              <p className="text-muted">{t('dashboard.noProjectText', locale)}</p>
-            </div>
-            <div className="onboarding-steps">
-              <div className="onboarding-step">
-                <div className="step-num">1</div>
-                <div>
-                  <strong>Создайте проект</strong>
-                  <p>Нажмите «+ Новый проект», загрузите видео или вставьте ссылку</p>
-                </div>
-              </div>
-              <div className="onboarding-step">
-                <div className="step-num">2</div>
-                <div>
-                  <strong>Выберите язык и провайдера</strong>
-                  <p>Настройте параметры перевода и озвучки в мастере</p>
-                </div>
-              </div>
-              <div className="onboarding-step">
-                <div className="step-num">3</div>
-                <div>
-                  <strong>Запустите перевод</strong>
-                  <p>Нажмите «Запустить» — всё остальное сделает ИИ автоматически</p>
-                </div>
-              </div>
-              <div className="onboarding-step">
-                <div className="step-num">4</div>
-                <div>
-                  <strong>Скачайте результат</strong>
-                  <p>Готовое видео с переводом появится в редакторе</p>
-                </div>
-              </div>
-            </div>
-            <div className="onboarding-actions">
-              <a href="/docs" target="_blank" className="btn-secondary onboarding-docs-link">
-                <BookOpen size={15} /> API документация
-              </a>
-            </div>
-          </div>
-        )}
+        {!project && <EmptyState locale={locale} />}
 
         <section className="projects-section glass-panel">
           <div className="section-header">
-            <div>
+            <div className="section-header-left">
               <h3>{t('dashboard.allProjects', locale)}</h3>
-              <p className="text-muted">{t('dashboard.sortedByUpdate', locale)}</p>
+              <span className="section-count">{projects.filter(p => statusFilter === 'all' || p.status === statusFilter).length} {locale === 'ru' ? 'проектов' : 'projects'}</span>
             </div>
-            <div className="section-header-right">
-              {/* K3: Поиск по проектам */}
-              <div className="project-list-search">
-                <Search size={14} style={{color: 'var(--text-muted)'}} />
-                <input
-                  id="project-list-search-input"
-                  className="text-input"
-                  value={projectSearch}
-                  onChange={e => { setProjectSearch(e.target.value); }}
-                  placeholder="Поиск проектов…"
-                  style={{ padding: '6px 10px', fontSize: '0.85rem', width: '160px' }}
-                />
-              </div>
-              {/* K3 + А9: Сортировка с persist */}
-              <select
-                id="project-sort-select"
-                className="select-input"
-                value={`${sortBy}_${sortDir}`}
-                onChange={e => {
-                  const [by, dir] = e.target.value.split('_');
-                  handleSortBy(by as 'created_at'|'name'|'status');
-                  handleSortDir(dir as 'asc'|'desc');
-                }}
-                style={{ padding: '6px 10px', fontSize: '0.85rem' }}
-                title="Сортировка запоминается между сессиями (А9)"
-              >
-                <option value="created_at_desc">🕐 Новые первые</option>
-                <option value="created_at_asc">🕐 Старые первые</option>
-                <option value="name_asc">🔤 По имени (А→Я)</option>
-                <option value="name_desc">🔤 По имени (Я→А)</option>
-                <option value="status_asc">📊 По статусу</option>
-              </select>
-              {/* Фильтр по статусу */}
-              <div className="status-filter">
-                <Filter size={13} />
-                {['all', 'created', 'running', 'completed', 'failed', 'cancelled'].map(s => (
-                  <button
-                    key={s}
-                    className={`filter-pill ${statusFilter === s ? 'active' : ''}`}
-                    onClick={() => setStatusFilter(s)}
-                  >
-                    {s === 'all' ? 'Все' : STATUS_EMOJI[s as keyof typeof STATUS_EMOJI] ?? ''}{' '}
-                    {s === 'all' ? '' : statusLabel(s, locale)}
-                  </button>
-                ))}
-              </div>
-              <span className="text-sm text-muted">{t('dashboard.found', locale)}: {projects.filter(p => statusFilter === 'all' || p.status === statusFilter).length}</span>
-            </div>
+            <DashboardFilters
+              locale={locale}
+              projectSearch={projectSearch}
+              setProjectSearch={setProjectSearch}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              handleSortBy={handleSortBy}
+              handleSortDir={handleSortDir}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+            />
           </div>
           <div className="projects-grid" data-testid="project-list">
             {/* R8-И3: Skeleton loader при первой загрузке */}
@@ -683,92 +571,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
             ) : (
               <>
                 {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).map(item => (
-                  <article key={item.project_id} className="project-mini-card">
-                    <div className="mini-card-title">
-                      {/* О1: Переименование проекта */}
-                      {renamingId === item.project_id ? (
-                        <div style={{ display: 'flex', gap: '4px', flex: 1, minWidth: 0 }}>
-                          <input
-                            ref={renameInputRef}
-                            className="select-input"
-                            style={{ flex: 1, padding: '2px 6px', fontSize: '0.85rem' }}
-                            value={renameValue}
-                            onChange={e => setRenameValue(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') handleRenameSubmit(item.project_id);
-                              if (e.key === 'Escape') setRenamingId(null);
-                            }}
-                            placeholder="Название проекта…"
-                            maxLength={120}
-                          />
-                          <button onClick={() => handleRenameSubmit(item.project_id)} title="Сохранить" style={{ padding: '2px 6px', cursor: 'pointer' }}><Check size={13} /></button>
-                          <button onClick={() => setRenamingId(null)} title="Отмена" style={{ padding: '2px 6px', cursor: 'pointer' }}><X size={13} /></button>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                          <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            title={item.project_id}>
-                            {(item as VideoProject & { display_name?: string }).display_name || item.project_id}
-                          </strong>
-                          <button
-                            onClick={() => handleRenameStart(item.project_id,
-                              (item as VideoProject & { display_name?: string }).display_name || '')}
-                            title="Переименовать проект (О1)"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)', flexShrink: 0 }}
-                          ><Pencil size={11} /></button>
-                        </div>
-                      )}
-                      <span
-                        className={`badge ${item.status}`}
-                        title={
-                          item.status === 'created'   ? '⏳ Проект создан — нажмите «▶ Запустить перевод» чтобы начать' :
-                          item.status === 'running'   ? '🔄 Перевод выполняется прямо сейчас — можно закрыть вкладку' :
-                          item.status === 'completed' ? '✅ Перевод готов — откройте редактор и скачайте результат' :
-                          item.status === 'failed'    ? '❌ Произошла ошибка — откройте проект и нажмите «Попробовать снова»' :
-                          item.status === 'cancelled' ? '🚫 Перевод был остановлен вручную — можно запустить снова' :
-                          item.status
-                        }
-                      >
-                        {STATUS_EMOJI[item.status] ?? ''} {statusLabel(item.status, locale)}
-                      </span>
-                    </div>
-                    <div className="mini-card-meta">
-                      <span>{item.config?.source_language ?? 'auto'}</span>
-                      <ArrowRight size={12} />
-                      <span>{item.config?.target_language ?? 'ru'}</span>
-                      <Clock size={12} />
-                      <span>{Array.isArray(item.segments) ? item.segments.length : item.segments} {t('dashboard.segmentShort', locale)}</span>
-                    </div>
-                    <div className="mini-card-actions">
-                      <button
-                        className="btn-secondary"
-                        onClick={() => loadStatus(item.project_id)}
-                        aria-label={`${t('dashboard.status', locale)} ${item.project_id}`}
-                      >
-                        <Search size={14} /> {t('dashboard.status', locale)}
-                      </button>
-                      {/* R14-И3: Дмитрий FBA — очевидный CTA скачать для completed */}
-                      {item.status === 'completed' && (
-                        <a
-                          href={`/api/v1/projects/${item.project_id}/export/zip`}
-                          className="btn-success btn-download-cta"
-                          download
-                          id={`btn-download-zip-${item.project_id}`}
-                          title="Скачать результат перевода (ZIP: субтитры + скрипт)"
-                          aria-label={`Скачать результат проекта ${item.project_id}`}
-                        >
-                          <Download size={14} /> ⬇️ Скачать
-                        </a>
-                      )}
-                      <button
-                        className="btn-primary"
-                        onClick={() => onOpenProject(item.project_id)}
-                        aria-label={`${t('dashboard.openEditor', locale)} ${item.project_id}`}
-                      >
-                        <FolderOpen size={14} /> {t('dashboard.editor', locale)}
-                      </button>
-                    </div>
-                  </article>
+                  <ProjectCard
+                    key={item.project_id}
+                    project={item}
+                    locale={locale}
+                    onOpenProject={onOpenProject}
+                    onDelete={setConfirmDelete}
+                    onRename={async (id, newName) => {
+                      await renameProject(id, newName);
+                      refreshProjects();
+                    }}
+                  />
                 ))}
                 {projects.filter(item => statusFilter === 'all' || item.status === statusFilter).length === 0 && (
                   <p className="empty-text">{t('dashboard.empty', locale)}</p>
@@ -823,23 +636,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
         />
       )}
     </div>
-    {/* R7-И1: Диалог подтверждения удаления проекта */}
-    {confirmDelete && createPortal(
-      <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
-        <div className="modal-box delete-confirm-modal" onClick={e => e.stopPropagation()}>
-          <h3>🗑 Удалить проект?</h3>
-          <p>Проект <b>{confirmDelete}</b> и все его файлы будут удалены безвозвратно.</p>
-          <div className="modal-actions">
-            <button className="btn-secondary" onClick={() => setConfirmDelete(null)}>
-              <X size={16} /> Отмена
-            </button>
-            <button className="btn-danger" onClick={() => handleDeleteProject(confirmDelete)}>
-              <Trash2 size={16} /> Удалить
-            </button>
-          </div>
-        </div>
-      </div>
-    , document.body)}
+    {confirmDelete && (
+      <ConfirmDeleteModal
+        projectId={confirmDelete}
+        onConfirm={handleDeleteProject}
+        onCancel={() => setConfirmDelete(null)}
+      />
+    )}
     <CompletionToast
       projectId={project?.project_id ?? null}
       status={project?.status}
