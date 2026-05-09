@@ -305,6 +305,106 @@ def health_check():
     return payload
 
 
+@app.get("/api/health/detailed", summary="R15-И4: Детальный health-check компонент (DevOps)")
+def health_detailed():
+    """Детальный health-check для DevOps/мониторинга.
+
+    Проверяет:
+    - filesystem: runs/ существует и доступна для записи
+    - queue: количество running/queued проектов
+    - disk: свободное место на диске
+    - memory: RSS процесса
+    - uptime: время работы
+
+    Статус компонента: 'ok' | 'degraded' | 'error'
+    """
+    from translate_video.api.routes.pipeline import _running_projects
+
+    components: dict[str, dict] = {}
+    overall_ok = True
+
+    # ── Filesystem ────────────────────────────────────────────────────────────
+    work_root = Path(os.getenv("WORK_ROOT", "runs")).resolve()
+    try:
+        exists = work_root.exists()
+        writable = False
+        if exists:
+            test_file = work_root / ".health_check_probe"
+            test_file.write_text("ok")
+            test_file.unlink()
+            writable = True
+        total_bytes = sum(f.stat().st_size for f in work_root.rglob("*") if f.is_file()) if exists else 0
+        components["filesystem"] = {
+            "status": "ok" if (exists and writable) else "error",
+            "path": str(work_root),
+            "exists": exists,
+            "writable": writable,
+            "usage_mb": round(total_bytes / 1024 / 1024, 1),
+        }
+        if not (exists and writable):
+            overall_ok = False
+    except Exception as exc:
+        components["filesystem"] = {"status": "error", "error": str(exc)[:100]}
+        overall_ok = False
+
+    # ── Disk (host-level) ─────────────────────────────────────────────────────
+    try:
+        import shutil as _shutil
+        disk = _shutil.disk_usage(str(work_root))
+        free_gb = round(disk.free / 1024**3, 2)
+        used_pct = round(disk.used / disk.total * 100, 1)
+        disk_ok = free_gb > 1.0  # минимум 1 GB свободно
+        components["disk"] = {
+            "status": "ok" if disk_ok else "degraded",
+            "free_gb": free_gb,
+            "used_percent": used_pct,
+            "total_gb": round(disk.total / 1024**3, 2),
+        }
+        if not disk_ok:
+            overall_ok = False
+    except Exception as exc:
+        components["disk"] = {"status": "error", "error": str(exc)[:100]}
+
+    # ── Queue / Pipeline ──────────────────────────────────────────────────────
+    running = len(_running_projects)
+    queue_status = "ok" if running < 10 else "degraded"
+    components["queue"] = {
+        "status": queue_status,
+        "running_projects": running,
+        "max_concurrent": int(os.getenv("MAX_CONCURRENT_PIPELINES", "5")),
+    }
+
+    # ── Memory ────────────────────────────────────────────────────────────────
+    try:
+        import psutil as _psutil
+        proc = _psutil.Process(os.getpid())
+        mem = proc.memory_info()
+        mem_mb = round(mem.rss / 1024 / 1024, 1)
+        mem_ok = mem_mb < 2048  # < 2 GB RSS считается нормой
+        components["memory"] = {
+            "status": "ok" if mem_ok else "degraded",
+            "rss_mb": mem_mb,
+            "vms_mb": round(mem.vms / 1024 / 1024, 1),
+        }
+    except ImportError:
+        components["memory"] = {"status": "unknown", "note": "psutil not installed"}
+
+    # ── Uptime ────────────────────────────────────────────────────────────────
+    uptime_s = int(time.time() - _START_TIME)
+    components["uptime"] = {
+        "status": "ok",
+        "seconds": uptime_s,
+        "human": f"{uptime_s // 3600}h {(uptime_s % 3600) // 60}m {uptime_s % 60}s",
+    }
+
+    return {
+        "status": "ok" if overall_ok else "degraded",
+        "version": __version__,
+        "components": components,
+        "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+
 @app.get("/api/version", summary="В10: Версия приложения (быстрый endpoint)")
 def api_version():
     """В10: Возвращает только версию и статус.

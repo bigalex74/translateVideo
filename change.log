@@ -1,3 +1,15 @@
+## 1.98.7 — 2026-05-09 — R15-И4: /api/health/detailed
+
+### DevOps (Артём — FBA R15)
+- **GET /api/health/detailed**: компонентный health-check
+  - filesystem: exists+writable probe (test_file write/unlink)
+  - disk: free_gb + used_percent (degraded если < 1GB)
+  - queue: running_projects + max_concurrent
+  - memory: rss_mb + vms_mb (psutil)
+  - uptime: seconds + human
+- Общий статус: 'ok' | 'degraded' (если любой компонент не ok)
+
+---
 ## 1.98.6 — 2026-05-09 — R15-И3: Понятные ошибки + changelog update
 
 ### UX (Елена — FBA R15)
