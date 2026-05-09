@@ -380,6 +380,26 @@ export const Settings: React.FC<SettingsProps> = ({ locale, onLocaleChange }) =>
           </div>
         </section>
 
+        {/* EMAIL R12-И3: Email уведомления */}
+        <section>
+          <h3 style={{ marginBottom: '12px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+            📧 Email уведомления
+          </h3>
+          <div style={{ fontSize: '0.85rem', lineHeight: '1.7', color: 'var(--text-secondary)' }}>
+            <p>
+              Email-уведомления отправляются автоматически при завершении или ошибке перевода.
+              Настраиваются на сервере через переменные окружения:
+            </p>
+            <ul style={{ paddingLeft: '1.2rem', marginTop: '8px', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+              <li><code>SMTP_HOST</code> — сервер (напр. smtp.gmail.com)</li>
+              <li><code>SMTP_PORT</code> — порт (587 по умолчанию)</li>
+              <li><code>SMTP_USER</code> / <code>SMTP_PASSWORD</code> — логин/пароль</li>
+              <li><code>NOTIFY_EMAIL</code> — получатель <strong>(обязательный)</strong></li>
+              <li><code>APP_URL</code> — URL приложения для ссылки в письме</li>
+            </ul>
+          </div>
+        </section>
+
         {/* Z5.15: О проекте */}
         <section>
           <h3 style={{ marginBottom: '12px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>

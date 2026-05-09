@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from translate_video.api.routes.projects import get_store
 from translate_video.api.webhooks import notify_webhook
+from translate_video.notifications import send_project_notification as _send_email  # EMAIL R12-И3
 from translate_video.core.log import Timer, get_logger
 from translate_video.core.store import ProjectStore, sanitize_project_id
 from translate_video.pipeline import build_stages, project_summary
@@ -386,6 +387,8 @@ async def run_pipeline_task(
         if webhook_url:
             summary = project_summary(restored)
             await notify_webhook(webhook_url, summary)
+        # EMAIL R12-И3: отправляем email если настроено (non-blocking)
+        _send_email(safe_project_id, restored.status.value, elapsed_s=t.elapsed)
 
     except PipelineCancelledError:
         # Обновляем статус проекта до CANCELLED и сохраняем.
@@ -412,6 +415,8 @@ async def run_pipeline_task(
             await notify_webhook(
                 webhook_url, {"project_id": project_id, "status": "failed", "error": str(e)}
             )
+        # EMAIL R12-И3: уведомляем об ошибке
+        _send_email(safe_project_id, "failed", error_msg=str(e)[:300])
     finally:
         with _running_lock:
             _running_projects.discard(safe_project_id)
