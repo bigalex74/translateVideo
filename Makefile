@@ -432,12 +432,14 @@ round-close:
 	echo "\033[0;36m━━━ [12] Skill Modernizer Agent — modernizer-log.md сегодня/вчера ━━━\033[0m"; \
 	SM_FRESH=$$(grep -c "$$TODAY\|$$YESTERDAY" .agents/skill-modernizer/modernizer-log.md 2>/dev/null || echo 0); \
 	SM_CODE=$$(grep -cE "utcnow|shell=True|except:|TODO|DEPRECATED|Anti-pattern|AP-[A-Z]|\\bgrep\b" .agents/skill-modernizer/modernizer-log.md 2>/dev/null || echo 0); \
-	echo "  modernizer-log.md: $$SM_FRESH строк с датой сегодня/вчера, $$SM_CODE строк анализа кода"; \
-	if [ "$$SM_FRESH" -gt 0 ] && [ "$$SM_CODE" -gt 0 ]; then \
-	  echo "\033[0;32m  ✅ Skill Modernizer: лог обновлён сегодня с реальным анализом кода\033[0m"; \
+	SM_AGENT_MD=$$(git log --since="2 days ago" --oneline -- ".agents/*/AGENT.md" 2>/dev/null | wc -l); \
+	echo "  modernizer-log.md: $$SM_FRESH строк с датой, $$SM_CODE строк анализа. AGENT.md коммитов: $$SM_AGENT_MD"; \
+	if [ "$$SM_FRESH" -gt 0 ] && [ "$$SM_CODE" -gt 0 ] && [ "$$SM_AGENT_MD" -gt 0 ]; then \
+	  echo "\033[0;32m  ✅ Skill Modernizer: анализ выполнен + AGENT.md агентов обновлены\033[0m"; \
 	else \
-	  echo "\033[0;31m  ❌ Skill Modernizer: modernizer-log.md не обновлён ($$SM_FRESH дат, $$SM_CODE анализ)\033[0m"; \
-	  echo "     → Агент ОБЯЗАН: grep → анализ → запись в modernizer-log.md"; \
+	  echo "\033[0;31m  ❌ Skill Modernizer: работа не выполнена полностью\033[0m"; \
+	  [ "$$SM_AGENT_MD" -eq 0 ] && echo "     → 0 AGENT.md обновлено за 2 дня — SM ОБЯЗАН обновить AGENT.md по найденным AP"; \
+	  [ "$$SM_FRESH" -eq 0 ] && echo "     → modernizer-log.md не обновлён сегодня"; \
 	  FAIL=1; \
 	fi; \
 	echo ""; \
