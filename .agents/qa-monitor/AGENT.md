@@ -312,3 +312,28 @@ done
 docker exec --user root video-translator chown -R appuser:appuser /app/runs/
 ```
 
+
+---
+
+## 🔴 R12 УРОКИ (Skill Modernizer → QA Monitor)
+
+### [QA-R12-01] Smoke-тест новых endpoints — ОБЯЗАТЕЛЬНО при каждом раунде
+**Проблема R12:** QA Monitor проверял только unittest. Не проверил WS endpoint и email функцию руками.
+
+**Обязательный smoke-чеклист при каждом round-close:**
+```bash
+# WS endpoint (должен вернуть 403 по HTTP, не 404)
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8002/api/v1/projects/test-id/ws
+# → ожидаем 403 или 400 (не 404, не 500)
+
+# Email disabled без env (не должен крашить)
+PYTHONPATH=src python3 -c "
+from translate_video.api.notifications import EmailNotifier
+n = EmailNotifier(); print('enabled:', n.is_enabled())
+"
+# → enabled: False (без env vars)
+```
+
+### [QA-R12-02] Coverage < 82% = P1 блокер для следующего раунда
+Текущее: 80%. Порог: 82%. Нужно +2% = ~15 новых тестов для API routes.
+Приоритет R13: тесты для `export/zip` endpoint и `pipeline.py` email ветки.

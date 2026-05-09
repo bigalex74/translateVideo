@@ -531,3 +531,27 @@ docker exec --user root video-translator chown -R appuser:appuser /app/runs/
 ```
 Файлы создаются от root при некоторых операциях → контейнер (appuser) не может их читать.
 
+
+---
+
+## 🔴 R12 УРОКИ (Skill Modernizer → Designer)
+
+### [D-R12-01] Новые компоненты/элементы — ПРОВЕРЯТЬ ОБЯЗАТЕЛЬНО
+**Проблема R12:** В раунде добавлены: mobile-upload-btn, card-filename, RETRY-BTN, email секция в Settings. Designer не открывал браузер и не проверял эти компоненты визуально.
+
+**Обязательный чеклист при каждом round-close — проверить НОВЫЕ компоненты:**
+```bash
+# Найти что добавлено в этом раунде
+git diff origin/develop --stat -- ui/src/components/ | grep "\.tsx\|\.css" | head -10
+# → Для каждого изменённого компонента — открыть в браузере и сделать скриншот
+```
+
+### [D-R12-02] mobile-upload-btn — стандарт для всех будущих file input
+При любом новом file input компоненте — добавлять явную мобильную кнопку по шаблону:
+```tsx
+{/* MOBILE: явная кнопка для тач-устройств */}
+<button className="mobile-upload-btn" onClick={() => fileInputRef.current?.click()}>
+  📁 Выбрать файл
+</button>
+```
+CSS: `display: none` на десктопе, `display: flex` на `@media (max-width: 768px)`.

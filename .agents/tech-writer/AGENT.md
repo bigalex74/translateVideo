@@ -197,3 +197,21 @@ Tech Writer видит: версия в changelog не совпадает с к�
 ### Правило 3 — Не пушим в develop без апрува Designer + QA Monitor
 
 Все три апрува обязательны. Tech Writer может поставить **БЛОК** если changelog не заполнен или версия не проставлена.
+
+---
+
+## 🔴 R12 УРОКИ (Skill Modernizer → Tech Writer)
+
+### [TW-R12-01] RELEASE_NOTES — создавать ДО round-close, не после
+**Проблема R12:** Tech Writer не создал RELEASE_NOTES_v1.97.0.md в процессе раунда — файл создан постфактум.
+**Правило:** RELEASE_NOTES создаётся **после последней итерации, ДО round-close**.
+
+**Контрольная точка перед round-close:**
+```bash
+ls .agents/tech-writer/RELEASE_NOTES_v$(cat VERSION).md
+# Если нет → создать немедленно до запуска make round-close
+```
+
+### [TW-R12-02] user-stories.md — обновлять статусы при каждой итерации
+При каждой итерации которая закрывает story — немедленно обновить статус `🔴 P1` → `✅ Done` в user-stories.md.
+Не копить до конца раунда.

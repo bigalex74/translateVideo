@@ -460,3 +460,28 @@ grep -rn "noqa" pipeline.py → 2 BLE001, 1 PLC2701
 3. Pipeline.py: вынести inline import наружу
 
 ### Подпись: Skill Modernizer АПРУV | 2026-05-09 v1.97.0
+
+---
+## Skill Modernizer ДОПОЛНЕНИЕ — 2026-05-09 v1.97.0 R12 (AGENT.md обновления)
+
+### Выполнена реальная работа — обновлены AGENT.md:
+
+| Агент | Файл | Урок | Правило |
+|---|---|---|---|
+| Skill Modernizer | `.agents/skill-modernizer/AGENT.md` | R12: найти AP ≠ исправить AP | v1.4, обязательный артефакт — список AGENT.md |
+| Frontend | `.agents/frontend/AGENT.md` | AP-DYNIMPORT запрещён | F-R12-01: grep проверка + шаблон static import |
+| CTO | `.agents/cto/AGENT.md` | AP-WS-AUTH — P1 | CTO-R12-01: auth на WS + монолит projects.py |
+| QA Monitor | `.agents/qa-monitor/AGENT.md` | Smoke новых endpoints | QA-R12-01: WS + email smoke чеклист |
+| Designer | `.agents/designer/AGENT.md` | Новые компоненты проверять | D-R12-01: git diff → screenshot каждого нового компонента |
+| Tech Writer | `.agents/tech-writer/AGENT.md` | RELEASE_NOTES до round-close | TW-R12-01: создать ДО make round-close |
+| CEO | `.agents/ceo/AGENT.md` | Требовать список AGENT.md | CEO-R12-01: БЛОК если SM не обновил AGENT.md |
+
+### translate-video/SKILL.md обновлён:
+- Версия: 1.95.9 → 1.97.0
+- Тесты: 920 → 925
+- VERSION sync: 3 файла → 5 файлов
+- Добавлены паттерны R12: WS hook, ProjectStatus, Email, ZIP-NAME, AP-WS-AUTH, AP-DYNIMPORT
+
+### Итого изменённых файлов: 8
+
+### Подпись: Skill Modernizer АПРУV (ДОПОЛНЕНИЕ) | 2026-05-09 v1.97.0

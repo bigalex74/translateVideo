@@ -46,3 +46,30 @@ document.querySelector('[class*="dnd"]') !== null  // компонент смо�
 ### schemas.ts ↔ backend: проверено (да/нет)
 ### Подпись: Frontend АПРУV
 ```
+
+---
+
+## 🔴 R12 УРОКИ (Skill Modernizer → Frontend)
+
+### [F-R12-01] AP-DYNIMPORT: dynamic import в async функции — ЗАПРЕЩЁН без причины
+**Обнаружено:** HintDropdown.tsx:42, ShareModal.tsx:28,43,57
+```tsx
+// ❌ АНТИПАТТЕРН — dynamic import внутри обработчика
+const { fetchTranslationHint } = await import('../api/client');
+
+// ✅ ПРАВИЛЬНО — static import вверху файла
+import { fetchTranslationHint } from '../api/client';
+```
+**Обязательная проверка при каждом review:**
+```bash
+grep -rn "await import" ui/src/components/ --include="*.tsx" | grep -v "// QA-001"
+```
+Если есть результаты без пометки `// QA-001: static import` → БЛОК до исправления.
+
+### [F-R12-02] WebSocket hook — проверять что enabled условие включает все активные статусы
+При добавлении нового статуса (напр. `queued`) — проверить что WS хук его включает:
+```typescript
+// Проверить в useProjectWebSocket.ts или Dashboard.tsx:
+enabled: project?.status === 'running' || project?.status === 'queued'
+// При новом статусе — обязательно добавить сюда
+```
