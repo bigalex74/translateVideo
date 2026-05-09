@@ -118,6 +118,34 @@ class ProjectStoreTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             sanitize_project_id("bad/project")
 
+    def test_sanitize_project_id_blocks_url_encoded_traversal(self):
+        """SEC-R12: %2F (URL-encoded /) не должен обходить защиту от path traversal."""
+        # До фикса: ..%2F..%2Fetc -> '2F..-2Fetc' (содержит '..')
+        # После фикса: unquote -> '../../../etc' -> ValueError
+        traversal_ids = [
+            "../../../etc/passwd",
+            "..%2F..%2Fetc",
+            "..%2Fetc%2Fpasswd",
+            "../../root",
+        ]
+        for bad_id in traversal_ids:
+            with self.assertRaises(ValueError,
+                msg=f"sanitize_project_id должен отклонять '{bad_id}'"):
+                sanitize_project_id(bad_id)
+
+    def test_sanitize_project_id_allows_valid_ids(self):
+        """Валидные project_id принимаются без ошибок."""
+        valid_cases = {
+            "my-project-123": "my-project-123",
+            "Мой проект!": "Мой-проект",
+            "video_2024": "video_2024",
+            "test.project": "test.project",
+        }
+        for raw, expected in valid_cases.items():
+            result = sanitize_project_id(raw)
+            self.assertEqual(result, expected,
+                msg=f"sanitize_project_id('{raw}') = '{result}', expected '{expected}'")
+
     def test_save_segments_updates_project_artifacts(self):
         """Сохранение сегментов должно обновлять артефакты проекта."""
 

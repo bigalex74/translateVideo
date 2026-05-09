@@ -431,7 +431,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
             </div>
 
             <div className="card-body" aria-live="polite" aria-atomic="false">
-              {/* K7: Progress bar для running проектов */}
+              {/* K7 + R13-И1: Progress bar с ETA для running проектов */}
               {project.status === 'running' && (
                 <div className="card-progress-bar" role="progressbar"
                   aria-valuenow={project.progress_percent ?? 0}
@@ -443,7 +443,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                     style={{ width: `${project.progress_percent ?? 5}%` }}
                   />
                   <span className="card-progress-label">
-                    {project.progress_percent ? `${project.progress_percent}%` : 'Обработка…'}
+                    {project.progress_percent ? `${project.progress_percent}%` : 'Переводится…'}
+                    {project.eta_seconds != null && project.eta_seconds > 0 && (
+                      <span className="card-progress-eta">
+                        {' · '}
+                        {project.eta_seconds >= 60
+                          ? `осталось ~${Math.ceil(project.eta_seconds / 60)} мин`
+                          : `осталось ~${project.eta_seconds} сек`}
+                      </span>
+                    )}
                   </span>
                 </div>
               )}
@@ -693,10 +701,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, locale }) =
                       <span
                         className={`badge ${item.status}`}
                         title={
-                          item.status === 'created'   ? '⏳ Проект создан, ещё не запущен' :
-                          item.status === 'running'   ? '🔄 Перевод выполняется прямо сейчас' :
-                          item.status === 'completed' ? '✅ Перевод успешно завершён — файлы готовы к скачиванию' :
-                          item.status === 'failed'    ? '❌ Ошибка при переводе — нажмите для деталей' :
+                          item.status === 'created'   ? '⏳ Проект создан — нажмите «▶ Запустить перевод» чтобы начать' :
+                          item.status === 'running'   ? '🔄 Перевод выполняется прямо сейчас — можно закрыть вкладку' :
+                          item.status === 'completed' ? '✅ Перевод готов — откройте редактор и скачайте результат' :
+                          item.status === 'failed'    ? '❌ Произошла ошибка — откройте проект и нажмите «Попробовать снова»' :
+                          item.status === 'cancelled' ? '🚫 Перевод был остановлен вручную — можно запустить снова' :
                           item.status
                         }
                       >

@@ -1,3 +1,17 @@
+## 1.97.1 — 2026-05-09 — R13-И1: UX понятности, ETA, безопасность
+
+### UX улучшения (Дмитрий, Мария, Никита — FBA R13)
+- **ETA в прогресс-баре Dashboard**: вместо «Обработка…» теперь «Переводится… · осталось ~3 мин»
+- **Статусы переведены понятнее**: «Создан» → «Готов к запуску», «Выполняется» → «Переводится…», «Завершён» → «Готово»
+- **Tooltips статусов с инструкцией**: каждый статус объясняет что делать дальше
+- **Подсказки cancelled статуса**: «Остановлен — можно запустить снова»
+
+### Безопасность (SEC-R12 — найден при написании тестов)
+- **sanitize_project_id**: URL-decoded %2F теперь блокируется корректно (..%2F..%2Fetc → ValueError)
+- **2 новых unit-теста**: test_sanitize_project_id_blocks_url_encoded_traversal + test_sanitize_project_id_allows_valid_ids
+
+### Тесты
+- 932 unit-тестов (+2: sanitize URL-encoding, valid IDs)
 ## 1.97.0 — 2026-05-09 — R12: WebSocket, Mobile, Email, UX polish
 
 ### R12-И1: WebSocket + dynamic import fix
